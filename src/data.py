@@ -161,6 +161,40 @@ def fetch_noaa_coops_wind(
         return None
 
 
+def fetch_noaa_coops_water_temperature(
+    station_id: str = NOAA_COOPS_DUCK_ID,
+    begin_date: str = "20220920",
+    end_date: str = "20221020",
+    timeout: int = 15,
+) -> Optional[pd.DataFrame]:
+    """Fetch hourly verified water temperature (deg C) from NOAA CO-OPS Station 8651370 (Duck, NC)."""
+    base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+    try:
+        params_t = {
+            "begin_date": begin_date,
+            "end_date": end_date,
+            "station": station_id,
+            "product": "water_temperature",
+            "units": "metric",
+            "time_zone": "gmt",
+            "application": "UnifiedCoastalVulnerability_POC",
+            "format": "json",
+        }
+        resp = requests.get(base_url, params=params_t, timeout=timeout)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        if "data" not in data:
+            return None
+        df_t = pd.DataFrame(data["data"])
+        df_t["t"] = pd.to_datetime(df_t["t"])
+        df_t["water_temp_c"] = pd.to_numeric(df_t["v"], errors="coerce")
+        df_t = df_t.set_index("t")[["water_temp_c"]]
+        return df_t.resample("1h").mean().interpolate(method="time", limit=6).dropna()
+    except Exception:
+        return None
+
+
 def fetch_ndbc_wave_data(
     station_id: str = NDBC_BUOY_DUCK_ID,
     year: int = 2022,
@@ -260,10 +294,24 @@ def fetch_multi_source_wave_data(
 
     merged_waves = df_primary.copy() if df_primary is not None else pd.DataFrame()
 
-    # 2. Secondary / regional buoys
+    # 2. Secondary / regional buoys & outer array tracking
+    df_outer = fetch_ndbc_wave_data(
+        station_id=NDBC_BUOY_DUCK_OUTER_ID,
+        year=year,
+        start_date=start_date,
+        end_date=end_date,
+        timeout=timeout,
+        interp_limit=interp_limit,
+        drop_unfilled_na=False,
+    )
+    if df_outer is not None and not df_outer.empty:
+        # 26m wave power flux
+        p_outer = (1025.0 * (9.81 ** 2) / (16.0 * (2.0 * np.pi))) * (df_outer["hs_m"] ** 2) * df_outer["tp_s"]
+        df_outer["p_outer_Wm"] = p_outer
+
     for fallback_id in fallback_station_ids:
         if merged_waves.empty or merged_waves["hs_m"].isna().any():
-            df_fb = fetch_ndbc_wave_data(
+            df_fb = df_outer if fallback_id == NDBC_BUOY_DUCK_OUTER_ID and df_outer is not None else fetch_ndbc_wave_data(
                 station_id=fallback_id,
                 year=year,
                 start_date=start_date,
@@ -277,6 +325,13 @@ def fetch_multi_source_wave_data(
                     merged_waves = df_fb.copy()
                 else:
                     merged_waves = merged_waves.combine_first(df_fb)
+
+    # Attach outer wave power if available
+    if df_outer is not None and "p_outer_Wm" in df_outer.columns:
+        if "p_outer_Wm" not in merged_waves.columns:
+            merged_waves["p_outer_Wm"] = df_outer["p_outer_Wm"]
+        else:
+            merged_waves["p_outer_Wm"] = merged_waves["p_outer_Wm"].combine_first(df_outer["p_outer_Wm"])
 
     # 3. JONSWAP wind-wave hindcast fallback
     if df_wind is not None and not df_wind.empty:
@@ -516,12 +571,18 @@ def generate_frf_duck_hurricane_ian_dataset(
     d50_m = 0.00035
     tan_beta = 0.08
     
+    water_temp = 23.5 - 3.5 * storm_env + rng.normal(0, 0.3, n)
+    p_inner_est = (1025.0 * (9.81 ** 2) / (16.0 * (2.0 * np.pi))) * (hs ** 2) * tp
+    p_outer_est = 1.40 * p_inner_est * (1.0 + 0.25 * storm_env)
+
     df_physics = compute_unified_coastal_vulnerability_index(
         hs=hs,
         tp=tp,
         surge=surge,
         wind_speed=wind_speed,
         wind_dir_deg=wind_dir,
+        water_temp_c=water_temp,
+        p_outer_Wm=p_outer_est,
         d50_m=d50_m,
         tan_beta=tan_beta,
         shore_normal_deg=DUCK_SHORE_NORMAL_DEG,
@@ -549,6 +610,7 @@ def generate_frf_duck_hurricane_ian_dataset(
             "wind_speed_ms": wind_speed,
             "wind_dir_deg": wind_dir,
             "wind_normal_ms": df_physics["wind_normal_ms"].values,
+            "water_temp_c": water_temp,
             "runup_r2_m": df_physics["runup_r2_m"].values,
             "total_water_level_m": df_physics["total_water_level_m"].values,
             "w_s_ms": df_physics["w_s_ms"].values,
@@ -557,7 +619,11 @@ def generate_frf_duck_hurricane_ian_dataset(
             "breaker_regime": df_physics["breaker_regime"].values,
             "p_flux_Wm": df_physics["p_flux_Wm"].values,
             "dean_number": df_physics["dean_number"].values,
+            "delta_p_dissip": df_physics["delta_p_dissip"].values,
+            "shielding_factor": df_physics["shielding_factor"].values,
+            "accretion_potential": df_physics["accretion_potential"].values,
             "upsilon": df_physics["upsilon"].values,
+            "upsilon_shielded": df_physics["upsilon_shielded"].values,
             "upsilon_raw": df_physics["upsilon_raw"].values,
             "log_upsilon": df_physics["log_upsilon"].values,
             "shoreline_pos_true_m": x_true,
@@ -582,6 +648,7 @@ def _fetch_and_merge_single_window(
 
     df_surge = fetch_noaa_coops_water_level_and_surge(begin_date=begin_ymd, end_date=end_ymd)
     df_wind = fetch_noaa_coops_wind(begin_date=begin_ymd, end_date=end_ymd)
+    df_temp = fetch_noaa_coops_water_temperature(begin_date=begin_ymd, end_date=end_ymd)
     df_waves = fetch_multi_source_wave_data(
         primary_station_id=NDBC_BUOY_DUCK_ID,
         fallback_station_ids=FALLBACK_WAVE_BUOY_IDS,
@@ -596,8 +663,16 @@ def _fetch_and_merge_single_window(
         return None
 
     merged = df_surge.join(df_wind, how="inner").join(df_waves, how="inner")
+    if df_temp is not None:
+        merged = merged.join(df_temp, how="left")
+        merged["water_temp_c"] = merged["water_temp_c"].interpolate(method="time").fillna(20.0)
+    else:
+        merged["water_temp_c"] = 20.0
+
     if len(merged) < 50:
         return None
+
+    p_outer = merged["p_outer_Wm"] if "p_outer_Wm" in merged.columns else None
 
     phys = compute_unified_coastal_vulnerability_index(
         hs=merged["hs_m"],
@@ -605,6 +680,8 @@ def _fetch_and_merge_single_window(
         surge=merged["surge_m"],
         wind_speed=merged["wind_speed_ms"],
         wind_dir_deg=merged["wind_dir_deg"],
+        water_temp_c=merged["water_temp_c"].values,
+        p_outer_Wm=p_outer.values if p_outer is not None else None,
     )
 
     # Morphodynamic simulation (independent of Upsilon)
@@ -699,35 +776,42 @@ def fetch_noaa_annual_dataset(
                 df_cand = pd.read_csv(cand, index_col=0, parse_dates=True)
                 needed = ["water_level_m", "tide_pred_m", "surge_m", "hs_m", "tp_s", "wind_speed_ms", "wind_dir_deg"]
                 if all(c in df_cand.columns for c in needed):
-                    merged = df_cand[needed].copy()
+                    merged = df_cand.copy()
+                    if "water_temp_c" not in merged.columns:
+                        merged["water_temp_c"] = 18.0
                     break
             except Exception:
                 continue
 
-    if merged is None:
+    if merged is None or "water_temp_c" not in merged.columns or merged["water_temp_c"].isna().all():
         start_date = f"{year}-01-01"
         end_date = f"{year}-12-31"
         
-        # 1. Fetch NOAA CO-OPS water level and wind monthly
+        # 1. Fetch NOAA CO-OPS water level, wind, and temperature monthly
         months = pd.date_range(f"{year}-01-01", f"{year}-12-01", freq="MS")
         surge_list = []
         wind_list = []
+        temp_list = []
         
         for m in months:
             start_str = m.strftime("%Y%m%d")
             end_str = (m + pd.offsets.MonthEnd(1)).strftime("%Y%m%d")
             s = fetch_noaa_coops_water_level_and_surge(station_id=station_id, begin_date=start_str, end_date=end_str)
             w = fetch_noaa_coops_wind(station_id=station_id, begin_date=start_str, end_date=end_str)
+            t = fetch_noaa_coops_water_temperature(station_id=station_id, begin_date=start_str, end_date=end_str)
             if s is not None:
                 surge_list.append(s)
             if w is not None:
                 wind_list.append(w)
+            if t is not None:
+                temp_list.append(t)
 
         if not surge_list or not wind_list:
             return None
 
         all_surge = pd.concat(surge_list)
         all_wind = pd.concat(wind_list)
+        all_temp = pd.concat(temp_list) if temp_list else None
 
         # 2. Fetch Multi-Source Wave Forcing (with buoy fallbacks & JONSWAP hindcast)
         df_waves = fetch_multi_source_wave_data(
@@ -744,6 +828,12 @@ def fetch_noaa_annual_dataset(
 
         # 3. Merge onto continuous hourly DatetimeIndex
         merged = all_surge.join(all_wind, how="inner").join(df_waves, how="inner")
+        if all_temp is not None:
+            merged = merged.join(all_temp, how="left")
+            merged["water_temp_c"] = merged["water_temp_c"].interpolate(method="time").fillna(18.0)
+        else:
+            merged["water_temp_c"] = 18.0
+
         merged = merged.resample("1h").mean().interpolate(method="time", limit=3).dropna()
         
         if len(merged) < 5000:
@@ -755,12 +845,15 @@ def fetch_noaa_annual_dataset(
             pass
 
     # 4. Derive physical indices
+    p_outer = merged["p_outer_Wm"] if "p_outer_Wm" in merged.columns else None
     phys = compute_unified_coastal_vulnerability_index(
         hs=merged["hs_m"],
         tp=merged["tp_s"],
         surge=merged["surge_m"],
         wind_speed=merged["wind_speed_ms"],
         wind_dir_deg=merged["wind_dir_deg"],
+        water_temp_c=merged["water_temp_c"].values if "water_temp_c" in merged.columns else None,
+        p_outer_Wm=p_outer.values if p_outer is not None else None,
     )
 
     # 5. Continuous annual morphodynamic evolution (Yates or XBeach)
@@ -781,6 +874,8 @@ def fetch_noaa_annual_dataset(
     df_out = merged.copy()
     for col in phys.columns:
         df_out[col] = phys[col].values
+    if "water_temp_c" in merged.columns:
+        df_out["water_temp_c"] = merged["water_temp_c"].values
     df_out["shoreline_pos_true_m"] = x_true
     df_out["shoreline_pos_obs_m"] = x_obs
     df_out["shoreline_change_rate_mh"] = np.diff(x_true, prepend=x_true[0])
@@ -811,8 +906,9 @@ def load_annual_dataset(
     if os.path.exists(cache_path):
         try:
             df_cached = pd.read_csv(cache_path, index_col=0, parse_dates=True)
-            label = f"Cached Continuous Annual Observational ({year}, NOAA Duck NC, N={len(df_cached)}) — Morph: {morph_model.upper()}"
-            return df_cached, label
+            if "water_temp_c" in df_cached.columns and "delta_p_dissip" in df_cached.columns:
+                label = f"Cached Continuous Annual Observational ({year}, NOAA Duck NC, N={len(df_cached)}) — Morph: {morph_model.upper()}"
+                return df_cached, label
         except Exception:
             pass
 

@@ -25,44 +25,78 @@ NU_SEAWATER: float = 1.05e-6       # Kinematic viscosity of seawater at ~20C (m^
 DUCK_SHORE_NORMAL_DEG: float = 70.0 # USACE FRF Duck, NC shore-normal azimuth (deg True)
 
 
+def compute_kinematic_viscosity_seawater(
+    temp_c: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    """Compute temperature-dependent kinematic viscosity of seawater (m^2/s).
+
+    Empirical formulation:
+    nu(T) = (1.79e-6) / (1 + 0.03368 * T + 0.000221 * T^2)
+
+    Parameters
+    ----------
+    temp_c : float or np.ndarray
+        Water temperature in degrees Celsius (e.g. 4C to 30C).
+
+    Returns
+    -------
+    nu : float or np.ndarray
+        Kinematic viscosity in m^2/s (~1.55e-6 at 5C to 0.95e-6 at 25C).
+    """
+    t_arr = np.maximum(np.asarray(temp_c, dtype=float), 0.0)
+    denominator = 1.0 + 0.03368 * t_arr + 0.000221 * (t_arr ** 2)
+    nu = 1.79e-6 / denominator
+    if np.isscalar(temp_c):
+        return float(nu)
+    return nu
+
+
 def compute_settling_velocity_soulsby(
     d50_m: Union[float, np.ndarray] = 0.00035,
+    water_temp_c: Optional[Union[float, np.ndarray]] = None,
     rho_water: float = RHO_WATER,
     rho_sed: float = RHO_SEDIMENT,
     nu: float = NU_SEAWATER,
     g: float = G_CONST,
 ) -> Union[float, np.ndarray]:
-    """Compute sediment settling velocity (w_s) using the Soulsby (1997) formulation.
+    """Compute sediment settling velocity (w_s) using the Soulsby (1997) formulation with dynamic temperature.
 
     Parameters
     ----------
     d50_m : float or np.ndarray
         Median grain diameter (D_50) in meters (e.g. 0.00035 m for 0.35 mm sand).
+    water_temp_c : float or np.ndarray, optional
+        Water temperature in Celsius. If provided, dynamically updates kinematic viscosity nu(T).
     rho_water : float
         Fluid density in kg/m^3 (default 1025 kg/m^3).
     rho_sed : float
         Sediment grain density in kg/m^3 (default 2650 kg/m^3).
     nu : float
-        Kinematic viscosity in m^2/s (default 1.05e-6 m^2/s).
+        Default kinematic viscosity in m^2/s (used if water_temp_c is None).
     g : float
         Gravitational acceleration in m/s^2 (default 9.81 m/s^2).
 
     Returns
     -------
     w_s : float or np.ndarray
-        Settling velocity in m/s.
+        Settling velocity in m/s (~0.038 m/s in cold winter vs ~0.052 m/s in warm summer).
     """
     s = rho_sed / rho_water
     d50_arr = np.asarray(d50_m, dtype=float)
     
+    if water_temp_c is not None:
+        nu_eff = compute_kinematic_viscosity_seawater(water_temp_c)
+    else:
+        nu_eff = nu
+    
     # Dimensionless grain size d_*
-    d_star = d50_arr * ((g * (s - 1.0)) / (nu ** 2)) ** (1.0 / 3.0)
+    d_star = d50_arr * ((g * (s - 1.0)) / (nu_eff ** 2)) ** (1.0 / 3.0)
     
     # Soulsby (1997) formula
     bracket = np.sqrt(10.36 ** 2 + 1.049 * (d_star ** 3)) - 10.36
-    w_s = (nu / d50_arr) * bracket
+    w_s = (nu_eff / d50_arr) * bracket
     
-    if np.isscalar(d50_m):
+    if np.isscalar(d50_m) and (water_temp_c is None or np.isscalar(water_temp_c)):
         return float(w_s)
     return w_s
 
@@ -206,12 +240,74 @@ def compute_shore_normal_wind(
     return w_a
 
 
+def compute_cross_array_dissipation_ratio(
+    p_outer_Wm: Union[float, np.ndarray],
+    p_inner_Wm: Union[float, np.ndarray],
+) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
+    """Compute offshore sandbar wave energy dissipation ratio and beach shielding factor.
+
+    Delta P_dissip = clip((P_outer - P_inner) / (P_outer + 1e-4), 0.0, 1.0)
+    Shielding = 1.0 - Delta P_dissip
+
+    When waves break on the offshore sandbar, Delta P_dissip is high (0.6 - 0.9)
+    and shielding is high (attenuated energy reaching the beach). When bars breach or
+    waves pass unattenuated, Delta P_dissip approaches 0.0 (direct beach gouging).
+
+    Parameters
+    ----------
+    p_outer_Wm : float or np.ndarray
+        Outer buoy wave energy flux / power (e.g. NDBC 44100 at 26m depth) in W/m.
+    p_inner_Wm : float or np.ndarray
+        Inner buoy wave energy flux / power (e.g. NDBC 44056 at 8m depth) in W/m.
+
+    Returns
+    -------
+    delta_p_dissip : float or np.ndarray
+        Fraction of wave power dissipated across the nearshore profile (0 to 1).
+    shielding_factor : float or np.ndarray
+        Transmission factor reaching the beach face (1.0 - delta_p_dissip).
+    """
+    p_out_arr = np.maximum(np.asarray(p_outer_Wm, dtype=float), 0.0)
+    p_in_arr = np.maximum(np.asarray(p_inner_Wm, dtype=float), 0.0)
+    
+    diff = p_out_arr - p_in_arr
+    delta_p = np.clip(diff / (p_out_arr + 1e-4), 0.0, 1.0)
+    shielding = 1.0 - delta_p
+    
+    if np.isscalar(p_outer_Wm) and np.isscalar(p_inner_Wm):
+        return float(delta_p), float(shielding)
+    return delta_p, shielding
+
+
+def compute_constructive_accretion_potential(
+    hs: Union[float, np.ndarray],
+    tp: Union[float, np.ndarray],
+    g: float = G_CONST,
+    tau: float = TAU_CONST,
+) -> Union[float, np.ndarray]:
+    """Compute constructive swash accretion potential for quiet berm welding.
+
+    Upsilon_acc = (Tp * sqrt(g * L_0)) / (Hs + 0.1)
+
+    Driven by long-period low-steepness swell that pushes sand onshore.
+    """
+    hs_arr = np.maximum(np.asarray(hs, dtype=float), 0.05)
+    tp_arr = np.maximum(np.asarray(tp, dtype=float), 0.5)
+    l_0 = compute_deepwater_wavelength(tp_arr, g=g, tau=tau)
+    upsilon_acc = (tp_arr * np.sqrt(g * l_0)) / (hs_arr + 0.1)
+    if np.isscalar(hs) and np.isscalar(tp):
+        return float(upsilon_acc)
+    return upsilon_acc
+
+
 def compute_unified_coastal_vulnerability_index(
     hs: Union[float, np.ndarray],
     tp: Union[float, np.ndarray],
     surge: Union[float, np.ndarray],
     wind_speed: Union[float, np.ndarray],
     wind_dir_deg: Union[float, np.ndarray],
+    water_temp_c: Optional[Union[float, np.ndarray]] = None,
+    p_outer_Wm: Optional[Union[float, np.ndarray]] = None,
     d50_m: float = 0.00035,
     tan_beta: float = 0.08,
     shore_normal_deg: float = DUCK_SHORE_NORMAL_DEG,
@@ -219,14 +315,7 @@ def compute_unified_coastal_vulnerability_index(
     g: float = G_CONST,
     tau: float = TAU_CONST,
 ) -> pd.DataFrame:
-    """Compute the Unified Coastal Vulnerability Index (Υ) and auxiliary physical parameters.
-
-    To resolve boundary condition collapse when surge is zero or winds are offshore,
-    we compute both:
-    1. Base multiplicative formulation:
-       Υ_raw = (rho * g^1.5 / (16 * tau^1.5)) * tan(beta) * [Hs^2.5 * Tp * S / ws] * |U| * cos(theta)
-    2. Robust physical formulation with wave runup (Stockdon 2006) and non-collapsing scaling:
-       Υ = (rho * g^1.5 / (16 * tau^1.5)) * tan(beta) * [Hs^2.5 * Tp / ws] * [1 + max((S + R2%)/Hs, 0)] * [1 + max(Wa / 10, 0)]
+    """Compute the Unified Coastal Vulnerability Index (Υ) with dynamic viscosity, settling velocity, and sandbar shielding.
 
     Parameters
     ----------
@@ -240,6 +329,10 @@ def compute_unified_coastal_vulnerability_index(
         Wind speed |U| in m/s.
     wind_dir_deg : float or np.ndarray
         Wind direction in degrees True.
+    water_temp_c : float or np.ndarray, optional
+        Observed seawater temperature in Celsius.
+    p_outer_Wm : float or np.ndarray, optional
+        Outer array wave power (W/m) to calculate sandbar dissipation ratio.
     d50_m : float
         Median grain size (default 0.00035 m).
     tan_beta : float
@@ -256,45 +349,54 @@ def compute_unified_coastal_vulnerability_index(
     Returns
     -------
     df_out : pd.DataFrame
-        DataFrame with hydrodynamics, runup, Iribarren number, Dean number, wave power, and Υ.
+        DataFrame with hydrodynamics, dynamic settling kinetics, wave dissipation, runup, and Υ.
     """
     hs_arr = np.asarray(hs, dtype=float)
     tp_arr = np.asarray(tp, dtype=float)
     surge_arr = np.asarray(surge, dtype=float)
     
-    # 1. Settling velocity
-    ws = compute_settling_velocity_soulsby(d50_m=d50_m, rho_water=rho, g=g)
+    # 1. Dynamic temperature-dependent settling velocity
+    ws = compute_settling_velocity_soulsby(d50_m=d50_m, water_temp_c=water_temp_c, rho_water=rho, g=g)
     
     # 2. Projected shore-normal wind forcing
     w_a = compute_shore_normal_wind(wind_speed, wind_dir_deg, shore_normal_deg)
     
-    # 3. Wave dynamics and runup
+    # 3. Wave dynamics, power, and runup
     l_0 = compute_deepwater_wavelength(tp_arr, g=g, tau=tau)
     r_2 = compute_stockdon_wave_runup(hs_arr, tp_arr, tan_beta=tan_beta, g=g, tau=tau)
     xi = compute_iribarren_number(hs_arr, tp_arr, tan_beta=tan_beta, g=g, tau=tau)
     regimes = classify_breaker_regime(xi)
     p_flux = compute_wave_energy_flux(hs_arr, tp_arr, rho=rho, g=g, tau=tau)
     dean = compute_dean_number(hs_arr, tp_arr, ws=ws)
+    accretion_pot = compute_constructive_accretion_potential(hs_arr, tp_arr, g=g, tau=tau)
     
-    # 4. Prefactor: (rho * g^1.5) / (16 * tau^1.5)
+    # 4. Cross-array wave dissipation & sandbar shielding
+    if p_outer_Wm is not None:
+        delta_p, shielding = compute_cross_array_dissipation_ratio(p_outer_Wm, p_flux)
+    else:
+        delta_p = np.zeros_like(hs_arr)
+        shielding = np.ones_like(hs_arr)
+    
+    # 5. Prefactor: (rho * g^1.5) / (16 * tau^1.5)
     prefactor = (rho * (g ** 1.5)) / (16.0 * (tau ** 1.5))
     
-    # Wave energy & sediment kinetic core: (Hs^2.5 * Tp) / ws
+    # Wave energy & sediment kinetic core: (Hs^2.5 * Tp) / ws(T)
     wave_sed_core = ( (np.maximum(hs_arr, 0.01) ** 2.5) * np.maximum(tp_arr, 0.1) ) / ws
     
     # Total Water Level / Surge amplification factor (non-collapsing)
-    # If surge=0 and runup is active, twl_factor >= 1.0 (large swell still impacts the beach)
     twl_amplification = 1.0 + np.maximum((surge_arr + r_2) / (hs_arr + 0.1), 0.0)
     
-    # Wind amplification factor (onshore wind amplifies surge/wave steepening, offshore wind does not zero out)
+    # Wind amplification factor
     wind_amplification = 1.0 + np.maximum(w_a / 10.0, -0.3)
     
     # Robust Unified Coastal Vulnerability Index
     upsilon = prefactor * tan_beta * wave_sed_core * twl_amplification * wind_amplification
     
+    # Shielded Upsilon (accounting for outer sandbar energy dissipation)
+    upsilon_shielded = upsilon * shielding
+    
     # Raw closed-form synthesis for comparison
     upsilon_raw = prefactor * tan_beta * ((np.maximum(hs_arr, 0.01) ** 2.5) * tp_arr * np.maximum(surge_arr, 0.01) / ws) * np.maximum(w_a, 0.01)
-    
     log_upsilon = np.log10(np.maximum(upsilon, 1e-4))
     
     df_out = pd.DataFrame({
@@ -312,10 +414,16 @@ def compute_unified_coastal_vulnerability_index(
         "breaker_regime": regimes,
         "p_flux_Wm": p_flux,
         "dean_number": dean,
+        "delta_p_dissip": delta_p,
+        "shielding_factor": shielding,
+        "accretion_potential": accretion_pot,
         "upsilon": upsilon,
+        "upsilon_shielded": upsilon_shielded,
         "upsilon_raw": upsilon_raw,
         "log_upsilon": log_upsilon,
     })
+    if water_temp_c is not None:
+        df_out["water_temp_c"] = water_temp_c
     
     return df_out
 

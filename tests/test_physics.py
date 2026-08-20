@@ -4,6 +4,9 @@ import numpy as np
 import pytest
 from src.physics import (
     compute_settling_velocity_soulsby,
+    compute_kinematic_viscosity_seawater,
+    compute_cross_array_dissipation_ratio,
+    compute_constructive_accretion_potential,
     compute_deepwater_wavelength,
     compute_stockdon_wave_runup,
     compute_iribarren_number,
@@ -25,12 +28,14 @@ from src.embeddings import (
     compute_hydrodynamic_state_similarity,
     project_embeddings_umap,
     evaluate_breaker_regime_clustering,
+    classify_morphodynamic_regimes,
 )
 from src.models import (
     build_latent_memory_bayesian_model,
     build_multivariate_linear_model,
     build_nonlinear_response_model,
     build_physics_anchored_hybrid_model,
+    build_asymmetric_dual_regime_model,
     compute_antecedent_memory_forcing,
     evaluate_model_performance,
 )
@@ -202,5 +207,65 @@ def test_data_driven_embeddings_and_silhouette():
     # Silhouette evaluation
     sil = evaluate_breaker_regime_clustering(coords_2d, df["breaker_regime"].values)
     assert sil["silhouette_score"] > -0.5
+
+
+def test_dynamic_viscosity_and_temperature_settling():
+    # Kinematic viscosity in winter (5C) vs summer (25C)
+    nu_cold = compute_kinematic_viscosity_seawater(5.0)
+    nu_warm = compute_kinematic_viscosity_seawater(25.0)
+    assert nu_cold > nu_warm
+    assert np.isclose(nu_cold, 1.52e-6, atol=0.1e-6)
+    assert np.isclose(nu_warm, 0.95e-6, atol=0.1e-6)
+
+    # Dynamic Soulsby settling velocity: cold winter water yields slower settling
+    ws_winter = compute_settling_velocity_soulsby(0.00035, water_temp_c=5.0)
+    ws_summer = compute_settling_velocity_soulsby(0.00035, water_temp_c=25.0)
+    assert ws_winter < ws_summer
+    assert 0.035 < ws_winter < 0.045
+    assert 0.048 < ws_summer < 0.058
+
+
+def test_cross_array_dissipation_and_accretion_potential():
+    p_outer = 45000.0  # 45 kW/m in 26m depth
+    p_inner = 15000.0  # 15 kW/m in 8m depth (dissipated over sandbar)
+    delta_p, shielding = compute_cross_array_dissipation_ratio(p_outer, p_inner)
+    assert np.isclose(delta_p, (45000 - 15000) / 45000, atol=1e-3)
+    assert np.isclose(shielding, 1.0 - delta_p, atol=1e-3)
+
+    # Constructive accretion potential: high for long period low steepness swell
+    acc_swell = compute_constructive_accretion_potential(hs=0.8, tp=15.0)
+    acc_storm = compute_constructive_accretion_potential(hs=4.5, tp=8.0)
+    assert acc_swell > acc_storm
+
+
+def test_asymmetric_dual_regime_model():
+    df = generate_frf_duck_hurricane_ian_dataset()
+    sub_df = df.iloc[:80]
+    model, meta = build_asymmetric_dual_regime_model(
+        hs=sub_df["hs_m"].values,
+        tp=sub_df["tp_s"].values,
+        ws=sub_df["w_s_ms"].values,
+        upsilon=sub_df["upsilon"].values,
+        delta_x_obs=sub_df["shoreline_pos_obs_m"].values,
+        shielding_factor=sub_df["shielding_factor"].values,
+        accretion_potential=sub_df["accretion_potential"].values,
+        max_lag=12,
+    )
+    assert "omega_crit" in model.named_vars
+    assert "k_eros" in model.named_vars
+    assert "k_accrete" in model.named_vars
+    assert "gamma" in model.named_vars
+    assert "eff_eros" in model.named_vars
+    assert "eff_acc" in model.named_vars
+
+
+def test_morphodynamic_regime_classification():
+    df = generate_frf_duck_hurricane_ian_dataset()
+    regimes, omega_ratio = classify_morphodynamic_regimes(df, omega_crit=1.75)
+    assert len(regimes) == len(df)
+    assert len(omega_ratio) == len(df)
+    unique_regimes = set(regimes.unique())
+    assert "Storm Gouging (Erosive)" in unique_regimes
+    assert "Quiet Berm Accretion (Constructive)" in unique_regimes
 
 

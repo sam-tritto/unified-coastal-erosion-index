@@ -199,7 +199,7 @@ def evaluate_model_performance(
 
 def compute_mcmc_summary_table(idata: az.InferenceData) -> pd.DataFrame:
     """Generate clean parameter posterior summary table with R-hat and ESS."""
-    var_names = ["alpha", "beta_forcing", "gamma", "sigma", "nu"]
+    var_names = ["alpha", "beta_forcing", "gamma", "sigma", "nu", "beta_upsilon", "k_eros", "k_accrete", "omega_crit"]
     available = [v for v in var_names if v in idata.posterior]
     return az.summary(idata, var_names=available)
 
@@ -251,6 +251,18 @@ def run_benchmark_model_comparison(
             },
         }
 
+    # Asymmetric Dual-Regime Model (Dean threshold Omega_crit + Sandbar Shielding + Accretion Swash)
+    if "w_s_ms" in df.columns:
+        candidates["Asymmetric Dual-Regime (Erosion vs Accretion)"] = {
+            "type": "asymmetric",
+            "hs": df["hs_m"].values,
+            "tp": df["tp_s"].values,
+            "ws": df["w_s_ms"].values,
+            "upsilon": df["upsilon"].values,
+            "shielding": df["shielding_factor"].values if "shielding_factor" in df.columns else np.ones(len(df)),
+            "accretion": df["accretion_potential"].values if "accretion_potential" in df.columns else None,
+        }
+
     y_obs = df["shoreline_pos_obs_m"].values
     y_true = df["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df.columns else y_obs
 
@@ -285,6 +297,18 @@ def run_benchmark_model_comparison(
                 upsilon=spec["upsilon"],
                 forcings=spec["forcings"],
                 delta_x_obs=y_obs,
+                model_name=name,
+                max_lag=48,
+            )
+        elif model_type == "asymmetric":
+            model, _ = build_asymmetric_dual_regime_model(
+                hs=spec["hs"],
+                tp=spec["tp"],
+                ws=spec["ws"],
+                upsilon=spec["upsilon"],
+                delta_x_obs=y_obs,
+                shielding_factor=spec["shielding"],
+                accretion_potential=spec["accretion"],
                 model_name=name,
                 max_lag=48,
             )
@@ -502,4 +526,137 @@ def build_physics_anchored_hybrid_model(
         pm.StudentT("y_obs", nu=nu, mu=mu_det, sigma=sigma, observed=y_obs)
 
     return model, meta
+
+
+def build_asymmetric_dual_regime_model(
+    hs: np.ndarray,
+    tp: np.ndarray,
+    ws: np.ndarray,
+    upsilon: np.ndarray,
+    delta_x_obs: np.ndarray,
+    shielding_factor: Optional[np.ndarray] = None,
+    accretion_potential: Optional[np.ndarray] = None,
+    model_name: str = "asymmetric_dual_regime",
+    max_lag: int = 48,
+    scale_forcings: bool = True,
+) -> Tuple[pm.Model, Dict[str, Any]]:
+    """Build an Asymmetric Dual-Regime Morphodynamic Bayesian Model.
+
+    Physics Architecture:
+    1. Dean Dimensionless Fall Velocity (Omega):
+       Omega = Hs / (ws(T) * Tp)
+    2. Dynamic Equilibrium Regime Switch:
+       omega_crit ~ TruncatedNormal(mu = 1.75, sigma = 0.4, lower = 0.8, upper = 3.0)
+       is_erosion = pm.math.switch(omega > omega_crit, 1.0, 0.0)
+    3. Shielded Storm Gouging Hazard:
+       F_eros = Upsilon * Shielding_factor
+    4. Constructive Swash Accretion Potential:
+       F_accrete = (Tp * sqrt(g * L_0)) / (Hs + 0.1)
+    5. Dual Asymmetric Kinetics:
+       mu_t = alpha + is_erosion * (-k_eros * E_t(F_eros)) + (1.0 - is_erosion) * (+k_accrete * E_t(F_accrete))
+
+    Parameters
+    ----------
+    hs : np.ndarray
+        Significant wave height (m).
+    tp : np.ndarray
+        Peak wave period (s).
+    ws : np.ndarray
+        Dynamic settling velocity w_s(T) in m/s.
+    upsilon : np.ndarray
+        Unified Coastal Vulnerability Index values.
+    delta_x_obs : np.ndarray
+        Observed shoreline position (m).
+    shielding_factor : np.ndarray, optional
+        Outer sandbar wave power transmission factor (1.0 - Delta P_dissip).
+    accretion_potential : np.ndarray, optional
+        Constructive swash accretion potential series.
+    model_name : str
+        Model identifier.
+    max_lag : int
+        Convolution memory horizon (hours).
+    scale_forcings : bool
+        Whether to standardize the kinetic drivers.
+
+    Returns
+    -------
+    model : pm.Model
+        Constructed PyMC dual-regime model.
+    meta : dict
+        Normalization metadata.
+    """
+    hs_arr = np.asarray(hs, dtype=float)
+    tp_arr = np.maximum(np.asarray(tp, dtype=float), 0.5)
+    ws_arr = np.maximum(np.asarray(ws, dtype=float), 1e-4)
+    ups_arr = np.asarray(upsilon, dtype=float)
+    y_obs = np.asarray(delta_x_obs, dtype=float)
+
+    # 1. Dean Number
+    omega_series = hs_arr / (ws_arr * tp_arr)
+
+    # 2. Shielded storm erosion forcing
+    shield_arr = np.asarray(shielding_factor, dtype=float) if shielding_factor is not None else np.ones_like(hs_arr)
+    f_eros = ups_arr * shield_arr
+
+    # 3. Constructive accretion potential
+    if accretion_potential is not None:
+        f_acc = np.asarray(accretion_potential, dtype=float)
+    else:
+        l_0 = (9.81 * (tp_arr ** 2)) / (2.0 * np.pi)
+        f_acc = (tp_arr * np.sqrt(9.81 * l_0)) / (hs_arr + 0.1)
+
+    meta = {
+        "model_name": model_name,
+        "n_obs": len(y_obs),
+        "max_lag": max_lag,
+    }
+
+    # Standardize kinetic forcing series
+    if scale_forcings:
+        e_mean, e_std = float(np.mean(f_eros)), float(np.std(f_eros)) if np.std(f_eros) > 1e-6 else 1.0
+        a_mean, a_std = float(np.mean(f_acc)), float(np.std(f_acc)) if np.std(f_acc) > 1e-6 else 1.0
+        f_eros_scaled = (f_eros - e_mean) / e_std
+        f_acc_scaled = (f_acc - a_mean) / a_std
+        meta.update({"eros_mean": e_mean, "eros_std": e_std, "acc_mean": a_mean, "acc_std": a_std})
+    else:
+        f_eros_scaled = f_eros
+        f_acc_scaled = f_acc
+
+    lag_mat_eros = create_lag_matrix(f_eros_scaled, max_lag=max_lag)
+    lag_mat_acc = create_lag_matrix(f_acc_scaled, max_lag=max_lag)
+    k_indices = np.arange(max_lag, dtype=float)
+
+    with pm.Model() as model:
+        # Data containers
+        x_lag_eros = pm.Data("x_lag_eros", lag_mat_eros)
+        x_lag_acc = pm.Data("x_lag_acc", lag_mat_acc)
+        omega_data = pm.Data("omega_data", omega_series)
+        k_vec = pm.Data("k_vec", k_indices)
+
+        # 1. Latent memory convolution
+        gamma = pm.Beta("gamma", alpha=2.0, beta=5.0)
+        unnorm_w = pt.power(gamma, k_vec)
+        weights = unnorm_w / pt.sum(unnorm_w)
+        eff_eros = pm.Deterministic("eff_eros", pt.dot(x_lag_eros, weights))
+        eff_acc = pm.Deterministic("eff_acc", pt.dot(x_lag_acc, weights))
+
+        # 2. Dynamic Dean equilibrium threshold (learns optimal transition point)
+        omega_crit = pm.TruncatedNormal("omega_crit", mu=1.75, sigma=0.4, lower=0.8, upper=3.0)
+        is_erosion = pm.Deterministic("is_erosion", pt.switch(pt.gt(omega_data, omega_crit), 1.0, 0.0))
+
+        # 3. Asymmetric kinetic coefficients (HalfNormal ensures sign-consistent physics)
+        k_eros = pm.HalfNormal("k_eros", sigma=1.0)
+        k_accrete = pm.HalfNormal("k_accrete", sigma=1.0)
+        alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
+
+        # 4. Dual-regime shoreline velocity
+        mu = alpha + is_erosion * (-k_eros * eff_eros) + (1.0 - is_erosion) * (k_accrete * eff_acc)
+        mu_det = pm.Deterministic("mu", mu)
+
+        sigma = pm.HalfNormal("sigma", sigma=1.0)
+        nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
+        pm.StudentT("y_obs", nu=nu, mu=mu_det, sigma=sigma, observed=y_obs)
+
+    return model, meta
+
 

@@ -63,6 +63,8 @@ def build_physics_anchored_feature_matrix(
             feature_dict["Surge_S"] = df["surge_m"].values
         if "wind_normal_ms" in df.columns:
             feature_dict["Wind_Wa"] = df["wind_normal_ms"].values
+        if "water_temp_c" in df.columns:
+            feature_dict["Water_Temp_C"] = df["water_temp_c"].values
         
         tan_beta = df["tan_beta"].values if "tan_beta" in df.columns else np.full(len(df), 0.08)
         ws = df["w_s_ms"].values if "w_s_ms" in df.columns else np.full(len(df), 0.048)
@@ -78,12 +80,64 @@ def build_physics_anchored_feature_matrix(
             feature_dict["log_Upsilon"] = np.log10(np.maximum(df["upsilon"].values, 1e-6))
         if "dean_number" in df.columns:
             feature_dict["Dean_Omega"] = np.log10(np.maximum(df["dean_number"].values, 1e-3))
+            feature_dict["Omega_Over_Crit"] = df["dean_number"].values / 1.75
         if "p_flux_Wm" in df.columns:
             feature_dict["Wave_Power_P"] = np.log10(np.maximum(df["p_flux_Wm"].values, 1e-1))
+        if "delta_p_dissip" in df.columns:
+            feature_dict["Bar_Dissipation_Ratio"] = df["delta_p_dissip"].values
+        if "accretion_potential" in df.columns:
+            feature_dict["Accretion_Potential"] = np.log10(np.maximum(df["accretion_potential"].values, 1e-2))
 
     feature_names = list(feature_dict.keys())
     X = np.column_stack([feature_dict[k] for k in feature_names])
     return X, feature_names
+
+
+def classify_morphodynamic_regimes(
+    df: pd.DataFrame,
+    omega_crit: float = 1.75,
+) -> Tuple[pd.Series, np.ndarray]:
+    """Classify coastal states into 3 physically distinct morphodynamic clusters.
+
+    Clusters:
+    1. High-Energy Storm Gouging: Omega > 2.0, high Upsilon, high wave energy dissipation.
+    2. Quiet Berm Accretion: Omega <= 1.5, low steepness swell, reflective/surging swash.
+    3. Bar-Breach Hotspots: Moderate Upsilon, but low Delta P_dissip (unshielded incident energy).
+
+    Returns
+    -------
+    regime_labels : pd.Series
+        Categorical labels for each observation.
+    omega_ratio : np.ndarray
+        Normalized Dean dimensionless fall velocity (Omega / omega_crit).
+    """
+    hs = df["hs_m"].values
+    tp = np.maximum(df["tp_s"].values, 0.5)
+    ws = df["w_s_ms"].values if "w_s_ms" in df.columns else np.full(len(df), 0.048)
+    omega = hs / (ws * tp)
+    omega_ratio = omega / omega_crit
+    
+    ups = df["upsilon"].values if "upsilon" in df.columns else np.zeros(len(df))
+    ups_median = np.median(ups)
+    
+    delta_p = df["delta_p_dissip"].values if "delta_p_dissip" in df.columns else np.zeros(len(df))
+    
+    labels = []
+    l_0 = (9.81 * (tp ** 2)) / (2.0 * np.pi)
+    steepness = hs / (l_0 + 1e-4)
+
+    for i in range(len(df)):
+        if omega[i] > 2.2 and ups[i] > ups_median:
+            labels.append("Storm Gouging (Erosive)")
+        elif (omega[i] <= 2.2 or steepness[i] < 0.012) and ups[i] <= ups_median:
+            labels.append("Quiet Berm Accretion (Constructive)")
+        elif delta_p[i] < 0.25 and ups[i] > ups_median * 0.7:
+            labels.append("Bar-Breach Hotspot (Unshielded)")
+        else:
+            labels.append("Intermediate Equilibrium")
+            
+    return pd.Series(labels, index=df.index, name="morphodynamic_regime"), omega_ratio
+
 
 
 def compute_latent_embeddings(
