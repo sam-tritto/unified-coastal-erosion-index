@@ -810,8 +810,12 @@ def fetch_noaa_annual_dataset(
             return None
 
         all_surge = pd.concat(surge_list)
+        all_surge = all_surge[~all_surge.index.duplicated(keep="first")]
         all_wind = pd.concat(wind_list)
+        all_wind = all_wind[~all_wind.index.duplicated(keep="first")]
         all_temp = pd.concat(temp_list) if temp_list else None
+        if all_temp is not None:
+            all_temp = all_temp[~all_temp.index.duplicated(keep="first")]
 
         # 2. Fetch Multi-Source Wave Forcing (with buoy fallbacks & JONSWAP hindcast)
         df_waves = fetch_multi_source_wave_data(
@@ -821,20 +825,22 @@ def fetch_noaa_annual_dataset(
             start_date=start_date,
             end_date=end_date,
             df_wind=all_wind,
-            interp_limit=3,
+            interp_limit=6,
         )
         if df_waves is None:
             return None
 
-        # 3. Merge onto continuous hourly DatetimeIndex
-        merged = all_surge.join(all_wind, how="inner").join(df_waves, how="inner")
+        # 3. Merge onto continuous hourly DatetimeIndex across all 8,760 hours
+        full_idx = pd.date_range(f"{year}-01-01 00:00:00", f"{year}-12-31 23:00:00", freq="1h")
+        merged = pd.DataFrame(index=full_idx)
+        merged = merged.join(all_surge, how="left").join(all_wind, how="left").join(df_waves, how="left")
         if all_temp is not None:
             merged = merged.join(all_temp, how="left")
-            merged["water_temp_c"] = merged["water_temp_c"].interpolate(method="time").fillna(18.0)
+            merged["water_temp_c"] = merged["water_temp_c"].interpolate(method="time", limit=24).fillna(18.0)
         else:
             merged["water_temp_c"] = 18.0
 
-        merged = merged.resample("1h").mean().interpolate(method="time", limit=3).dropna()
+        merged = merged.interpolate(method="time", limit=6).bfill().ffill()
         
         if len(merged) < 5000:
             return None
@@ -906,7 +912,7 @@ def load_annual_dataset(
     if os.path.exists(cache_path):
         try:
             df_cached = pd.read_csv(cache_path, index_col=0, parse_dates=True)
-            if "water_temp_c" in df_cached.columns and "delta_p_dissip" in df_cached.columns:
+            if "water_temp_c" in df_cached.columns and "delta_p_dissip" in df_cached.columns and len(df_cached) >= 8000:
                 label = f"Cached Continuous Annual Observational ({year}, NOAA Duck NC, N={len(df_cached)}) — Morph: {morph_model.upper()}"
                 return df_cached, label
         except Exception:

@@ -547,7 +547,7 @@ def build_asymmetric_dual_regime_model(
        Omega = Hs / (ws(T) * Tp)
     2. Dynamic Equilibrium Regime Switch:
        omega_crit ~ TruncatedNormal(mu = 1.75, sigma = 0.4, lower = 0.8, upper = 3.0)
-       is_erosion = pm.math.switch(omega > omega_crit, 1.0, 0.0)
+       is_erosion = sigmoid(5.0 * (omega - omega_crit))
     3. Shielded Storm Gouging Hazard:
        F_eros = Upsilon * Shielding_factor
     4. Constructive Swash Accretion Potential:
@@ -640,9 +640,9 @@ def build_asymmetric_dual_regime_model(
         eff_eros = pm.Deterministic("eff_eros", pt.dot(x_lag_eros, weights))
         eff_acc = pm.Deterministic("eff_acc", pt.dot(x_lag_acc, weights))
 
-        # 2. Dynamic Dean equilibrium threshold (learns optimal transition point)
+        # 2. Dynamic Dean equilibrium threshold (learns optimal transition point via smooth differentiable sigmoid)
         omega_crit = pm.TruncatedNormal("omega_crit", mu=1.75, sigma=0.4, lower=0.8, upper=3.0)
-        is_erosion = pm.Deterministic("is_erosion", pt.switch(pt.gt(omega_data, omega_crit), 1.0, 0.0))
+        is_erosion = pm.Deterministic("is_erosion", pt.sigmoid(5.0 * (omega_data - omega_crit)))
 
         # 3. Asymmetric kinetic coefficients (HalfNormal ensures sign-consistent physics)
         k_eros = pm.HalfNormal("k_eros", sigma=1.0)
