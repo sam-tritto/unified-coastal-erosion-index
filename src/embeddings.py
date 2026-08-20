@@ -201,3 +201,32 @@ def evaluate_breaker_regime_clustering(
         "silhouette_score": score,
         "n_clusters": len(unique_labels),
     }
+
+
+def compute_regime_centroids(
+    embeddings: np.ndarray,
+    df: pd.DataFrame,
+) -> Dict[str, np.ndarray]:
+    """Compute canonical state reference vectors for breaker regimes and extreme events."""
+    centroids = {}
+
+    if "breaker_regime" in df.columns:
+        for regime in df["breaker_regime"].dropna().unique():
+            idx = np.where(df["breaker_regime"].values == regime)[0]
+            if len(idx) > 0:
+                centroids[f"Breaker_{regime}"] = np.mean(embeddings[idx], axis=0)
+
+    if "upsilon" in df.columns:
+        ian_idx = int(np.argmax(df["upsilon"].values))
+        centroids["State_ExtremeStormPeak"] = embeddings[ian_idx]
+        calm_idx = int(np.argmin(df["upsilon"].values))
+        centroids["State_CalmFairWeather"] = embeddings[calm_idx]
+
+    if "tp_s" in df.columns and "hs_m" in df.columns:
+        swell_score = (df["tp_s"].values / (df["hs_m"].values + 0.1)) * (
+            1.0 / (np.maximum(df["surge_m"].values if "surge_m" in df.columns else 0.0, 0.01) + 0.1)
+        )
+        swell_idx = int(np.argmax(swell_score))
+        centroids["State_LongPeriodSwell"] = embeddings[swell_idx]
+
+    return centroids
