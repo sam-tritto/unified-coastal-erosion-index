@@ -318,3 +318,71 @@ def compute_unified_coastal_vulnerability_index(
     })
     
     return df_out
+
+
+def compute_jonswap_wind_wave_hindcast(
+    wind_speed_ms: Union[float, np.ndarray],
+    wind_dir_deg: Union[float, np.ndarray],
+    fetch_km: float = 120.0,
+    shore_normal_deg: float = DUCK_SHORE_NORMAL_DEG,
+    background_swell_hs: float = 0.45,
+    background_swell_tp: float = 8.5,
+    g: float = G_CONST,
+) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
+    """Empirical wind-wave hindcasting via USACE CEM / JONSWAP growth formulas.
+
+    Used as an authoritative physical fallback when buoy telemetry drops during storms.
+    Combines fetch-limited wind-sea growth with background Atlantic swell.
+
+    Parameters
+    ----------
+    wind_speed_ms : float or np.ndarray
+        Wind speed U_10 in m/s.
+    wind_dir_deg : float or np.ndarray
+        Wind direction in degrees True.
+    fetch_km : float
+        Effective offshore/onshore fetch in kilometers (default 120.0 km).
+    shore_normal_deg : float
+        Shore-normal orientation (default 70 deg for Duck, NC).
+    background_swell_hs : float
+        Baseline ocean swell significant wave height (m).
+    background_swell_tp : float
+        Baseline ocean swell peak period (s).
+
+    Returns
+    -------
+    hs_hindcast : float or np.ndarray
+        Estimated significant wave height (m).
+    tp_hindcast : float or np.ndarray
+        Estimated peak wave period (s).
+    """
+    speed_arr = np.maximum(np.asarray(wind_speed_ms, dtype=float), 0.1)
+    dir_arr = np.asarray(wind_dir_deg, dtype=float)
+
+    # Relative angle to shore-normal
+    angle_diff = np.radians((dir_arr - shore_normal_deg + 180.0) % 360.0 - 180.0)
+    # Directional fetch modulation: maximum for onshore winds (cos > 0)
+    onshore_factor = np.maximum(np.cos(angle_diff), 0.15)
+    effective_fetch_m = fetch_km * 1000.0 * onshore_factor
+
+    # Dimensionless fetch: X_tilde = (g * F) / U^2
+    x_tilde = np.maximum((g * effective_fetch_m) / (speed_arr ** 2), 1.0)
+
+    # Standard CEM / JONSWAP fetch-limited wave height: H_tilde = min(0.0016 * X_tilde^0.5, 0.2433)
+    h_tilde = np.minimum(0.0016 * np.sqrt(x_tilde), 0.2433)
+    hs_windsea = h_tilde * (speed_arr ** 2) / g
+
+    # Standard CEM / JONSWAP peak period: T_tilde = min(0.2857 * X_tilde^(1/3), 8.134)
+    t_tilde = np.minimum(0.2857 * (x_tilde ** (1.0 / 3.0)), 8.134)
+    tp_windsea = t_tilde * speed_arr / g
+
+    # Combine wind-sea energy with background swell: Hs_tot = sqrt(Hs_windsea^2 + Hs_swell^2)
+    hs_tot = np.sqrt(hs_windsea ** 2 + background_swell_hs ** 2)
+    # Period weighting: energy-weighted or dominant peak
+    tp_tot = np.where(hs_windsea > background_swell_hs, tp_windsea, background_swell_tp)
+    tp_tot = np.maximum(tp_tot, 3.5)
+
+    if np.isscalar(wind_speed_ms) and np.isscalar(wind_dir_deg):
+        return float(hs_tot), float(tp_tot)
+    return hs_tot, tp_tot
+

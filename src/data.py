@@ -24,6 +24,7 @@ from src.physics import (
     compute_settling_velocity_soulsby,
     compute_stockdon_wave_runup,
     compute_shore_normal_wind,
+    compute_jonswap_wind_wave_hindcast,
     DUCK_SHORE_NORMAL_DEG,
 )
 
@@ -50,8 +51,16 @@ STORM_EVENTS_2022: List[Dict[str, str]] = [
 ]
 
 # Station Identifiers
-NOAA_COOPS_DUCK_ID: str = "8651370"  # Duck, NC Tide Gauge & Wind Station
-NDBC_BUOY_DUCK_ID: str = "44056"     # Duck FRF Pier Buoy / 8m Array Wave Gauge
+NOAA_COOPS_DUCK_ID: str = "8651370"          # Duck, NC Tide Gauge & Wind Station
+NDBC_BUOY_DUCK_ID: str = "44056"             # Primary: Duck FRF Pier Buoy / 8m Array Wave Gauge
+NDBC_BUOY_DUCK_OUTER_ID: str = "44100"       # Secondary Local: Duck FRF 26m / 17m Directional Wave Array
+NDBC_BUOY_VA_BEACH_ID: str = "44014"         # Regional Fallback: Virginia Beach Buoy (64 NM East of VA Beach)
+NDBC_BUOY_DIAMOND_SHOALS_ID: str = "41025"   # Regional Fallback: Diamond Shoals, NC Buoy
+FALLBACK_WAVE_BUOY_IDS: List[str] = [
+    NDBC_BUOY_DUCK_OUTER_ID,
+    NDBC_BUOY_VA_BEACH_ID,
+    NDBC_BUOY_DIAMOND_SHOALS_ID,
+]
 
 
 def fetch_noaa_coops_water_level_and_surge(
@@ -158,8 +167,29 @@ def fetch_ndbc_wave_data(
     start_date: str = "2022-09-20",
     end_date: str = "2022-10-20",
     timeout: int = 15,
+    interp_limit: Optional[int] = 3,
+    drop_unfilled_na: bool = False,
 ) -> Optional[pd.DataFrame]:
-    """Fetch verified wave height and period from NOAA NDBC Buoy 44056 (FRF 8m-array)."""
+    """Fetch verified wave height and period from NOAA NDBC Buoy.
+
+    Parameters
+    ----------
+    station_id : str
+        NDBC station ID (default 44056 for Duck FRF 8m-array).
+    year : int
+        Calendar year.
+    start_date : str
+        Start date string.
+    end_date : str
+        End date string.
+    timeout : int
+        HTTP request timeout in seconds.
+    interp_limit : int, optional
+        Maximum number of consecutive hours to interpolate across (default 3 hours).
+        Prevents unbounded linear interpolation across multi-day instrument dropouts.
+    drop_unfilled_na : bool
+        Whether to drop timestamps where data remains NaN after capped interpolation.
+    """
     url = f"https://www.ndbc.noaa.gov/view_text_file.php?filename={station_id}h{year}.txt.gz&dir=data/historical/stdmet/"
     try:
         resp = requests.get(url, timeout=timeout)
@@ -183,9 +213,95 @@ def fetch_ndbc_wave_data(
         avail = [c for c in rename_map.keys() if c in df.columns]
         df_sub = df[avail].rename(columns=rename_map)
         df_sub = df_sub.loc[start_date:end_date]
-        return df_sub.resample("1h").mean().interpolate(method="time").dropna()
+        df_resampled = df_sub.resample("1h").mean()
+        if interp_limit is not None and interp_limit > 0:
+            df_resampled = df_resampled.interpolate(method="time", limit=interp_limit)
+        elif interp_limit is None:
+            df_resampled = df_resampled.interpolate(method="time")
+        if drop_unfilled_na:
+            return df_resampled.dropna()
+        return df_resampled
     except Exception:
         return None
+
+
+def fetch_multi_source_wave_data(
+    primary_station_id: str = NDBC_BUOY_DUCK_ID,
+    fallback_station_ids: Optional[List[str]] = None,
+    year: int = 2022,
+    start_date: str = "2022-09-20",
+    end_date: str = "2022-10-20",
+    df_wind: Optional[pd.DataFrame] = None,
+    interp_limit: int = 3,
+    timeout: int = 15,
+) -> Optional[pd.DataFrame]:
+    """Fetch wave data with hierarchical multi-buoy fallback and JONSWAP wind-wave hindcast.
+
+    Hierarchy:
+    1. Primary Buoy (e.g. NDBC 44056 - Duck FRF 8m array)
+    2. Local Outer Array Fallback (e.g. NDBC 44100 - Duck 26m / 17m array)
+    3. Regional Coastal Buoys (e.g. NDBC 44014 - VA Beach, NDBC 41025 - Diamond Shoals)
+    4. Empirical JONSWAP / CEM wind-wave hindcast using real-time NOAA CO-OPS wind forcing
+    5. Short-gap linear interpolation (capped at interp_limit hours, e.g. <= 3h)
+    """
+    if fallback_station_ids is None:
+        fallback_station_ids = FALLBACK_WAVE_BUOY_IDS
+
+    # 1. Primary buoy
+    df_primary = fetch_ndbc_wave_data(
+        station_id=primary_station_id,
+        year=year,
+        start_date=start_date,
+        end_date=end_date,
+        timeout=timeout,
+        interp_limit=interp_limit,
+        drop_unfilled_na=False,
+    )
+
+    merged_waves = df_primary.copy() if df_primary is not None else pd.DataFrame()
+
+    # 2. Secondary / regional buoys
+    for fallback_id in fallback_station_ids:
+        if merged_waves.empty or merged_waves["hs_m"].isna().any():
+            df_fb = fetch_ndbc_wave_data(
+                station_id=fallback_id,
+                year=year,
+                start_date=start_date,
+                end_date=end_date,
+                timeout=timeout,
+                interp_limit=interp_limit,
+                drop_unfilled_na=False,
+            )
+            if df_fb is not None and not df_fb.empty:
+                if merged_waves.empty:
+                    merged_waves = df_fb.copy()
+                else:
+                    merged_waves = merged_waves.combine_first(df_fb)
+
+    # 3. JONSWAP wind-wave hindcast fallback
+    if df_wind is not None and not df_wind.empty:
+        if merged_waves.empty:
+            merged_waves = pd.DataFrame(index=df_wind.index)
+        missing_mask = merged_waves["hs_m"].isna() if "hs_m" in merged_waves.columns else pd.Series(True, index=df_wind.index)
+        if missing_mask.any():
+            wind_sub = df_wind.reindex(merged_waves.index)
+            if "wind_speed_ms" in wind_sub.columns and "wind_dir_deg" in wind_sub.columns:
+                hs_hc, tp_hc = compute_jonswap_wind_wave_hindcast(
+                    wind_speed_ms=wind_sub["wind_speed_ms"].values,
+                    wind_dir_deg=wind_sub["wind_dir_deg"].values,
+                )
+                df_hc = pd.DataFrame(
+                    {"hs_m": hs_hc, "tp_s": tp_hc, "wave_dir_deg": wind_sub["wind_dir_deg"].values},
+                    index=merged_waves.index,
+                )
+                merged_waves = merged_waves.combine_first(df_hc)
+
+    # 4. Final short-gap interpolation
+    if not merged_waves.empty:
+        if interp_limit > 0:
+            merged_waves = merged_waves.interpolate(method="time", limit=interp_limit)
+        return merged_waves.dropna(subset=["hs_m", "tp_s"])
+    return None
 
 
 def simulate_equilibrium_shoreline_evolution(
@@ -466,11 +582,14 @@ def _fetch_and_merge_single_window(
 
     df_surge = fetch_noaa_coops_water_level_and_surge(begin_date=begin_ymd, end_date=end_ymd)
     df_wind = fetch_noaa_coops_wind(begin_date=begin_ymd, end_date=end_ymd)
-    df_waves = fetch_ndbc_wave_data(
-        station_id=NDBC_BUOY_DUCK_ID,
+    df_waves = fetch_multi_source_wave_data(
+        primary_station_id=NDBC_BUOY_DUCK_ID,
+        fallback_station_ids=FALLBACK_WAVE_BUOY_IDS,
         year=year,
         start_date=start_date,
         end_date=end_date,
+        df_wind=df_wind,
+        interp_limit=3,
     )
 
     if df_surge is None or df_wind is None or df_waves is None:
@@ -589,17 +708,7 @@ def fetch_noaa_annual_dataset(
         start_date = f"{year}-01-01"
         end_date = f"{year}-12-31"
         
-        # 1. Fetch NDBC waves for the full year
-        df_waves = fetch_ndbc_wave_data(
-            station_id=buoy_id,
-            year=year,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        if df_waves is None:
-            return None
-
-        # 2. Fetch NOAA CO-OPS water level and wind monthly
+        # 1. Fetch NOAA CO-OPS water level and wind monthly
         months = pd.date_range(f"{year}-01-01", f"{year}-12-01", freq="MS")
         surge_list = []
         wind_list = []
@@ -620,9 +729,22 @@ def fetch_noaa_annual_dataset(
         all_surge = pd.concat(surge_list)
         all_wind = pd.concat(wind_list)
 
+        # 2. Fetch Multi-Source Wave Forcing (with buoy fallbacks & JONSWAP hindcast)
+        df_waves = fetch_multi_source_wave_data(
+            primary_station_id=buoy_id,
+            fallback_station_ids=FALLBACK_WAVE_BUOY_IDS,
+            year=year,
+            start_date=start_date,
+            end_date=end_date,
+            df_wind=all_wind,
+            interp_limit=3,
+        )
+        if df_waves is None:
+            return None
+
         # 3. Merge onto continuous hourly DatetimeIndex
         merged = all_surge.join(all_wind, how="inner").join(df_waves, how="inner")
-        merged = merged.resample("1h").mean().interpolate(method="time").dropna()
+        merged = merged.resample("1h").mean().interpolate(method="time", limit=3).dropna()
         
         if len(merged) < 5000:
             return None
@@ -713,11 +835,17 @@ def load_annual_dataset(
 
 def load_dataset(
     try_live_api: bool = True,
-    start_date: str = "2022-01-01 00:00:00",
-    end_date: str = "2022-12-31 23:00:00",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     morph_model: str = "xbeach",
 ) -> Tuple[pd.DataFrame, str]:
-    """High-level dataset loader defaulting to continuous annual 2022 observations."""
-    return load_annual_dataset(year=2022, morph_model=morph_model, try_live_api=try_live_api)
+    """High-level dataset loader defaulting to continuous annual 2022 observations with window slicing."""
+    df, label = load_annual_dataset(year=2022, morph_model=morph_model, try_live_api=try_live_api)
+    if start_date is not None or end_date is not None:
+        sub_df = df.loc[start_date:end_date].copy()
+        if not sub_df.empty:
+            date_str = f"[{start_date or str(df.index.min())[:10]} to {end_date or str(df.index.max())[:10]}]"
+            return sub_df, f"{label} {date_str}"
+    return df, label
 
 
