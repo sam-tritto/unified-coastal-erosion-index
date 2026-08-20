@@ -1,5 +1,22 @@
-/.DS_Store
-/.pytest_cache
-/.venv
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing & Virtual Environments
+.pytest_cache/
+.venv/
 /build_notebook.py
-*.pyc
+
+# Data caches & large downloads
+data/cache/
+*.csv.gz
