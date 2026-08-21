@@ -38,6 +38,10 @@ from src.models import (
     build_asymmetric_dual_regime_model,
     compute_antecedent_memory_forcing,
     evaluate_model_performance,
+    predict_bayesian_model,
+    run_arviz_loo_comparison,
+    run_benchmark_model_comparison,
+    fit_bayesian_model,
 )
 
 
@@ -267,5 +271,66 @@ def test_morphodynamic_regime_classification():
     unique_regimes = set(regimes.unique())
     assert "Storm Gouging (Erosive)" in unique_regimes
     assert "Quiet Berm Accretion (Constructive)" in unique_regimes
+
+
+def test_bayesian_temporal_holdout_and_prediction():
+    df = generate_frf_duck_hurricane_ian_dataset().iloc[:80]
+    split_idx = 60
+    df_train = df.iloc[:split_idx]
+    df_test = df.iloc[split_idx:]
+
+    model, meta = build_latent_memory_bayesian_model(
+        forcing=df_train["upsilon"].values,
+        delta_x_obs=df_train["shoreline_pos_obs_m"].values,
+        max_lag=12,
+    )
+    trace = fit_bayesian_model(model, draws=50, tune=50, chains=2, random_seed=42)
+
+    # Full continuous prediction across train and out-of-sample test splits
+    mu_mean, mu_samples, y_pred = predict_bayesian_model(
+        trace=trace,
+        model_type="single",
+        meta=meta,
+        df=df,
+        return_samples=True,
+        random_seed=42,
+    )
+    assert len(mu_mean) == len(df)
+    assert mu_samples.shape == (100, len(df))
+    assert y_pred.shape == (100, len(df))
+
+    # Evaluate out-of-sample holdout
+    y_test_obs = df_test["shoreline_pos_obs_m"].values
+    perf_test = evaluate_model_performance(y_true=y_test_obs, y_pred=mu_mean[split_idx:])
+    assert perf_test["RMSE (m)"] < 10.0
+    assert "R2 Score" in perf_test
+    assert "Brier Skill Score (BSS)" in perf_test
+
+
+def test_bayesian_benchmark_with_holdout_and_loo():
+    df = generate_frf_duck_hurricane_ian_dataset().iloc[:80]
+    df_comp, traces = run_benchmark_model_comparison(
+        df=df,
+        train_split=0.75,
+        draws=50,
+        tune=50,
+        chains=2,
+        cores=1,
+        random_seed=42,
+        include_nonlinear=False,
+        include_multivariate=True,
+        include_hybrid=True,
+        compute_loo=True,
+    )
+    assert not df_comp.empty
+    assert "Test RMSE (m)" in df_comp.columns
+    assert "Test R2 Score" in df_comp.columns
+    assert "Train RMSE (m)" in df_comp.columns
+    assert "ELPD LOO" in df_comp.columns
+    assert "LOO Rank" in df_comp.columns
+    assert df_comp.attrs["train_split"] == 0.75
+    assert df_comp.attrs["split_idx"] == 60
+    assert len(traces) >= 3
+
 
 

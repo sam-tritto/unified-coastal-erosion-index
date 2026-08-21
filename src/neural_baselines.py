@@ -516,43 +516,30 @@ def generate_whitepaper_synthesis_table(
         for _, r in df_bayesian.iterrows():
             m_name = str(r.get("Model", ""))
             m_type = str(r.get("Type", ""))
-            r2_full = float(r.get("R2 Score", 0.0))
-            rmse_full = float(r.get("RMSE (m)", 0.0))
 
-            # Operational profile
+            # Dynamically extract out-of-sample test and full-year metrics if available
+            test_r2 = float(r.get("Test R2 Score", r.get("R2 Score", 0.0)))
+            test_rmse = float(r.get("Test RMSE (m)", r.get("RMSE (m)", 0.0)))
+            r2_full = float(r.get("Full R2 Score", r.get("Full-Year R2 Score", r.get("R2 Score", test_r2))))
+            rmse_full = float(r.get("Full RMSE (m)", r.get("Full-Year RMSE (m)", r.get("RMSE (m)", test_rmse))))
+
             if "Hybrid" in m_name:
-                nowcast_r2 = 0.5820
-                storm_rmse = 1.4250
-                uq_profile = "94% HDI Envelopes (Full MCMC)"
                 paradigm = "Bayesian Physics"
-            elif "Dean" in m_name:
-                nowcast_r2 = 0.4850
-                storm_rmse = 1.7620
                 uq_profile = "94% HDI Envelopes (Full MCMC)"
+            elif "Dean" in m_name or "Asymmetric" in m_name or "Upsilon" in m_name:
                 paradigm = "Bayesian Physics"
-            elif "Asymmetric" in m_name:
-                nowcast_r2 = 0.4210
-                storm_rmse = 1.8940
                 uq_profile = "94% HDI Envelopes (Full MCMC)"
-                paradigm = "Bayesian Physics"
-            elif "Hs" in m_name and "Linear" in m_name:
-                nowcast_r2 = 0.2810
-                storm_rmse = 2.4500
-                uq_profile = "94% HDI Envelopes (Full MCMC)"
-                paradigm = "Empirical Baseline"
             else:
-                nowcast_r2 = 0.2500
-                storm_rmse = 2.6500
-                uq_profile = "94% HDI Envelopes (Full MCMC)"
                 paradigm = "Empirical Baseline"
+                uq_profile = "94% HDI Envelopes (Full MCMC)"
 
             rows.append({
                 "Model Architecture": m_name,
                 "Paradigm": paradigm,
-                "1-Hour Nowcast R2": nowcast_r2,
-                "72h Storm RMSE (m)": storm_rmse,
-                "365-Day Free-Run R2": r2_full,
-                "365-Day RMSE (m)": rmse_full,
+                "Out-of-Sample Test R2": test_r2,
+                "Out-of-Sample Test RMSE (m)": test_rmse,
+                "Full-Sequence R2 Score": r2_full,
+                "Full-Sequence RMSE (m)": rmse_full,
                 "Uncertainty Quantification (UQ)": uq_profile,
             })
 
@@ -560,10 +547,10 @@ def generate_whitepaper_synthesis_table(
     if not df_neural.empty:
         for _, r in df_neural.iterrows():
             m_name = str(r.get("Model", ""))
-            nowcast_r2 = float(r.get("1-Hour Nowcast R2", 0.0))
-            storm_rmse = float(r.get("72h Storm RMSE (m)", 0.0))
-            r2_full = float(r.get("Full-Year R2 Score", 0.0))
-            rmse_full = float(r.get("Full-Year RMSE (m)", 0.0))
+            test_r2 = float(r.get("1-Hour Nowcast R2", r.get("Test R2 Score", 0.0)))
+            storm_rmse = float(r.get("72h Storm RMSE (m)", r.get("Test RMSE (m)", 0.0)))
+            r2_full = float(r.get("Full-Year R2 Score", r.get("Full R2 Score", 0.0)))
+            rmse_full = float(r.get("Full-Year RMSE (m)", r.get("Full RMSE (m)", 0.0)))
 
             if "PG-LSTM" in m_name or "Physics-Guided" in m_name:
                 paradigm = "Physics-Informed DL"
@@ -575,10 +562,10 @@ def generate_whitepaper_synthesis_table(
             rows.append({
                 "Model Architecture": m_name,
                 "Paradigm": paradigm,
-                "1-Hour Nowcast R2": nowcast_r2,
-                "72h Storm RMSE (m)": storm_rmse,
-                "365-Day Free-Run R2": r2_full,
-                "365-Day RMSE (m)": rmse_full,
+                "Out-of-Sample Test R2": test_r2,
+                "Out-of-Sample Test RMSE (m)": storm_rmse,
+                "Full-Sequence R2 Score": r2_full,
+                "Full-Sequence RMSE (m)": rmse_full,
                 "Uncertainty Quantification (UQ)": uq_profile,
             })
 

@@ -204,8 +204,243 @@ def compute_mcmc_summary_table(idata: az.InferenceData) -> pd.DataFrame:
     return az.summary(idata, var_names=available)
 
 
+def predict_bayesian_model(
+    trace: az.InferenceData,
+    model_type: str,
+    meta: Dict[str, Any],
+    df: pd.DataFrame,
+    spec: Optional[Dict[str, Any]] = None,
+    return_samples: bool = False,
+    random_seed: int = 42,
+) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Predict morphodynamic response mu (and draw posterior samples) for any dataset window.
+
+    Supports continuous antecedent memory convolution across train/test splits.
+
+    Parameters
+    ----------
+    trace : az.InferenceData
+        Fitted MCMC inference data trace.
+    model_type : str
+        One of 'single', 'nonlinear', 'multivariate', 'hybrid', 'asymmetric'.
+    meta : dict
+        Model metadata containing normalization constants (mean, std, max_lag, etc.).
+    df : pd.DataFrame
+        Dataset containing hydrodynamic forcing channels for prediction.
+    spec : dict, optional
+        Specification dict containing raw forcing arrays (if df columns differ).
+    return_samples : bool
+        Whether to return posterior distribution samples (mu_samples, y_pred_samples).
+    random_seed : int
+        Random seed for posterior predictive Student-T error sampling.
+
+    Returns
+    -------
+    mu_mean : np.ndarray
+        Posterior mean deterministic prediction of shoreline position (N,).
+    (Optional) mu_samples : np.ndarray
+        Posterior samples of mu (S, N).
+    (Optional) y_pred_samples : np.ndarray
+        Posterior predictive simulated observations drawn from StudentT (S, N).
+    """
+    rng = np.random.default_rng(random_seed)
+    n_pts = len(df)
+    max_lag = int(meta.get("max_lag", 48))
+    k_vec = np.arange(max_lag, dtype=float)
+
+    alphas = trace.posterior["alpha"].values.reshape(-1)
+    sigmas = trace.posterior["sigma"].values.reshape(-1) if "sigma" in trace.posterior else np.full(len(alphas), 0.3)
+    nus = trace.posterior["nu"].values.reshape(-1) if "nu" in trace.posterior else np.full(len(alphas), 5.0)
+    n_samples = len(alphas)
+
+    if model_type == "single":
+        if spec is not None and "forcing" in spec:
+            f_raw = np.asarray(spec["forcing"], dtype=float)
+        else:
+            m_name = meta.get("model_name", "").lower()
+            if "hs" in m_name:
+                f_raw = df["hs_m"].values
+            elif "power" in m_name or "flux" in m_name:
+                f_raw = df["p_flux_Wm"].values
+            elif "dean" in m_name:
+                f_raw = df["dean_number"].values
+            else:
+                f_raw = df["upsilon"].values
+
+        f_scaled = (f_raw - meta["f_mean"]) / meta["f_std"]
+        lag_mat = create_lag_matrix(f_scaled, max_lag=max_lag)
+
+        betas = trace.posterior["beta_forcing"].values.reshape(-1)
+        gammas = trace.posterior["gamma"].values.reshape(-1)
+
+        mu_samples = np.zeros((n_samples, n_pts), dtype=float)
+        for i in range(n_samples):
+            w = (gammas[i] ** k_vec) / np.sum(gammas[i] ** k_vec)
+            eff = lag_mat @ w
+            mu_samples[i] = alphas[i] + betas[i] * eff
+
+    elif model_type == "nonlinear":
+        if spec is not None and "forcing" in spec:
+            f_raw = np.asarray(spec["forcing"], dtype=float)
+        else:
+            m_name = meta.get("model_name", "").lower()
+            f_raw = df["hs_m"].values if "hs" in m_name else df["upsilon"].values
+
+        f_scaled = (f_raw - meta["f_mean"]) / meta["f_std"]
+        degree = int(meta.get("degree", 3))
+        basis_matrix = np.column_stack([f_scaled ** (d + 1) for d in range(degree)])
+        beta_poly = trace.posterior["beta_poly"].values.reshape(-1, degree)
+
+        mu_samples = alphas[:, None] + (beta_poly @ basis_matrix.T)
+
+    elif model_type == "multivariate":
+        fnames = meta.get("forcing_names", ["hs", "surge", "wind", "dean"])
+        mu_samples = np.repeat(alphas[:, None], n_pts, axis=1)
+
+        col_map = {"hs": "hs_m", "surge": "surge_m", "wind": "wind_normal_ms", "dean": "dean_number"}
+        for fname in fnames:
+            if spec is not None and "forcings" in spec and fname in spec["forcings"]:
+                raw_f = np.asarray(spec["forcings"][fname], dtype=float)
+            else:
+                col = col_map.get(fname, fname)
+                raw_f = df[col].values if col in df.columns else np.zeros(n_pts)
+
+            f_scaled = (raw_f - meta[f"{fname}_mean"]) / meta[f"{fname}_std"]
+            beta_var = trace.posterior[f"beta_{fname}"].values.reshape(-1)
+            mu_samples += beta_var[:, None] * f_scaled[None, :]
+
+    elif model_type == "hybrid":
+        ups_raw = spec["upsilon"] if spec is not None and "upsilon" in spec else df["upsilon"].values
+        u_scaled = (ups_raw - meta["upsilon_mean"]) / meta["upsilon_std"]
+        lag_mat = create_lag_matrix(u_scaled, max_lag=max_lag)
+
+        beta_ups = trace.posterior["beta_upsilon"].values.reshape(-1)
+        gammas = trace.posterior["gamma"].values.reshape(-1)
+
+        mu_samples = np.zeros((n_samples, n_pts), dtype=float)
+        for i in range(n_samples):
+            w = (gammas[i] ** k_vec) / np.sum(gammas[i] ** k_vec)
+            eff_u = lag_mat @ w
+            mu_samples[i] = alphas[i] + beta_ups[i] * eff_u
+
+        fnames = ["hs", "surge", "wind", "dean"]
+        col_map = {"hs": "hs_m", "surge": "surge_m", "wind": "wind_normal_ms", "dean": "dean_number"}
+        for fname in fnames:
+            if f"{fname}_mean" in meta:
+                if spec is not None and "forcings" in spec and fname in spec["forcings"]:
+                    raw_f = np.asarray(spec["forcings"][fname], dtype=float)
+                else:
+                    col = col_map.get(fname, fname)
+                    raw_f = df[col].values if col in df.columns else np.zeros(n_pts)
+
+                f_scaled = (raw_f - meta[f"{fname}_mean"]) / meta[f"{fname}_std"]
+                delta_var = trace.posterior[f"delta_{fname}"].values.reshape(-1)
+                mu_samples += delta_var[:, None] * f_scaled[None, :]
+
+    elif model_type == "asymmetric":
+        ups_raw = spec["upsilon"] if spec is not None and "upsilon" in spec else df["upsilon"].values
+        shield_raw = spec["shielding"] if spec is not None and "shielding" in spec else (
+            df["shielding_factor"].values if "shielding_factor" in df.columns else np.ones(n_pts)
+        )
+        f_eros = ups_raw * shield_raw
+        f_eros_scaled = (f_eros - meta["eros_mean"]) / meta["eros_std"]
+
+        if spec is not None and "accretion" in spec and spec["accretion"] is not None:
+            f_acc = np.asarray(spec["accretion"], dtype=float)
+        elif "accretion_potential" in df.columns:
+            f_acc = df["accretion_potential"].values
+        else:
+            tp_arr = np.maximum(df["tp_s"].values, 0.5)
+            l_0 = (9.81 * (tp_arr ** 2)) / (2.0 * np.pi)
+            f_acc = (tp_arr * np.sqrt(9.81 * l_0)) / (df["hs_m"].values + 0.1)
+
+        f_acc_scaled = (f_acc - meta["acc_mean"]) / meta["acc_std"]
+
+        hs_arr = spec["hs"] if spec is not None and "hs" in spec else df["hs_m"].values
+        tp_arr = spec["tp"] if spec is not None and "tp" in spec else df["tp_s"].values
+        ws_arr = spec["ws"] if spec is not None and "ws" in spec else (
+            df["w_s_ms"].values if "w_s_ms" in df.columns else np.full(n_pts, 0.048)
+        )
+        omega = hs_arr / (np.maximum(ws_arr, 1e-4) * np.maximum(tp_arr, 0.5))
+
+        lag_eros = create_lag_matrix(f_eros_scaled, max_lag=max_lag)
+        lag_acc = create_lag_matrix(f_acc_scaled, max_lag=max_lag)
+
+        gammas = trace.posterior["gamma"].values.reshape(-1)
+        o_crits = trace.posterior["omega_crit"].values.reshape(-1)
+        k_e = trace.posterior["k_eros"].values.reshape(-1)
+        k_a = trace.posterior["k_accrete"].values.reshape(-1)
+
+        mu_samples = np.zeros((n_samples, n_pts), dtype=float)
+        for i in range(n_samples):
+            w = (gammas[i] ** k_vec) / np.sum(gammas[i] ** k_vec)
+            eff_e = lag_eros @ w
+            eff_a = lag_acc @ w
+            is_e = 1.0 / (1.0 + np.exp(-5.0 * (omega - o_crits[i])))
+            mu_samples[i] = alphas[i] + is_e * (-k_e[i] * eff_e) + (1.0 - is_e) * (k_a[i] * eff_a)
+
+    else:
+        raise ValueError(f"Unknown model_type: {model_type}")
+
+    mu_mean = np.mean(mu_samples, axis=0)
+
+    if not return_samples:
+        return mu_mean
+
+    # Draw posterior predictive Student-T observations
+    y_pred_samples = np.zeros_like(mu_samples)
+    for i in range(n_samples):
+        nu_val = max(float(nus[i]), 1.5)
+        sigma_val = max(float(sigmas[i]), 1e-4)
+        t_noise = rng.standard_t(df=nu_val, size=n_pts) * sigma_val
+        y_pred_samples[i] = mu_samples[i] + t_noise
+
+    return mu_mean, mu_samples, y_pred_samples
+
+
+def run_arviz_loo_comparison(
+    traces: Dict[str, az.InferenceData],
+    ic: str = "loo",
+    method: str = "stacking",
+) -> pd.DataFrame:
+    """Run ArviZ model comparison using Leave-One-Out Cross-Validation (PSIS-LOO-CV).
+
+    Parameters
+    ----------
+    traces : dict
+        Dictionary of model names mapping to fitted InferenceData traces with log_likelihood.
+    ic : str
+        Information criterion ('loo' or 'waic').
+    method : str
+        Model weighting method ('stacking', 'bb-pseudo-bma', or 'pseudo-bma').
+
+    Returns
+    -------
+    df_loo : pd.DataFrame
+        Ranked ArviZ comparison table with ELPD LOO, p_LOO, SE, and weights.
+    """
+    valid_traces = {}
+    for name, tr in traces.items():
+        if hasattr(tr, "log_likelihood") and "y_obs" in tr.log_likelihood:
+            valid_traces[name] = tr
+
+    if len(valid_traces) < 2:
+        return pd.DataFrame()
+
+    try:
+        df_comp = az.compare(valid_traces, ic=ic, method=method)
+    except Exception:
+        try:
+            df_comp = az.compare(valid_traces, ic=ic, method="bb-pseudo-bma")
+        except Exception:
+            df_comp = az.compare(valid_traces, ic=ic, method="pseudo-bma")
+
+    return df_comp
+
+
 def run_benchmark_model_comparison(
     df: pd.DataFrame,
+    train_split: float = 0.75,
     draws: int = 1000,
     tune: int = 800,
     chains: int = 4,
@@ -214,99 +449,152 @@ def run_benchmark_model_comparison(
     include_nonlinear: bool = True,
     include_multivariate: bool = True,
     include_hybrid: bool = True,
+    compute_loo: bool = True,
 ) -> Tuple[pd.DataFrame, Dict[str, az.InferenceData]]:
-    """Fit and compare competing physical models including non-linear, multivariate, and hybrid variants."""
-    # Single-variable candidates (with latent memory)
+    """Fit and benchmark competing physical models with Out-of-Sample Temporal Holdout and ArviZ LOO-CV.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Synchronized hydrodynamic and morphodynamic observational dataset.
+    train_split : float
+        Chronological training split fraction (default 0.75, giving 75% train, 25% out-of-sample test).
+        Set to 1.0 for full-series training without holdout split.
+    draws : int
+        Number of MCMC draws per chain.
+    tune : int
+        Number of tuning / warmup steps per chain.
+    chains : int
+        Number of Markov chains (default 4).
+    cores : int
+        Number of CPU cores for sampling.
+    random_seed : int
+        Random seed for reproducibility.
+    include_nonlinear : bool
+        Whether to include non-linear polynomial benchmark variants.
+    include_multivariate : bool
+        Whether to include the unconstrained multivariate baseline.
+    include_hybrid : bool
+        Whether to include the physics-anchored hybrid model.
+    compute_loo : bool
+        Whether to compute ArviZ PSIS-LOO-CV cross-validation and model comparison ranking.
+
+    Returns
+    -------
+    comparison_df : pd.DataFrame
+        Ranked comparison table with Out-of-Sample Test metrics, In-Sample metrics, LOO-CV statistics, and R-hat.
+    traces : dict
+        Fitted ArviZ InferenceData traces for each candidate model.
+    """
+    n_total = len(df)
+    if train_split < 1.0:
+        split_idx = int(n_total * train_split)
+        if split_idx <= 24:
+            split_idx = n_total
+    else:
+        split_idx = n_total
+
+    has_holdout = split_idx < n_total
+    df_train = df.iloc[:split_idx].copy()
+    df_test = df.iloc[split_idx:].copy() if has_holdout else df.copy()
+
+    y_obs_train = df_train["shoreline_pos_obs_m"].values
+    y_true_train = df_train["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df_train.columns else y_obs_train
+
+    y_obs_test = df_test["shoreline_pos_obs_m"].values if has_holdout else y_obs_train
+    y_true_test = df_test["shoreline_pos_true_m"].values if (has_holdout and "shoreline_pos_true_m" in df_test.columns) else y_obs_test
+
+    y_obs_full = df["shoreline_pos_obs_m"].values
+    y_true_full = df["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df.columns else y_obs_full
+
+    # Define competing hypotheses (built on training split)
     candidates: Dict[str, Any] = {
-        "Hs (Linear)": {"type": "single", "forcing": df["hs_m"].values},
-        "Wave Power P (Linear)": {"type": "single", "forcing": df["p_flux_Wm"].values},
-        "Dean Number (Linear)": {"type": "single", "forcing": df["dean_number"].values},
-        "Unified Index (Upsilon)": {"type": "single", "forcing": df["upsilon"].values},
+        "Hs (Linear)": {"type": "single", "forcing": df_train["hs_m"].values},
+        "Wave Power P (Linear)": {"type": "single", "forcing": df_train["p_flux_Wm"].values},
+        "Dean Number (Linear)": {"type": "single", "forcing": df_train["dean_number"].values},
+        "Unified Index (Upsilon)": {"type": "single", "forcing": df_train["upsilon"].values},
     }
 
     if include_nonlinear:
-        candidates["Upsilon (Non-Linear)"] = {"type": "nonlinear", "forcing": df["upsilon"].values}
-        candidates["Hs (Non-Linear)"] = {"type": "nonlinear", "forcing": df["hs_m"].values}
+        candidates["Upsilon (Non-Linear)"] = {"type": "nonlinear", "forcing": df_train["upsilon"].values}
+        candidates["Hs (Non-Linear)"] = {"type": "nonlinear", "forcing": df_train["hs_m"].values}
 
     if include_multivariate:
         candidates["Multivariate (Hs+S+Wa+Omega)"] = {
             "type": "multivariate",
             "forcings": {
-                "hs": df["hs_m"].values,
-                "surge": df["surge_m"].values,
-                "wind": df["wind_normal_ms"].values,
-                "dean": df["dean_number"].values,
+                "hs": df_train["hs_m"].values,
+                "surge": df_train["surge_m"].values,
+                "wind": df_train["wind_normal_ms"].values,
+                "dean": df_train["dean_number"].values,
             },
         }
 
     if include_hybrid:
         candidates["Hybrid (Upsilon Anchor + Multi Residuals)"] = {
             "type": "hybrid",
-            "upsilon": df["upsilon"].values,
+            "upsilon": df_train["upsilon"].values,
             "forcings": {
-                "hs": df["hs_m"].values,
-                "surge": df["surge_m"].values,
-                "wind": df["wind_normal_ms"].values,
-                "dean": df["dean_number"].values,
+                "hs": df_train["hs_m"].values,
+                "surge": df_train["surge_m"].values,
+                "wind": df_train["wind_normal_ms"].values,
+                "dean": df_train["dean_number"].values,
             },
         }
 
-    # Asymmetric Dual-Regime Model (Dean threshold Omega_crit + Sandbar Shielding + Accretion Swash)
-    if "w_s_ms" in df.columns:
+    if "w_s_ms" in df_train.columns:
         candidates["Asymmetric Dual-Regime (Erosion vs Accretion)"] = {
             "type": "asymmetric",
-            "hs": df["hs_m"].values,
-            "tp": df["tp_s"].values,
-            "ws": df["w_s_ms"].values,
-            "upsilon": df["upsilon"].values,
-            "shielding": df["shielding_factor"].values if "shielding_factor" in df.columns else np.ones(len(df)),
-            "accretion": df["accretion_potential"].values if "accretion_potential" in df.columns else None,
+            "hs": df_train["hs_m"].values,
+            "tp": df_train["tp_s"].values,
+            "ws": df_train["w_s_ms"].values,
+            "upsilon": df_train["upsilon"].values,
+            "shielding": df_train["shielding_factor"].values if "shielding_factor" in df_train.columns else np.ones(len(df_train)),
+            "accretion": df_train["accretion_potential"].values if "accretion_potential" in df_train.columns else None,
         }
 
-    y_obs = df["shoreline_pos_obs_m"].values
-    y_true = df["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df.columns else y_obs
-
     traces: Dict[str, az.InferenceData] = {}
+    model_metas: Dict[str, Dict[str, Any]] = {}
     metrics_list = []
 
     for name, spec in candidates.items():
         model_type = spec["type"]
 
         if model_type == "single":
-            model, _ = build_latent_memory_bayesian_model(
+            model, meta = build_latent_memory_bayesian_model(
                 forcing=spec["forcing"],
-                delta_x_obs=y_obs,
+                delta_x_obs=y_obs_train,
                 model_name=name,
                 max_lag=48,
             )
         elif model_type == "nonlinear":
-            model, _ = build_nonlinear_response_model(
+            model, meta = build_nonlinear_response_model(
                 forcing=spec["forcing"],
-                delta_x_obs=y_obs,
+                delta_x_obs=y_obs_train,
                 model_name=name,
                 degree=3,
             )
         elif model_type == "multivariate":
-            model, _ = build_multivariate_linear_model(
+            model, meta = build_multivariate_linear_model(
                 forcings=spec["forcings"],
-                delta_x_obs=y_obs,
+                delta_x_obs=y_obs_train,
                 model_name=name,
             )
         elif model_type == "hybrid":
-            model, _ = build_physics_anchored_hybrid_model(
+            model, meta = build_physics_anchored_hybrid_model(
                 upsilon=spec["upsilon"],
                 forcings=spec["forcings"],
-                delta_x_obs=y_obs,
+                delta_x_obs=y_obs_train,
                 model_name=name,
                 max_lag=48,
             )
         elif model_type == "asymmetric":
-            model, _ = build_asymmetric_dual_regime_model(
+            model, meta = build_asymmetric_dual_regime_model(
                 hs=spec["hs"],
                 tp=spec["tp"],
                 ws=spec["ws"],
                 upsilon=spec["upsilon"],
-                delta_x_obs=y_obs,
+                delta_x_obs=y_obs_train,
                 shielding_factor=spec["shielding"],
                 accretion_potential=spec["accretion"],
                 model_name=name,
@@ -314,6 +602,8 @@ def run_benchmark_model_comparison(
             )
         else:
             continue
+
+        model_metas[name] = meta
 
         with model:
             trace = pm.sample(
@@ -327,32 +617,71 @@ def run_benchmark_model_comparison(
                 return_inferencedata=True,
             )
             pm.compute_log_likelihood(trace, progressbar=False)
-            ppc = pm.sample_posterior_predictive(trace, random_seed=random_seed, progressbar=False)
-            trace.extend(ppc)
+            ppc_train = pm.sample_posterior_predictive(trace, random_seed=random_seed, progressbar=False)
+            trace.extend(ppc_train)
 
         traces[name] = trace
 
-        # Posterior mean prediction
-        y_pred = np.mean(trace.posterior_predictive["y_obs"].values.reshape(-1, len(y_obs)), axis=0)
-        perf = evaluate_model_performance(y_true=y_true, y_pred=y_pred, y_baseline=np.zeros(len(y_obs)))
+        # Full continuous prediction across full dataset (train + test holdout)
+        mu_full_mean, mu_full_samples, y_full_pred_samples = predict_bayesian_model(
+            trace=trace,
+            model_type=model_type,
+            meta=meta,
+            df=df,
+            return_samples=True,
+            random_seed=random_seed,
+        )
+
+        mu_train_pred = mu_full_mean[:split_idx]
+        mu_test_pred = mu_full_mean[split_idx:] if has_holdout else mu_train_pred
+
+        perf_train = evaluate_model_performance(y_true=y_true_train, y_pred=mu_train_pred, y_baseline=np.zeros(len(y_true_train)))
+        perf_test = evaluate_model_performance(y_true=y_true_test, y_pred=mu_test_pred, y_baseline=np.zeros(len(y_true_test)))
+        perf_full = evaluate_model_performance(y_true=y_true_full, y_pred=mu_full_mean, y_baseline=np.zeros(len(y_true_full)))
 
         # Convergence diagnostics
-        avail_vars = [v for v in ["gamma", "beta_forcing", "beta_upsilon", "alpha", "sigma"] if v in trace.posterior]
+        avail_vars = [v for v in ["gamma", "beta_forcing", "beta_upsilon", "alpha", "sigma", "k_eros", "k_accrete", "omega_crit"] if v in trace.posterior]
         post_rhat = float(az.summary(trace, var_names=avail_vars)["r_hat"].max()) if avail_vars else 1.0
 
-        row = {
+        row: Dict[str, Any] = {
             "Model": name,
             "Type": model_type,
-            "RMSE (m)": perf["RMSE (m)"],
-            "R2 Score": perf["R2 Score"],
-            "BSS": perf["Brier Skill Score (BSS)"],
-            "Max R-hat": post_rhat,
         }
 
+        if has_holdout:
+            row["Test RMSE (m)"] = perf_test["RMSE (m)"]
+            row["Test R2 Score"] = perf_test["R2 Score"]
+            row["Test BSS"] = perf_test["Brier Skill Score (BSS)"]
+            row["Train RMSE (m)"] = perf_train["RMSE (m)"]
+            row["Train R2 Score"] = perf_train["R2 Score"]
+            row["Full RMSE (m)"] = perf_full["RMSE (m)"]
+            row["Full R2 Score"] = perf_full["R2 Score"]
+        else:
+            row["RMSE (m)"] = perf_train["RMSE (m)"]
+            row["R2 Score"] = perf_train["R2 Score"]
+            row["BSS"] = perf_train["Brier Skill Score (BSS)"]
+
+        row["Max R-hat"] = post_rhat
         if "gamma" in trace.posterior:
             row["E[gamma]"] = float(trace.posterior["gamma"].mean())
 
         metrics_list.append(row)
+
+    # Compute Leave-One-Out Cross-Validation (LOO-CV) comparison table
+    loo_df = pd.DataFrame()
+    if compute_loo and len(traces) >= 2:
+        try:
+            loo_df = run_arviz_loo_comparison(traces, ic="loo")
+            if not loo_df.empty:
+                for r in metrics_list:
+                    m_name = r["Model"]
+                    if m_name in loo_df.index:
+                        r["LOO Rank"] = int(loo_df.loc[m_name, "rank"])
+                        r["ELPD LOO"] = float(loo_df.loc[m_name, "elpd_loo"])
+                        r["p_LOO"] = float(loo_df.loc[m_name, "p_loo"])
+                        r["LOO Weight"] = float(loo_df.loc[m_name, "weight"])
+        except Exception:
+            pass
 
     # Provide aliasing for both naming styles
     if "Unified Index (Upsilon)" in traces and "Upsilon (Linear)" not in traces:
@@ -361,6 +690,16 @@ def run_benchmark_model_comparison(
         traces["Unified Index (Upsilon)"] = traces["Upsilon (Linear)"]
 
     comparison_df = pd.DataFrame(metrics_list)
+    if "Test RMSE (m)" in comparison_df.columns:
+        comparison_df = comparison_df.sort_values(by="Test RMSE (m)", ascending=True).reset_index(drop=True)
+    elif "RMSE (m)" in comparison_df.columns:
+        comparison_df = comparison_df.sort_values(by="RMSE (m)", ascending=True).reset_index(drop=True)
+
+    comparison_df.attrs["loo_comparison"] = loo_df
+    comparison_df.attrs["train_split"] = train_split
+    comparison_df.attrs["split_idx"] = split_idx
+    comparison_df.attrs["model_metas"] = model_metas
+
     return comparison_df, traces
 
 
