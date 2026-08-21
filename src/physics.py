@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from typing import Union, Tuple, Optional
+from typing import Union, Tuple, Optional, Dict, Any
 
 # Fundamental Physical Constants
 G_CONST: float = 9.81              # Gravitational acceleration (m/s^2)
@@ -23,6 +23,142 @@ RHO_WATER: float = 1025.0          # Seawater density (kg/m^3)
 RHO_SEDIMENT: float = 2650.0       # Quartz sediment density (kg/m^3)
 NU_SEAWATER: float = 1.05e-6       # Kinematic viscosity of seawater at ~20C (m^2/s)
 DUCK_SHORE_NORMAL_DEG: float = 70.0 # USACE FRF Duck, NC shore-normal azimuth (deg True)
+
+# Global Coastal Site Geomorphology Profiles Database
+COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
+    "duck_nc": {
+        "name": "USACE FRF Duck, NC, USA",
+        "shore_normal_deg": 70.0,
+        "tan_beta": 0.08,
+        "d50_m": 0.00035,        # 0.35 mm medium quartz sand
+        "berm_crest_m": 2.5,
+        "min_slope": 0.035,
+        "max_slope": 0.12,
+        "tide_range_m": 1.0,     # Microtidal
+    },
+    "narrabeen_aus": {
+        "name": "Narrabeen-Collaroy, NSW, Australia",
+        "shore_normal_deg": 85.0,
+        "tan_beta": 0.09,
+        "d50_m": 0.00030,        # 0.30 mm medium marine sand
+        "berm_crest_m": 3.0,
+        "min_slope": 0.040,
+        "max_slope": 0.13,
+        "tide_range_m": 1.5,
+    },
+    "torrey_pines_ca": {
+        "name": "Torrey Pines Beach, CA, USA",
+        "shore_normal_deg": 265.0,
+        "tan_beta": 0.04,
+        "d50_m": 0.00020,        # 0.20 mm fine sand
+        "berm_crest_m": 2.0,
+        "min_slope": 0.025,
+        "max_slope": 0.07,
+        "tide_range_m": 1.8,
+    },
+    "gold_coast_aus": {
+        "name": "Gold Coast (Surfers Paradise), QLD, Australia",
+        "shore_normal_deg": 65.0,
+        "tan_beta": 0.05,
+        "d50_m": 0.00022,        # 0.22 mm fine quartz sand
+        "berm_crest_m": 2.2,
+        "min_slope": 0.030,
+        "max_slope": 0.08,
+        "tide_range_m": 1.4,
+    },
+    "truc_vert_france": {
+        "name": "Truc Vert Beach, Gironde, France",
+        "shore_normal_deg": 275.0,
+        "tan_beta": 0.06,
+        "d50_m": 0.00038,        # 0.38 mm medium-coarse sand
+        "berm_crest_m": 3.5,
+        "min_slope": 0.035,
+        "max_slope": 0.10,
+        "tide_range_m": 3.5,     # Mesotidal
+    },
+}
+
+
+def compute_dynamic_foreshore_slope(
+    hs: Union[float, np.ndarray],
+    delta_x: Optional[Union[float, np.ndarray]] = None,
+    base_slope: float = 0.08,
+    min_slope: float = 0.035,
+    max_slope: float = 0.12,
+    memory_hours: int = 48,
+) -> Union[float, np.ndarray]:
+    """Compute dynamic time-varying foreshore beach slope tan(beta)(t).
+
+    Reflects the morphodynamic feedback where storm wave scour flattens the intertidal
+    beach profile toward dissipative conditions (min_slope ~ 0.035-0.05), while post-storm
+    fair-weather berm welding steepens the foreshore toward reflective conditions (max_slope ~ 0.10-0.12).
+
+    Parameters
+    ----------
+    hs : float or np.ndarray
+        Significant wave height time series (m).
+    delta_x : float or np.ndarray, optional
+        Observed shoreline cross-shore displacement (m). If provided, modulates slope with beach width.
+    base_slope : float
+        Mean baseline foreshore slope (default 0.08).
+    min_slope, max_slope : float
+        Physical bounds on intertidal slope.
+    memory_hours : int
+        Antecedent wave memory window for slope adjustment.
+
+    Returns
+    -------
+    tan_beta_dyn : float or np.ndarray
+        Dynamic foreshore slope time series.
+    """
+    hs_arr = np.asarray(hs, dtype=float)
+    is_scalar = np.isscalar(hs)
+    hs_vec = np.atleast_1d(hs_arr)
+    n = len(hs_vec)
+
+    # 1. Exponential moving average of wave energy
+    decay_w = np.exp(-np.arange(memory_hours) / (memory_hours / 3.0))
+    decay_w /= np.sum(decay_w)
+    padded_hs = np.pad(hs_vec, (memory_hours - 1, 0), mode="edge")
+    hs_mean = np.convolve(padded_hs, decay_w, mode="valid")[:n]
+
+    # 2. Wave-steepness flattening response: high storm Hs -> dissipative flattening
+    # Normalizing around Hs_ref ~ 1.5m
+    slope_mod = np.clip(1.0 - 0.35 * (hs_mean - 1.2) / 2.5, 0.45, 1.45)
+    slope_dyn = base_slope * slope_mod
+
+    # 3. Optional shoreline displacement coupling: eroded beach -> flatter profile
+    if delta_x is not None:
+        dx_vec = np.atleast_1d(np.asarray(delta_x, dtype=float))
+        dx_mod = np.clip(1.0 + 0.04 * dx_vec, 0.70, 1.30)
+        slope_dyn = slope_dyn * dx_mod
+
+    slope_clipped = np.clip(slope_dyn, min_slope, max_slope)
+    return float(slope_clipped[0]) if is_scalar else slope_clipped
+
+
+def compute_dynamic_grain_size(
+    hs: Union[float, np.ndarray],
+    base_d50_m: float = 0.00035,
+    coarsening_factor: float = 1.25,
+    min_d50_m: float = 0.00020,
+    max_d50_m: float = 0.00060,
+) -> Union[float, np.ndarray]:
+    """Compute dynamic storm-coarsened lag grain size D_50(t) via wave winnowing.
+
+    During storms, energetic wave turbulence winnows fine particles offshore into the bar,
+    leaving a coarser lag deposit on the active foreshore.
+    """
+    hs_arr = np.asarray(hs, dtype=float)
+    is_scalar = np.isscalar(hs)
+    hs_vec = np.atleast_1d(hs_arr)
+
+    # Coarsening activated for storm waves Hs > 2.0m
+    storm_intensity = np.clip((hs_vec - 1.5) / 3.0, 0.0, 1.0)
+    d50_dyn = base_d50_m * (1.0 + (coarsening_factor - 1.0) * storm_intensity)
+    d50_clipped = np.clip(d50_dyn, min_d50_m, max_d50_m)
+
+    return float(d50_clipped[0]) if is_scalar else d50_clipped
 
 
 def compute_kinematic_viscosity_seawater(
@@ -313,14 +449,18 @@ def compute_unified_coastal_vulnerability_index(
     r_ref: float = 2.0,
     w_ref: float = 15.0,
     w_bound: float = 0.6,
-    d50_m: float = 0.00035,
-    tan_beta: float = 0.08,
-    shore_normal_deg: float = DUCK_SHORE_NORMAL_DEG,
+    d50_m: Optional[Union[float, np.ndarray]] = None,
+    tan_beta: Optional[Union[float, np.ndarray]] = None,
+    shore_normal_deg: Optional[float] = None,
+    site: Optional[str] = None,
+    dynamic_slope: bool = False,
+    dynamic_grain_size: bool = False,
+    delta_x: Optional[Union[float, np.ndarray]] = None,
     rho: float = RHO_WATER,
     g: float = G_CONST,
     tau: float = TAU_CONST,
 ) -> pd.DataFrame:
-    """Compute the Unified Coastal Vulnerability Index (Υ) with decoupled TWL and quadratic symmetric wind scaling.
+    """Compute the Unified Coastal Vulnerability Index (Υ) with dynamic geomorphology and site parameterization.
 
     Parameters
     ----------
@@ -340,23 +480,24 @@ def compute_unified_coastal_vulnerability_index(
         Outer array wave power (W/m) to calculate sandbar dissipation ratio.
     hs_exponent : float
         Nonlinear wave height scaling exponent n in Hs^n (default 2.5, configurable/learnable n in [1.0, 3.0]).
-        - n = 2.0: Canonical wave energy flux scaling (P ~ Hs^2 * Tp).
-        - n = 2.5: Empirical non-linear scour / turbulence amplification.
-        - n = 1.5: Shallow-water monochromatic transport scaling.
-    s_ref : float
-        Reference storm surge residual elevation scale in meters (default 1.0m).
-    r_ref : float
-        Reference wave runup elevation scale in meters (default 2.0m).
-    w_ref : float
-        Reference shore-normal wind speed in m/s for quadratic wind stress scaling (default 15.0 m/s).
-    w_bound : float
-        Symmetric bound on fractional wind modulation (default 0.6, so amplification in [0.4, 1.6]).
-    d50_m : float
-        Median grain size (default 0.00035 m).
-    tan_beta : float
-        Beach slope (default 0.08).
-    shore_normal_deg : float
-        Shore-normal orientation (default 70.0 deg for Duck, NC).
+    s_ref, r_ref : float
+        Reference scales for surge (1.0m) and runup (2.0m).
+    w_ref, w_bound : float
+        Reference wind speed (15.0 m/s) and symmetric modulation bound (0.6).
+    d50_m : float or np.ndarray, optional
+        Median grain size in meters (default 0.00035m or from site profile). Can be a time series.
+    tan_beta : float or np.ndarray, optional
+        Foreshore beach slope (default 0.08 or from site profile). Can be a dynamic time series.
+    shore_normal_deg : float, optional
+        Shore-normal orientation (default 70.0 deg for Duck, NC or from site profile).
+    site : str, optional
+        Named site key from COASTAL_SITE_PROFILES ('duck_nc', 'narrabeen_aus', 'torrey_pines_ca', 'gold_coast_aus', 'truc_vert_france').
+    dynamic_slope : bool
+        If True, dynamically adjusts foreshore slope tan(beta)(t) based on storm wave energy and profile feedback.
+    dynamic_grain_size : bool
+        If True, dynamically coarsens active foreshore grain size D_50(t) during storms via wave winnowing.
+    delta_x : float or np.ndarray, optional
+        Observed cross-shore position changes used to couple dynamic slope with beach width.
     rho : float
         Water density (1025 kg/m^3).
     g : float
@@ -367,36 +508,62 @@ def compute_unified_coastal_vulnerability_index(
     Returns
     -------
     df_out : pd.DataFrame
-        DataFrame with hydrodynamics, dynamic settling kinetics, wave dissipation, runup, and Υ.
+        DataFrame with hydrodynamics, dynamic settling kinetics, wave dissipation, runup, slope, grain size, and Υ.
     """
     hs_arr = np.asarray(hs, dtype=float)
     tp_arr = np.asarray(tp, dtype=float)
     surge_arr = np.asarray(surge, dtype=float)
     n_exp = float(hs_exponent)
+    n_pts = len(np.atleast_1d(hs_arr))
+
+    # 1. Resolve site profile parameters if specified
+    site_cfg: Dict[str, Any] = {}
+    if site is not None and site.lower() in COASTAL_SITE_PROFILES:
+        site_cfg = COASTAL_SITE_PROFILES[site.lower()]
+
+    eff_shore_normal = shore_normal_deg if shore_normal_deg is not None else site_cfg.get("shore_normal_deg", DUCK_SHORE_NORMAL_DEG)
+    base_tan_beta = tan_beta if tan_beta is not None else site_cfg.get("tan_beta", 0.08)
+    base_d50 = d50_m if d50_m is not None else site_cfg.get("d50_m", 0.00035)
+
+    # 2. Dynamic geomorphological evolution
+    if dynamic_slope and np.isscalar(base_tan_beta):
+        min_sl = site_cfg.get("min_slope", 0.035)
+        max_sl = site_cfg.get("max_slope", 0.12)
+        tan_beta_eff = compute_dynamic_foreshore_slope(hs_arr, delta_x=delta_x, base_slope=float(base_tan_beta), min_slope=min_sl, max_slope=max_sl)
+    else:
+        tan_beta_eff = base_tan_beta
+
+    if dynamic_grain_size and np.isscalar(base_d50):
+        d50_eff = compute_dynamic_grain_size(hs_arr, base_d50_m=float(base_d50))
+    else:
+        d50_eff = base_d50
+
+    tan_beta_arr = np.broadcast_to(np.asarray(tan_beta_eff, dtype=float), hs_arr.shape) if not np.isscalar(tan_beta_eff) else np.full_like(hs_arr, float(tan_beta_eff))
+    d50_arr = np.broadcast_to(np.asarray(d50_eff, dtype=float), hs_arr.shape) if not np.isscalar(d50_eff) else np.full_like(hs_arr, float(d50_eff))
+
+    # 3. Dynamic temperature-dependent settling velocity
+    ws = compute_settling_velocity_soulsby(d50_m=d50_arr, water_temp_c=water_temp_c, rho_water=rho, g=g)
     
-    # 1. Dynamic temperature-dependent settling velocity
-    ws = compute_settling_velocity_soulsby(d50_m=d50_m, water_temp_c=water_temp_c, rho_water=rho, g=g)
+    # 4. Projected shore-normal wind forcing
+    w_a = compute_shore_normal_wind(wind_speed, wind_dir_deg, eff_shore_normal)
     
-    # 2. Projected shore-normal wind forcing
-    w_a = compute_shore_normal_wind(wind_speed, wind_dir_deg, shore_normal_deg)
-    
-    # 3. Wave dynamics, power, and runup
+    # 5. Wave dynamics, power, runup, and breaker regimes
     l_0 = compute_deepwater_wavelength(tp_arr, g=g, tau=tau)
-    r_2 = compute_stockdon_wave_runup(hs_arr, tp_arr, tan_beta=tan_beta, g=g, tau=tau)
-    xi = compute_iribarren_number(hs_arr, tp_arr, tan_beta=tan_beta, g=g, tau=tau)
+    r_2 = compute_stockdon_wave_runup(hs_arr, tp_arr, tan_beta=tan_beta_arr, g=g, tau=tau)
+    xi = compute_iribarren_number(hs_arr, tp_arr, tan_beta=tan_beta_arr, g=g, tau=tau)
     regimes = classify_breaker_regime(xi)
     p_flux = compute_wave_energy_flux(hs_arr, tp_arr, rho=rho, g=g, tau=tau)
     dean = compute_dean_number(hs_arr, tp_arr, ws=ws)
     accretion_pot = compute_constructive_accretion_potential(hs_arr, tp_arr, g=g, tau=tau)
     
-    # 4. Cross-array wave dissipation & sandbar shielding
+    # 6. Cross-array wave dissipation & sandbar shielding
     if p_outer_Wm is not None:
         delta_p, shielding = compute_cross_array_dissipation_ratio(p_outer_Wm, p_flux)
     else:
         delta_p = np.zeros_like(hs_arr)
         shielding = np.ones_like(hs_arr)
     
-    # 5. Prefactor: (rho * g^1.5) / (16 * tau^1.5)
+    # 7. Prefactor: (rho * g^1.5) / (16 * tau^1.5)
     prefactor = (rho * (g ** 1.5)) / (16.0 * (tau ** 1.5))
     
     # Wave energy & sediment kinetic core with parameterized exponent n: (Hs^n * Tp) / ws(T)
@@ -411,13 +578,13 @@ def compute_unified_coastal_vulnerability_index(
     wind_amplification = 1.0 + np.clip(w_quad, -w_bound, w_bound)
     
     # Robust Unified Coastal Vulnerability Index
-    upsilon = prefactor * tan_beta * wave_sed_core * twl_amplification * wind_amplification
+    upsilon = prefactor * tan_beta_arr * wave_sed_core * twl_amplification * wind_amplification
     
     # Shielded Upsilon (accounting for outer sandbar energy dissipation)
     upsilon_shielded = upsilon * shielding
     
     # Raw closed-form synthesis for comparison
-    upsilon_raw = prefactor * tan_beta * ((np.maximum(hs_arr, 0.01) ** n_exp) * tp_arr * np.maximum(surge_arr, 0.01) / ws) * np.maximum(w_a, 0.01)
+    upsilon_raw = prefactor * tan_beta_arr * ((np.maximum(hs_arr, 0.01) ** n_exp) * tp_arr * np.maximum(surge_arr, 0.01) / ws) * np.maximum(w_a, 0.01)
     log_upsilon = np.log10(np.maximum(upsilon, 1e-4))
     
     df_out = pd.DataFrame({
@@ -439,6 +606,8 @@ def compute_unified_coastal_vulnerability_index(
         "shielding_factor": shielding,
         "accretion_potential": accretion_pot,
         "hs_exponent": np.full_like(hs_arr, n_exp),
+        "tan_beta": tan_beta_arr,
+        "d50_m": d50_arr,
         "upsilon": upsilon,
         "upsilon_shielded": upsilon_shielded,
         "upsilon_raw": upsilon_raw,

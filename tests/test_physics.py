@@ -15,6 +15,9 @@ from src.physics import (
     compute_dean_number,
     compute_shore_normal_wind,
     compute_unified_coastal_vulnerability_index,
+    compute_dynamic_foreshore_slope,
+    compute_dynamic_grain_size,
+    COASTAL_SITE_PROFILES,
 )
 from src.data import (
     load_dataset,
@@ -473,6 +476,58 @@ def test_quadratic_symmetric_wind_scaling():
     )
     np.testing.assert_allclose(df_extreme_on["upsilon"].iloc[0] / ups_calm, 1.0 + 0.6, rtol=1e-3)
     np.testing.assert_allclose(df_extreme_off["upsilon"].iloc[0] / ups_calm, 1.0 - 0.6, rtol=1e-3)
+
+
+def test_coastal_site_profiles_database():
+    """Verify global coastal site geomorphology database lookups."""
+    assert "duck_nc" in COASTAL_SITE_PROFILES
+    assert "narrabeen_aus" in COASTAL_SITE_PROFILES
+    assert "torrey_pines_ca" in COASTAL_SITE_PROFILES
+
+    # Run Upsilon parameterized by named site
+    df_narr = compute_unified_coastal_vulnerability_index(
+        hs=np.array([2.5]),
+        tp=np.array([11.0]),
+        surge=np.array([0.4]),
+        wind_speed=np.array([12.0]),
+        wind_dir_deg=np.array([85.0]),
+        site="narrabeen_aus",
+    )
+    assert df_narr["tan_beta"].iloc[0] == COASTAL_SITE_PROFILES["narrabeen_aus"]["tan_beta"]
+    assert df_narr["d50_m"].iloc[0] == COASTAL_SITE_PROFILES["narrabeen_aus"]["d50_m"]
+    assert df_narr["upsilon"].iloc[0] > 0.0
+
+
+def test_dynamic_foreshore_slope_and_grain_size():
+    """Verify dynamic storm-flattening slope and storm-coarsening grain size response."""
+    hs_storm_series = np.array([1.0, 1.0, 4.5, 4.5, 4.5, 1.0, 1.0])
+    
+    # 1. Dynamic slope: storm waves must reduce slope toward dissipative profile
+    slopes = compute_dynamic_foreshore_slope(hs_storm_series, base_slope=0.08, min_slope=0.035, max_slope=0.12)
+    assert slopes[3] < slopes[0]  # Storm peak is flatter than initial calm
+    assert np.all(slopes >= 0.035)
+    assert np.all(slopes <= 0.12)
+
+    # 2. Dynamic grain size: storm winnowing coarsens active lag deposit
+    d50s = compute_dynamic_grain_size(hs_storm_series, base_d50_m=0.00035, coarsening_factor=1.30)
+    assert d50s[3] > d50s[0]  # Storm peak is coarser than calm
+    assert np.all(d50s >= 0.00020)
+    assert np.all(d50s <= 0.00060)
+
+    # 3. Full Upsilon pipeline with dynamic_slope=True and dynamic_grain_size=True
+    df_dyn = compute_unified_coastal_vulnerability_index(
+        hs=hs_storm_series,
+        tp=np.full_like(hs_storm_series, 10.0),
+        surge=np.full_like(hs_storm_series, 0.5),
+        wind_speed=np.full_like(hs_storm_series, 10.0),
+        wind_dir_deg=np.full_like(hs_storm_series, 70.0),
+        dynamic_slope=True,
+        dynamic_grain_size=True,
+    )
+    assert len(df_dyn["tan_beta"].unique()) > 1
+    assert len(df_dyn["d50_m"].unique()) > 1
+    assert "upsilon" in df_dyn.columns
+
 
 
 
