@@ -212,3 +212,65 @@ def test_explain_with_gemini_mock(sample_coastal_df):
     )
     assert narrative is not None
     assert "extreme dissipative storm surge" in narrative
+
+
+def test_evaluate_retrieval_query_precision_and_purity(sample_coastal_df):
+    """Test evaluating Precision@k, Regime Purity@k, Recall@k, and Reciprocal Rank for single queries."""
+    rag = PhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust")
+
+    # 1. Regime query (Spilling)
+    metrics_spill = rag.evaluate_query(
+        query="Show me all the Spilling breakers",
+        target_regime="Spilling",
+        k=5,
+        use_llm_parser=False,
+    )
+    assert metrics_spill["precision_at_k"] == 1.0
+    assert metrics_spill["regime_purity"] == 1.0
+    assert metrics_spill["recall_at_k"] == 1.0
+    assert metrics_spill["reciprocal_rank"] == 1.0
+    assert metrics_spill["n_retrieved"] == 5
+    assert metrics_spill["total_dataset_support"] > 0
+
+    # 2. Surge query (> 0.5m)
+    metrics_surge = rag.evaluate_query(
+        query="Find positive storm surge elevation above 0.5m",
+        condition_fn=lambda row, df: float(row.get("surge_m", 0.0)) >= 0.5,
+        k=5,
+        use_llm_parser=False,
+    )
+    assert metrics_surge["precision_at_k"] == 1.0
+    assert metrics_surge["reciprocal_rank"] == 1.0
+    assert metrics_surge["n_correct"] == 5
+
+
+def test_evaluate_rag_benchmark_suite(sample_coastal_df):
+    """Test full multi-k RAG benchmark evaluation suite."""
+    rag = PhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust")
+
+    df_results, summary = rag.evaluate_benchmark(
+        k_list=[1, 3, 5],
+        use_llm_parser=False,
+    )
+
+    assert not df_results.empty
+    assert len(df_results) == 10
+    assert "Query" in df_results.columns
+    assert "Category" in df_results.columns
+    assert "P@1" in df_results.columns
+    assert "P@3" in df_results.columns
+    assert "P@5" in df_results.columns
+    assert "Regime Purity@5" in df_results.columns
+    assert "MRR" in df_results.columns
+    assert "Recall@5" in df_results.columns
+    assert "Mean Sim@5" in df_results.columns
+
+    # Check macro-averaged summary metrics
+    assert "Mean Precision@1" in summary
+    assert "Mean Precision@5" in summary
+    assert "Mean Regime Purity@5" in summary
+    assert "Mean Reciprocal Rank (MRR)" in summary
+    assert summary["Mean Precision@5"] > 0.80
+    assert summary["Mean Regime Purity@5"] > 0.80
+    assert summary["Mean Reciprocal Rank (MRR)"] > 0.80
+

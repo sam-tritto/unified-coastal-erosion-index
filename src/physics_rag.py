@@ -171,30 +171,48 @@ class PhysicsQueryParser:
 
         # Check numerical patterns in query for target values
         synth_vals: Dict[str, float] = {}
-        hs_m = re.search(r"(\d+(\.\d+)?)\s*m\s*(wave|hs|height)", text)
-        if hs_m:
-            val = float(hs_m.group(1))
+
+        # 1. Wave height
+        hs_m1 = re.search(r"(\d+(\.\d+)?)\s*m\s*(wave|hs|height)", text)
+        hs_m2 = re.search(r"(wave|hs|height)\w*\s*(elevation|height)?\s*(above|over|>|exceed\w*|higher\w*|>=|of)?\s*(\d+(\.\d+)?)\s*m?", text)
+        if hs_m1 or hs_m2:
+            val = float(hs_m1.group(1)) if hs_m1 else float(hs_m2.group(4))
             synth_vals["hs_m"] = val
             if any(w in text for w in [">", "over", "above", "exceed", "higher"]):
                 parsed["filters"]["hs_min"] = val
             elif any(w in text for w in ["<", "under", "below", "less"]):
                 parsed["filters"]["hs_max"] = val
 
-        tp_m = re.search(r"(\d+(\.\d+)?)\s*s\s*(period|tp|swell)", text)
-        if tp_m:
-            val = float(tp_m.group(1))
+        # 2. Wave period
+        tp_m1 = re.search(r"(\d+(\.\d+)?)\s*s\s*(period|tp|swell)", text)
+        tp_m2 = re.search(r"(period|tp|swell)\w*\s*(above|over|>|exceed\w*|higher\w*|>=|of)?\s*(\d+(\.\d+)?)\s*s?", text)
+        if tp_m1 or tp_m2:
+            val = float(tp_m1.group(1)) if tp_m1 else float(tp_m2.group(3))
             synth_vals["tp_s"] = val
             if any(w in text for w in [">", "over", "above", "exceed", "higher"]):
                 parsed["filters"]["tp_min"] = val
             elif any(w in text for w in ["<", "under", "below", "less"]):
                 parsed["filters"]["tp_max"] = val
 
-        surge_m = re.search(r"(\d+(\.\d+)?)\s*m\s*surge", text)
-        if surge_m:
-            val = float(surge_m.group(1))
+        # 3. Storm surge
+        surge_m1 = re.search(r"(\d+(\.\d+)?)\s*m\s*surge", text)
+        surge_m2 = re.search(r"(surge|water level)\w*\s*(elevation|residual)?\s*(above|over|>|exceed\w*|higher\w*|>=|of)?\s*(\d+(\.\d+)?)\s*m?", text)
+        if surge_m1 or surge_m2:
+            val = float(surge_m1.group(1)) if surge_m1 else float(surge_m2.group(4))
             synth_vals["surge_m"] = val
-            if any(w in text for w in [">", "over", "above", "exceed", "higher"]):
+            if any(w in text for w in [">", "over", "above", "exceed", "higher", "positive"]):
                 parsed["filters"]["surge_min"] = val
+            elif any(w in text for w in ["<", "under", "below", "less", "negative"]):
+                parsed["filters"]["surge_max"] = val
+
+        # 4. Wind speed
+        wind_m1 = re.search(r"(\d+(\.\d+)?)\s*(m/s|ms)\s*wind", text)
+        wind_m2 = re.search(r"(wind|gale)\w*\s*(speed|velocity)?\s*(above|over|>|exceed\w*|higher\w*|>=|of)?\s*(\d+(\.\d+)?)\s*(m/s|ms)?", text)
+        if wind_m1 or wind_m2:
+            val = float(wind_m1.group(1)) if wind_m1 else float(wind_m2.group(4))
+            synth_vals["wind_normal_ms"] = val
+            if any(w in text for w in [">", "over", "above", "exceed", "higher", "strong"]):
+                parsed["filters"]["wind_normal_min"] = val
 
         if synth_vals:
             parsed["target_synthetic_values"] = synth_vals
@@ -391,6 +409,7 @@ class PhysicsRAGResult:
         parsed_criteria: Union[Dict[str, Any], PhysicsQuerySpec],
         llm_explanation: Optional[str] = None,
         query_vector: Optional[np.ndarray] = None,
+        metrics: Optional[Dict[str, Any]] = None,
     ):
         self.query = query
         self.matches_df = matches_df
@@ -399,6 +418,7 @@ class PhysicsRAGResult:
         self.parsed_criteria = parsed_criteria
         self.llm_explanation = llm_explanation
         self.query_vector = query_vector
+        self.metrics = metrics or {}
 
     def __repr__(self) -> str:
         return f"<PhysicsRAGResult for query='{self.query}', n_matches={len(self.matches_df)}>"
@@ -738,3 +758,355 @@ class PhysicsRAG:
             llm_explanation=llm_expl,
             query_vector=query_vec,
         )
+
+    def evaluate_query(
+        self,
+        query: str,
+        condition_fn: Optional[Any] = None,
+        target_regime: Optional[str] = None,
+        k: int = 5,
+        use_llm_parser: bool = True,
+    ) -> Dict[str, Any]:
+        """Evaluate retrieval performance (Precision@k, Regime Purity@k, Recall@k, MRR) for a single query.
+
+        Parameters
+        ----------
+        query : str
+            Natural language query text.
+        condition_fn : callable, optional
+            Function condition_fn(row, df) -> bool evaluating if a dataset row meets ground truth.
+        target_regime : str, optional
+            Expected ground-truth breaker regime ('Spilling', 'Plunging', 'Surging').
+        k : int
+            Retrieval rank cutoff (default 5).
+        use_llm_parser : bool
+            Whether to use Gemini structured output parser.
+
+        Returns
+        -------
+        metrics : dict
+            Dictionary of calculated retrieval metrics.
+        """
+        return evaluate_retrieval_query(
+            rag=self,
+            query_spec_or_text=query,
+            condition_fn=condition_fn,
+            target_regime=target_regime,
+            k=k,
+            use_llm_parser=use_llm_parser,
+        )
+
+    def evaluate_benchmark(
+        self,
+        benchmark_queries: Optional[List[Dict[str, Any]]] = None,
+        k_list: List[int] = [1, 3, 5, 10],
+        use_llm_parser: bool = False,
+    ) -> Tuple[pd.DataFrame, Dict[str, float]]:
+        """Run full quantitative retrieval benchmark suite across diverse physical query categories.
+
+        Parameters
+        ----------
+        benchmark_queries : list[dict], optional
+            Custom list of query dicts (defaults to DEFAULT_PHYSICS_BENCHMARK_QUERIES).
+        k_list : list[int]
+            List of k cutoffs to evaluate (e.g. [1, 3, 5, 10]).
+        use_llm_parser : bool
+            Whether to use Gemini structured output parser.
+
+        Returns
+        -------
+        df_results : pd.DataFrame
+            Detailed per-query evaluation table.
+        summary_metrics : dict
+            Macro-averaged benchmark summary metrics (Mean P@1, Mean P@5, Mean Regime Purity, Mean MRR).
+        """
+        return evaluate_rag_benchmark_suite(
+            rag=self,
+            benchmark_queries=benchmark_queries,
+            k_list=k_list,
+            use_llm_parser=use_llm_parser,
+        )
+
+
+# ==============================================================================
+# Standard Physics-RAG Evaluation Suite & Metrics Engine
+# ==============================================================================
+
+DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
+    {
+        "query": "Show me all the Spilling breakers",
+        "category": "Breaker Regime",
+        "target_regime": "Spilling",
+        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Spilling" or float(row.get("xi_iribarren", 1.0)) < 0.5,
+        "description": "Dissipative wave breaking regime with surf similarity ξ < 0.5",
+    },
+    {
+        "query": "Find plunging curling waves",
+        "category": "Breaker Regime",
+        "target_regime": "Plunging",
+        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Plunging" or (0.5 <= float(row.get("xi_iribarren", 1.0)) < 3.3),
+        "description": "Intermediate wave breaking regime with 0.5 <= ξ < 3.3",
+    },
+    {
+        "query": "Show reflective surging shorebreak",
+        "category": "Breaker Regime",
+        "target_regime": "Surging",
+        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 3.3,
+        "description": "Reflective wave surging regime with ξ >= 3.3",
+    },
+    {
+        "query": "Find high energy storm waves over 3m",
+        "category": "Wave Energetics",
+        "target_regime": None,
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 3.0,
+        "description": "Severe sea states with significant wave height Hs >= 3.0m",
+    },
+    {
+        "query": "Show long period swell with period over 12s",
+        "category": "Wave Energetics",
+        "target_regime": None,
+        "condition_fn": lambda row, df: float(row.get("tp_s", 0.0)) >= 12.0,
+        "description": "Long-period swell wave fields with peak period Tp >= 12.0s",
+    },
+    {
+        "query": "Show severe beach erosion and shoreline cut",
+        "category": "Morphodynamics",
+        "target_regime": None,
+        "condition_fn": lambda row, df: float(row.get("delta_x_m", row.get("shoreline_pos_obs_m", 0.0))) < float(df["delta_x_m"].median() if "delta_x_m" in df.columns else 0.0),
+        "description": "Erosive morphodynamic response with negative shoreline displacement ΔX < 0",
+    },
+    {
+        "query": "Find berm accretion and fair weather recovery",
+        "category": "Morphodynamics",
+        "target_regime": None,
+        "condition_fn": lambda row, df: float(row.get("delta_x_m", row.get("shoreline_pos_obs_m", 0.0))) > float(df["delta_x_m"].median() if "delta_x_m" in df.columns else 0.0),
+        "description": "Accretive morphodynamic state with positive shoreline recovery ΔX > 0",
+    },
+    {
+        "query": "Find positive storm surge elevation above 0.5m",
+        "category": "Total Water Level",
+        "target_regime": None,
+        "condition_fn": lambda row, df: float(row.get("surge_m", 0.0)) >= 0.5,
+        "description": "Elevated storm surge elevation with Surge >= 0.5m",
+    },
+    {
+        "query": "Show strong onshore wind conditions",
+        "category": "Atmospheric Forcing",
+        "target_regime": None,
+        "condition_fn": lambda row, df: float(row.get("wind_normal_ms", 0.0)) >= 4.0,
+        "description": "Onshore wind forcing with shore-normal wind speed >= 4.0 m/s",
+    },
+    {
+        "query": "Find extreme vulnerability storm peak states",
+        "category": "Vulnerability Index",
+        "target_regime": None,
+        "condition_fn": lambda row, df: float(row.get("upsilon", 0.0)) >= float(np.percentile(df["upsilon"].values, 70.0)),
+        "description": "Top tier Unified Coastal Vulnerability Index Υ (>= 70th percentile)",
+    },
+]
+
+
+def evaluate_retrieval_query(
+    rag: PhysicsRAG,
+    query_spec_or_text: Union[str, Dict[str, Any]],
+    condition_fn: Optional[Any] = None,
+    target_regime: Optional[str] = None,
+    k: int = 5,
+    use_llm_parser: bool = False,
+) -> Dict[str, Any]:
+    """Calculate Precision@k, Regime Purity@k, Recall@k, and Reciprocal Rank for a query.
+
+    Parameters
+    ----------
+    rag : PhysicsRAG
+        Instantiated PhysicsRAG engine.
+    query_spec_or_text : str or dict
+        Query string or query specification dictionary.
+    condition_fn : callable, optional
+        Function condition_fn(row, df) -> bool evaluating if a dataset row meets ground truth.
+    target_regime : str, optional
+        Expected ground-truth breaker regime ('Spilling', 'Plunging', 'Surging').
+    k : int
+        Retrieval rank cutoff (default 5).
+    use_llm_parser : bool
+        Whether to use Gemini structured output parser.
+
+    Returns
+    -------
+    metrics : dict
+        Calculated retrieval evaluation metrics.
+    """
+    if isinstance(query_spec_or_text, dict):
+        query_str = query_spec_or_text["query"]
+        cond = condition_fn or query_spec_or_text.get("condition_fn")
+        regime = target_regime or query_spec_or_text.get("target_regime")
+        category = query_spec_or_text.get("category", "General")
+    else:
+        query_str = str(query_spec_or_text)
+        cond = condition_fn
+        regime = target_regime
+        category = "Custom"
+
+    # Default condition if target_regime provided
+    if cond is None and regime:
+        cond = lambda row, df: str(row.get("breaker_regime", "")) == regime
+
+    # Total ground-truth support in dataset
+    df = rag.df
+    total_support = 0
+    if cond is not None:
+        try:
+            total_support = int(sum(bool(cond(df.iloc[i], df)) for i in range(len(df))))
+        except Exception:
+            total_support = len(df)
+
+    # Execute RAG query
+    rag_res = rag.query(
+        query_text=query_str,
+        top_k=k,
+        use_llm_parser=use_llm_parser,
+        use_llm_synthesis=False,
+    )
+
+    matches_df = rag_res.matches_df
+    n_retrieved = len(matches_df)
+    eff_k = max(1, n_retrieved)
+
+    # Calculate binary relevance mask for retrieved instances
+    relevance_flags: List[bool] = []
+    regime_flags: List[bool] = []
+
+    for i in range(n_retrieved):
+        row = matches_df.iloc[i]
+        is_rel = bool(cond(row, df)) if cond is not None else True
+        relevance_flags.append(is_rel)
+
+        if regime and "breaker_regime" in row:
+            regime_flags.append(str(row["breaker_regime"]) == regime)
+        elif regime:
+            regime_flags.append(False)
+
+    n_correct = sum(relevance_flags)
+    precision_at_k = float(n_correct / eff_k) if eff_k > 0 else 0.0
+
+    # Regime Purity@k
+    if regime:
+        regime_purity = float(sum(regime_flags) / eff_k) if eff_k > 0 else 0.0
+    else:
+        regime_purity = precision_at_k
+
+    # Recall@k (relative to min(k, total_support))
+    if total_support > 0:
+        recall_at_k = float(n_correct / min(eff_k, total_support))
+    else:
+        recall_at_k = 1.0 if n_correct > 0 else 0.0
+
+    # Reciprocal Rank (RR)
+    reciprocal_rank = 0.0
+    for idx, is_rel in enumerate(relevance_flags):
+        if is_rel:
+            reciprocal_rank = 1.0 / float(idx + 1)
+            break
+
+    mean_sim = float(np.mean(rag_res.similarities)) if len(rag_res.similarities) > 0 else 0.0
+
+    return {
+        "query": query_str,
+        "category": category,
+        "target_regime": regime,
+        "k": k,
+        "precision_at_k": precision_at_k,
+        "regime_purity": regime_purity,
+        "recall_at_k": recall_at_k,
+        "reciprocal_rank": reciprocal_rank,
+        "mean_similarity": mean_sim,
+        "n_retrieved": n_retrieved,
+        "n_correct": n_correct,
+        "total_dataset_support": total_support,
+        "retrieved_df": matches_df,
+    }
+
+
+def evaluate_rag_benchmark_suite(
+    rag: PhysicsRAG,
+    benchmark_queries: Optional[List[Dict[str, Any]]] = None,
+    k_list: List[int] = [1, 3, 5, 10],
+    use_llm_parser: bool = False,
+) -> Tuple[pd.DataFrame, Dict[str, float]]:
+    """Execute multi-k benchmark evaluation suite across diverse coastal query categories.
+
+    Parameters
+    ----------
+    rag : PhysicsRAG
+        Instantiated PhysicsRAG engine.
+    benchmark_queries : list[dict], optional
+        Custom list of query dicts (defaults to DEFAULT_PHYSICS_BENCHMARK_QUERIES).
+    k_list : list[int]
+        List of k rank cutoffs (e.g. [1, 3, 5, 10]).
+    use_llm_parser : bool
+        Whether to use Gemini structured output parser.
+
+    Returns
+    -------
+    df_results : pd.DataFrame
+        Detailed per-query evaluation table.
+    summary_metrics : dict
+        Macro-averaged benchmark summary metrics (Mean P@1, Mean P@5, Mean Regime Purity, Mean MRR).
+    """
+    queries = benchmark_queries or DEFAULT_PHYSICS_BENCHMARK_QUERIES
+    rows: List[Dict[str, Any]] = []
+
+    p_at_k_accum: Dict[int, List[float]] = {k_val: [] for k_val in k_list}
+    purity_accum: List[float] = []
+    mrr_accum: List[float] = []
+    recall_accum: List[float] = []
+    sim_accum: List[float] = []
+
+    for q_spec in queries:
+        row_entry: Dict[str, Any] = {
+            "Query": q_spec["query"],
+            "Category": q_spec.get("category", "General"),
+            "Target Regime": q_spec.get("target_regime") or "N/A",
+        }
+
+        # Evaluate across multiple k values
+        for k_val in k_list:
+            q_res = evaluate_retrieval_query(
+                rag=rag,
+                query_spec_or_text=q_spec,
+                k=k_val,
+                use_llm_parser=use_llm_parser,
+            )
+            p_val = q_res["precision_at_k"]
+            row_entry[f"P@{k_val}"] = p_val
+            p_at_k_accum[k_val].append(p_val)
+
+            if k_val == 5:
+                row_entry["Regime Purity@5"] = q_res["regime_purity"]
+                row_entry["MRR"] = q_res["reciprocal_rank"]
+                row_entry["Recall@5"] = q_res["recall_at_k"]
+                row_entry["Mean Sim@5"] = q_res["mean_similarity"]
+                row_entry["Dataset Support"] = q_res["total_dataset_support"]
+
+                purity_accum.append(q_res["regime_purity"])
+                mrr_accum.append(q_res["reciprocal_rank"])
+                recall_accum.append(q_res["recall_at_k"])
+                sim_accum.append(q_res["mean_similarity"])
+
+        rows.append(row_entry)
+
+    df_results = pd.DataFrame(rows)
+
+    summary_metrics = {
+        "Mean Precision@1": float(np.mean(p_at_k_accum.get(1, [0.0]))),
+        "Mean Precision@3": float(np.mean(p_at_k_accum.get(3, [0.0]))),
+        "Mean Precision@5": float(np.mean(p_at_k_accum.get(5, [0.0]))),
+        "Mean Precision@10": float(np.mean(p_at_k_accum.get(10, [0.0]))),
+        "Mean Regime Purity@5": float(np.mean(purity_accum)) if purity_accum else 0.0,
+        "Mean Reciprocal Rank (MRR)": float(np.mean(mrr_accum)) if mrr_accum else 0.0,
+        "Mean Recall@5": float(np.mean(recall_accum)) if recall_accum else 0.0,
+        "Mean Cosine Similarity@5": float(np.mean(sim_accum)) if sim_accum else 0.0,
+    }
+
+    return df_results, summary_metrics
+
