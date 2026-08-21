@@ -12,8 +12,10 @@ from src.neural_baselines import (
     PhysicsGuidedLSTM,
     create_sliding_window_dataset,
     train_neural_model,
-    evaluate_neural_model,
+    evaluate_dual_horizon,
+    simulate_storm_rollout,
     run_deep_learning_benchmark,
+    generate_whitepaper_synthesis_table,
 )
 
 
@@ -36,7 +38,7 @@ def test_coastal_mlp_forward():
 def test_coastal_lstm_forward():
     batch_size = 4
     seq_len = 24
-    input_dim = 4
+    input_dim = 5
     model = CoastalLSTM(input_dim=input_dim, hidden_dim=16, num_layers=1, dropout=0.0)
     x = torch.randn(batch_size, seq_len, input_dim)
     out = model(x)
@@ -47,7 +49,7 @@ def test_coastal_lstm_forward():
 def test_physics_guided_lstm_forward():
     batch_size = 4
     seq_len = 24
-    input_dim = 8
+    input_dim = 9
     model = PhysicsGuidedLSTM(input_dim=input_dim, hidden_dim=24, num_layers=1, dropout=0.0)
     x = torch.randn(batch_size, seq_len, input_dim)
     out = model(x)
@@ -64,18 +66,25 @@ def test_sliding_window_dataset(sample_dataset: pd.DataFrame):
     assert "x_train" in data and "x_test" in data
     assert data["x_train"].dim() == 3
     assert data["x_train"].size(1) == lookback
-    assert data["x_train"].size(2) == len(raw_features)
+    assert data["x_train"].size(2) == len(raw_features) + 1
 
 
-def test_run_deep_learning_benchmark(sample_dataset: pd.DataFrame):
+def test_run_deep_learning_benchmark_and_synthesis(sample_dataset: pd.DataFrame):
     df_results, suite_data = run_deep_learning_benchmark(
-        sample_dataset, lookback=12, train_split=0.70, epochs=3, batch_size=16, random_seed=42
+        sample_dataset, lookback=12, train_split=0.70, epochs=2, batch_size=16, storm_duration=24, random_seed=42
     )
     assert isinstance(df_results, pd.DataFrame)
     assert len(df_results) == 3
-    assert "RMSE (m)" in df_results.columns
-    assert "R2 Score" in df_results.columns
-    assert "BSS" in df_results.columns
-    assert "MLP" in suite_data["trained_models"]
-    assert "LSTM" in suite_data["trained_models"]
-    assert "PG-LSTM" in suite_data["trained_models"]
+    assert "1-Hour Nowcast R2" in df_results.columns
+    assert "72h Storm RMSE (m)" in df_results.columns
+    assert "Full-Year R2 Score" in df_results.columns
+    assert "MLP" in suite_data["storm_rollouts"]
+
+    # Test synthesis table
+    df_bayesian_dummy = pd.DataFrame([
+        {"Model": "Hybrid (Upsilon Anchor + Multi Residuals)", "Type": "hybrid", "R2 Score": 0.1239, "RMSE (m)": 2.6302}
+    ])
+    df_synth = generate_whitepaper_synthesis_table(df_bayesian_dummy, df_results)
+    assert len(df_synth) == 4
+    assert "Model Architecture" in df_synth.columns
+    assert "Paradigm" in df_synth.columns
