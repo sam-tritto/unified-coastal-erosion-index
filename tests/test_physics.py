@@ -290,7 +290,7 @@ def test_bayesian_temporal_holdout_and_prediction():
 
     model, meta = build_latent_memory_bayesian_model(
         forcing=df_train["upsilon"].values,
-        delta_x_obs=df_train["shoreline_pos_obs_m"].values,
+        delta_x_obs=df_train["shoreline_change_rate_mh"].values,
         max_lag=12,
     )
     trace = fit_bayesian_model(model, draws=50, tune=50, chains=2, random_seed=42)
@@ -308,8 +308,8 @@ def test_bayesian_temporal_holdout_and_prediction():
     assert mu_samples.shape == (100, len(df))
     assert y_pred.shape == (100, len(df))
 
-    # Evaluate out-of-sample holdout
-    y_test_obs = df_test["shoreline_pos_obs_m"].values
+    # Evaluate out-of-sample holdout on shoreline_change_rate_mh
+    y_test_obs = df_test["shoreline_change_rate_mh"].values
     perf_test = evaluate_model_performance(y_true=y_test_obs, y_pred=mu_mean[split_idx:])
     assert perf_test["RMSE (m)"] < 10.0
     assert "R2 Score" in perf_test
@@ -320,6 +320,7 @@ def test_bayesian_benchmark_with_holdout_and_loo():
     df = generate_frf_duck_hurricane_ian_dataset().iloc[:80]
     df_comp, traces = run_benchmark_model_comparison(
         df=df,
+        target_col="shoreline_change_rate_mh",
         train_split=0.75,
         draws=50,
         tune=50,

@@ -440,6 +440,7 @@ def run_arviz_loo_comparison(
 
 def run_benchmark_model_comparison(
     df: pd.DataFrame,
+    target_col: str = "shoreline_change_rate_mh",
     train_split: float = 0.75,
     draws: int = 1000,
     tune: int = 800,
@@ -457,6 +458,8 @@ def run_benchmark_model_comparison(
     ----------
     df : pd.DataFrame
         Synchronized hydrodynamic and morphodynamic observational dataset.
+    target_col : str
+        Target column name (default 'shoreline_change_rate_mh' for dx/dt rate of shoreline change).
     train_split : float
         Chronological training split fraction (default 0.75, giving 75% train, 25% out-of-sample test).
         Set to 1.0 for full-series training without holdout split.
@@ -498,14 +501,28 @@ def run_benchmark_model_comparison(
     df_train = df.iloc[:split_idx].copy()
     df_test = df.iloc[split_idx:].copy() if has_holdout else df.copy()
 
-    y_obs_train = df_train["shoreline_pos_obs_m"].values
-    y_true_train = df_train["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df_train.columns else y_obs_train
-
-    y_obs_test = df_test["shoreline_pos_obs_m"].values if has_holdout else y_obs_train
-    y_true_test = df_test["shoreline_pos_true_m"].values if (has_holdout and "shoreline_pos_true_m" in df_test.columns) else y_obs_test
-
-    y_obs_full = df["shoreline_pos_obs_m"].values
-    y_true_full = df["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df.columns else y_obs_full
+    # Resolve target columns (default to shoreline_change_rate_mh / dx/dt rate of change)
+    if target_col in df_train.columns:
+        y_obs_train = df_train[target_col].values
+        y_true_train = df_train[target_col].values
+        y_obs_test = df_test[target_col].values if has_holdout else y_obs_train
+        y_true_test = df_test[target_col].values if has_holdout else y_true_train
+        y_obs_full = df[target_col].values
+        y_true_full = df[target_col].values
+    elif "shoreline_change_rate_mh" in df_train.columns:
+        y_obs_train = df_train["shoreline_change_rate_mh"].values
+        y_true_train = df_train["shoreline_change_rate_mh"].values
+        y_obs_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_obs_train
+        y_true_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_true_train
+        y_obs_full = df["shoreline_change_rate_mh"].values
+        y_true_full = df["shoreline_change_rate_mh"].values
+    else:
+        y_obs_train = df_train["shoreline_pos_obs_m"].values
+        y_true_train = df_train["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df_train.columns else y_obs_train
+        y_obs_test = df_test["shoreline_pos_obs_m"].values if has_holdout else y_obs_train
+        y_true_test = df_test["shoreline_pos_true_m"].values if (has_holdout and "shoreline_pos_true_m" in df_test.columns) else y_obs_test
+        y_obs_full = df["shoreline_pos_obs_m"].values
+        y_true_full = df["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df.columns else y_obs_full
 
     # Define competing hypotheses (built on training split)
     candidates: Dict[str, Any] = {
