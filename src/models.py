@@ -1015,6 +1015,8 @@ def build_learnable_exponent_bayesian_model(
     prior_sigma: float = 0.5,
     s_ref: float = 1.0,
     r_ref: float = 2.0,
+    w_ref: float = 15.0,
+    w_bound: float = 0.6,
     lower_bound: float = 1.0,
     upper_bound: float = 3.0,
 ) -> Tuple[pm.Model, Dict[str, Any]]:
@@ -1048,6 +1050,8 @@ def build_learnable_exponent_bayesian_model(
         Hyperparameters for truncated_normal prior.
     s_ref, r_ref : float
         Reference scales for surge (1.0m) and runup (2.0m).
+    w_ref, w_bound : float
+        Reference wind scale (15.0 m/s) and symmetric bound (0.6).
     lower_bound, upper_bound : float
         Bounds for exponent n (default 1.0 to 3.0).
 
@@ -1070,9 +1074,11 @@ def build_learnable_exponent_bayesian_model(
     shield_arr = np.asarray(shielding_factor, dtype=float) if shielding_factor is not None else np.ones(n_obs)
     k_indices = np.arange(max_lag, dtype=float)
 
-    # Precompute non-exponent terms to optimize sampling graph (decoupled additive TWL)
+    # Precompute non-exponent terms to optimize sampling graph (decoupled additive TWL & quadratic symmetric wind)
     twl_arr = 1.0 + np.maximum(surge_arr / s_ref, 0.0) + np.maximum(runup_arr / r_ref, 0.0)
-    wind_arr_mod = 1.0 + np.maximum(wind_arr / 10.0, -0.3)
+    w_sign = np.sign(wind_arr)
+    w_quad = w_sign * ((np.abs(wind_arr) / max(w_ref, 1.0)) ** 2)
+    wind_arr_mod = 1.0 + np.clip(w_quad, -w_bound, w_bound)
     prefactor = (1025.0 * (9.81 ** 1.5)) / (16.0 * ((2.0 * np.pi) ** 1.5))
     kinematic_base = prefactor * 0.08 * (tp_arr / ws_arr) * twl_arr * wind_arr_mod * shield_arr
 

@@ -311,6 +311,8 @@ def compute_unified_coastal_vulnerability_index(
     hs_exponent: float = 2.5,
     s_ref: float = 1.0,
     r_ref: float = 2.0,
+    w_ref: float = 15.0,
+    w_bound: float = 0.6,
     d50_m: float = 0.00035,
     tan_beta: float = 0.08,
     shore_normal_deg: float = DUCK_SHORE_NORMAL_DEG,
@@ -318,7 +320,7 @@ def compute_unified_coastal_vulnerability_index(
     g: float = G_CONST,
     tau: float = TAU_CONST,
 ) -> pd.DataFrame:
-    """Compute the Unified Coastal Vulnerability Index (Υ) with decoupled additive TWL amplification.
+    """Compute the Unified Coastal Vulnerability Index (Υ) with decoupled TWL and quadratic symmetric wind scaling.
 
     Parameters
     ----------
@@ -345,6 +347,10 @@ def compute_unified_coastal_vulnerability_index(
         Reference storm surge residual elevation scale in meters (default 1.0m).
     r_ref : float
         Reference wave runup elevation scale in meters (default 2.0m).
+    w_ref : float
+        Reference shore-normal wind speed in m/s for quadratic wind stress scaling (default 15.0 m/s).
+    w_bound : float
+        Symmetric bound on fractional wind modulation (default 0.6, so amplification in [0.4, 1.6]).
     d50_m : float
         Median grain size (default 0.00035 m).
     tan_beta : float
@@ -399,8 +405,10 @@ def compute_unified_coastal_vulnerability_index(
     # Total Water Level / Surge amplification factor (decoupled additive reference scaling)
     twl_amplification = 1.0 + np.maximum(surge_arr / s_ref, 0.0) + np.maximum(r_2 / r_ref, 0.0)
     
-    # Wind amplification factor
-    wind_amplification = 1.0 + np.maximum(w_a / 10.0, -0.3)
+    # Wind amplification factor: quadratic stress scaling with symmetric bounding
+    w_sign = np.sign(w_a)
+    w_quad = w_sign * ((np.abs(w_a) / max(w_ref, 1.0)) ** 2)
+    wind_amplification = 1.0 + np.clip(w_quad, -w_bound, w_bound)
     
     # Robust Unified Coastal Vulnerability Index
     upsilon = prefactor * tan_beta * wave_sed_core * twl_amplification * wind_amplification
