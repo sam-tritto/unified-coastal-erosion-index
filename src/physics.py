@@ -436,6 +436,70 @@ def compute_constructive_accretion_potential(
     return upsilon_acc
 
 
+def compute_signed_coastal_vulnerability_index(
+    upsilon: Union[float, np.ndarray],
+    accretion_potential: Union[float, np.ndarray],
+    dean_number: Union[float, np.ndarray],
+    omega_crit: float = 2.5,
+    transition_width: float = 0.4,
+    use_log_scale: bool = True,
+) -> Union[float, np.ndarray]:
+    """Compute the Signed Net Coastal Vulnerability & Accretion Index (Upsilon_signed).
+
+    Provides a physically grounded, bipolar morphodynamic forcing channel where:
+    - Positive values (+Upsilon_signed > 0) signify constructive onshore swash accretion and fair-weather berm recovery.
+    - Negative values (-Upsilon_signed < 0) signify destructive offshore storm erosion and beach scarping.
+
+    Transition dynamics:
+    - Governed by the Dean dimensionless fall velocity Omega = Hs / (w_s * Tp) relative to the critical equilibrium threshold omega_crit ~ 2.0-2.5.
+    - Differentiable sigmoid weighting ensures smooth transitions between erosive and accretive swash regimes.
+
+    Parameters
+    ----------
+    upsilon : float or np.ndarray
+        Unified Coastal Vulnerability Index (positive storm erosive hazard).
+    accretion_potential : float or np.ndarray
+        Constructive swash accretion potential Upsilon_acc = (Tp * sqrt(g * L_0)) / (Hs + 0.1).
+    dean_number : float or np.ndarray
+        Dean number / dimensionless fall velocity Omega.
+    omega_crit : float
+        Critical Dean equilibrium threshold (default 2.5).
+    transition_width : float
+        Sigmoid transition smoothing parameter (default 0.4).
+    use_log_scale : bool
+        Whether to compute signed response in log-normalized space (default True).
+
+    Returns
+    -------
+    signed_upsilon : float or np.ndarray
+        Signed morphodynamic index series (+ = Accretion, - = Erosion).
+    """
+    ups_arr = np.asarray(upsilon, dtype=float)
+    acc_arr = np.asarray(accretion_potential, dtype=float)
+    dean_arr = np.asarray(dean_number, dtype=float)
+
+    is_erosion = 1.0 / (1.0 + np.exp(-(dean_arr - omega_crit) / max(transition_width, 0.01)))
+    is_accretion = 1.0 - is_erosion
+
+    if use_log_scale:
+        log_ups = np.log10(np.maximum(ups_arr, 1e-4))
+        log_acc = np.log10(np.maximum(acc_arr, 1e-2))
+
+        ups_min, ups_max = np.percentile(log_ups, [5, 95])
+        acc_min, acc_max = np.percentile(log_acc, [5, 95])
+
+        ups_norm = np.clip((log_ups - ups_min) / max(ups_max - ups_min, 1e-4), 0.0, 5.0)
+        acc_norm = np.clip((log_acc - acc_min) / max(acc_max - acc_min, 1e-4), 0.0, 5.0)
+
+        signed_ups = is_accretion * (0.5 + acc_norm) - is_erosion * (0.5 + ups_norm)
+    else:
+        signed_ups = is_accretion * acc_arr - is_erosion * (ups_arr / 1000.0)
+
+    if np.isscalar(upsilon) and np.isscalar(accretion_potential) and np.isscalar(dean_number):
+        return float(signed_ups)
+    return signed_ups
+
+
 def compute_unified_coastal_vulnerability_index(
     hs: Union[float, np.ndarray],
     tp: Union[float, np.ndarray],
@@ -587,6 +651,13 @@ def compute_unified_coastal_vulnerability_index(
     upsilon_raw = prefactor * tan_beta_arr * ((np.maximum(hs_arr, 0.01) ** n_exp) * tp_arr * np.maximum(surge_arr, 0.01) / ws) * np.maximum(w_a, 0.01)
     log_upsilon = np.log10(np.maximum(upsilon, 1e-4))
     
+    # Signed Bipolar Accretion & Vulnerability Index (+ = Accretion, - = Erosion)
+    signed_upsilon = compute_signed_coastal_vulnerability_index(
+        upsilon=upsilon,
+        accretion_potential=accretion_pot,
+        dean_number=dean,
+    )
+    
     df_out = pd.DataFrame({
         "hs_m": hs_arr,
         "tp_s": tp_arr,
@@ -605,6 +676,7 @@ def compute_unified_coastal_vulnerability_index(
         "delta_p_dissip": delta_p,
         "shielding_factor": shielding,
         "accretion_potential": accretion_pot,
+        "signed_upsilon": signed_upsilon,
         "hs_exponent": np.full_like(hs_arr, n_exp),
         "tan_beta": tan_beta_arr,
         "d50_m": d50_arr,

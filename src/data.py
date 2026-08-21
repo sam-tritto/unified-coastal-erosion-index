@@ -638,6 +638,7 @@ def generate_frf_duck_hurricane_ian_dataset(
             "upsilon_shielded": df_physics["upsilon_shielded"].values,
             "upsilon_raw": df_physics["upsilon_raw"].values,
             "log_upsilon": df_physics["log_upsilon"].values,
+            "signed_upsilon": df_physics["signed_upsilon"].values,
             "shoreline_pos_true_m": x_true,
             "shoreline_pos_obs_m": x_obs,
             "shoreline_change_rate_mh": delta_x_rate,

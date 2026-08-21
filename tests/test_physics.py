@@ -15,6 +15,7 @@ from src.physics import (
     compute_dean_number,
     compute_shore_normal_wind,
     compute_unified_coastal_vulnerability_index,
+    compute_signed_coastal_vulnerability_index,
     compute_dynamic_foreshore_slope,
     compute_dynamic_grain_size,
     COASTAL_SITE_PROFILES,
@@ -528,6 +529,41 @@ def test_dynamic_foreshore_slope_and_grain_size():
     assert len(df_dyn["tan_beta"].unique()) > 1
     assert len(df_dyn["d50_m"].unique()) > 1
     assert "upsilon" in df_dyn.columns
+
+
+def test_signed_accretion_channel():
+    """Verify signed morphodynamic channel (+ = Accretion, - = Erosion) under calm vs storm conditions."""
+    df = generate_frf_duck_hurricane_ian_dataset()
+    assert "signed_upsilon" in df.columns
+    assert "accretion_potential" in df.columns
+
+    # Test direct function evaluation
+    ups_signed = compute_signed_coastal_vulnerability_index(
+        upsilon=df["upsilon"].values,
+        accretion_potential=df["accretion_potential"].values,
+        dean_number=df["dean_number"].values,
+        omega_crit=2.5,
+    )
+    assert len(ups_signed) == len(df)
+
+    # 1. Storm conditions (Hs > 3m) must produce strictly negative forcing (erosion)
+    storm_mask = df["hs_m"].values > 3.0
+    assert np.all(ups_signed[storm_mask] < 0.0)
+
+    # 2. Calm swell conditions (Hs < 1.2m, Dean < 2.0) must produce positive forcing (accretion)
+    calm_mask = (df["hs_m"].values < 1.2) & (df["dean_number"].values < 2.0)
+    assert np.all(ups_signed[calm_mask] > 0.0)
+
+    # 3. Scalar inputs
+    scalar_signed = compute_signed_coastal_vulnerability_index(
+        upsilon=1000.0,
+        accretion_potential=150.0,
+        dean_number=1.2,
+        omega_crit=2.5,
+    )
+    assert isinstance(scalar_signed, float)
+    assert scalar_signed > 0.0
+
 
 
 
