@@ -175,14 +175,17 @@ def compute_latent_embeddings(
     X_norm = scaler.fit_transform(X_raw)
     
     meta = {
+        "scaler": scaler,
         "scaler_type": scaler_type,
         "n_features": len(feature_names),
+        "feature_names": feature_names,
     }
     
     if use_pca_whitening:
         pca = PCA(whiten=True)
         embeddings = pca.fit_transform(X_norm)
         meta["explained_variance_ratio"] = pca.explained_variance_ratio_
+        meta["pca"] = pca
     else:
         embeddings = X_norm
 
@@ -284,3 +287,105 @@ def compute_regime_centroids(
         centroids["State_LongPeriodSwell"] = embeddings[swell_idx]
 
     return centroids
+
+
+def synthesize_target_physics_vector(
+    target_params: Dict[str, float],
+    scaler: Any,
+    feature_names: list[str],
+    reference_df: Optional[pd.DataFrame] = None,
+) -> np.ndarray:
+    """Construct and scale a normalized latent query vector for a synthetic or hypothetical coastal state.
+
+    Parameters
+    ----------
+    target_params : dict
+        Explicit physical parameter values (e.g. {"hs_m": 4.5, "tp_s": 14.0, "surge_m": 1.1, "wind_normal_ms": 12.0}).
+    scaler : Scaler object
+        Fitted RobustScaler or StandardScaler.
+    feature_names : list[str]
+        Expected feature dimensions.
+    reference_df : pd.DataFrame, optional
+        Reference dataset to provide baseline medians for unspecified variables.
+
+    Returns
+    -------
+    query_vec : np.ndarray
+        1D normalized latent embedding vector.
+    """
+    baseline: Dict[str, float] = {}
+    if reference_df is not None and not reference_df.empty:
+        for col in ["hs_m", "tp_s", "surge_m", "wind_normal_ms", "water_temp_c", "tan_beta", "w_s_ms", "delta_p_dissip"]:
+            if col in reference_df.columns:
+                val = reference_df[col].dropna()
+                if len(val) > 0:
+                    baseline[col] = float(val.median())
+    
+    defaults = {
+        "hs_m": 1.2,
+        "tp_s": 8.0,
+        "surge_m": 0.0,
+        "wind_normal_ms": 0.0,
+        "water_temp_c": 18.0,
+        "tan_beta": 0.08,
+        "w_s_ms": 0.048,
+        "delta_p_dissip": 0.5,
+    }
+    for k, v in defaults.items():
+        if k not in baseline:
+            baseline[k] = v
+            
+    param_map = {
+        "hs": "hs_m", "hs_m": "hs_m", "significant_wave_height": "hs_m",
+        "tp": "tp_s", "tp_s": "tp_s", "peak_period": "tp_s",
+        "surge": "surge_m", "surge_m": "surge_m", "water_level": "surge_m",
+        "wind": "wind_normal_ms", "wind_normal_ms": "wind_normal_ms", "wind_wa": "wind_normal_ms",
+        "temp": "water_temp_c", "water_temp_c": "water_temp_c",
+        "slope": "tan_beta", "tan_beta": "tan_beta",
+        "ws": "w_s_ms", "w_s_ms": "w_s_ms",
+    }
+    
+    for k, v in target_params.items():
+        if v is not None:
+            norm_key = param_map.get(k.lower(), k)
+            baseline[norm_key] = float(v)
+
+    try:
+        from src.physics import compute_unified_coastal_vulnerability_index
+        synth_df = compute_unified_coastal_vulnerability_index(
+            hs=np.array([baseline["hs_m"]]),
+            tp=np.array([baseline["tp_s"]]),
+            surge=np.array([baseline["surge_m"]]),
+            wind_speed=np.array([abs(baseline["wind_normal_ms"])]),
+            wind_dir_deg=np.array([70.0 if baseline["wind_normal_ms"] >= 0 else 250.0]),
+            water_temp_c=np.array([baseline["water_temp_c"]]),
+            tan_beta=baseline["tan_beta"],
+        )
+    except Exception:
+        hs = baseline["hs_m"]
+        tp = max(baseline["tp_s"], 0.5)
+        ws = baseline["w_s_ms"]
+        tan_b = baseline["tan_beta"]
+        g = 9.81
+        l0 = (g * (tp ** 2)) / (2 * np.pi)
+        xi = tan_b * np.sqrt(g / (2 * np.pi)) * (tp / np.sqrt(max(hs, 0.01)))
+        dean = hs / (ws * tp)
+        p_flux = (1025.0 * (g ** 2) / (16.0 * 2 * np.pi)) * (hs ** 2) * tp
+        ups = (1025.0 * (g ** 1.5) / (16.0 * (2 * np.pi) ** 1.5)) * tan_b * ((hs ** 2.5) * tp / ws)
+        synth_df = pd.DataFrame([{
+            "hs_m": hs, "tp_s": tp, "surge_m": baseline["surge_m"],
+            "wind_normal_ms": baseline["wind_normal_ms"], "water_temp_c": baseline["water_temp_c"],
+            "tan_beta": tan_b, "w_s_ms": ws, "xi_iribarren": xi,
+            "log_upsilon": np.log10(max(ups, 1e-4)), "dean_number": dean,
+            "p_flux_Wm": p_flux, "delta_p_dissip": baseline["delta_p_dissip"],
+            "accretion_potential": (tp * np.sqrt(g * l0)) / (hs + 0.1),
+            "upsilon": ups,
+        }])
+
+    X_synth, _ = build_physics_anchored_feature_matrix(synth_df)
+    
+    if scaler is not None and hasattr(scaler, "transform"):
+        X_norm = scaler.transform(X_synth)
+        return X_norm[0]
+    return X_synth[0]
+
