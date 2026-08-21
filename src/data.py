@@ -13,6 +13,7 @@ Handles:
 from __future__ import annotations
 
 import io
+import os
 import datetime
 import numpy as np
 import pandas as pd
@@ -712,11 +713,44 @@ def load_multi_storm_dataset(
     try_live_api: bool = True,
     morph_model: str = "yates",
     events: Optional[List[Dict[str, str]]] = None,
+    cache_dir: str = "data/cache",
 ) -> Tuple[pd.DataFrame, str]:
-    """Load and concatenate multiple 2022 storm windows from NOAA/NDBC Duck, NC."""
+    """Load and concatenate multiple 2022 storm windows from NOAA/NDBC Duck, NC real observations."""
     if events is None:
         events = STORM_EVENTS_2022
 
+    # 1. Try slicing from real cached annual dataset if available
+    annual_cache_path = os.path.join(cache_dir, f"frf_duck_2022_{morph_model}.csv.gz")
+    if os.path.exists(annual_cache_path):
+        try:
+            df_annual = pd.read_csv(annual_cache_path, index_col=0, parse_dates=True)
+            if len(df_annual) >= 5000:
+                frames = []
+                loaded_events = []
+                for evt in events:
+                    start = evt["start"]
+                    end = evt["end"]
+                    name = evt["name"]
+                    dominant = evt.get("dominant_forcing", "Unknown")
+                    sub = df_annual.loc[start:end].copy()
+                    if len(sub) > 0:
+                        sub["storm_event"] = name
+                        sub["dominant_forcing"] = dominant
+                        frames.append(sub)
+                        loaded_events.append(name)
+                if frames:
+                    df_multi = pd.concat(frames, axis=0)
+                    label = f"Multi-Storm Real Observational ({', '.join(loaded_events)}, N={len(df_multi)}) — Morph: {morph_model.upper()}"
+                    df_multi.attrs["data_provenance"] = {
+                        "hydrodynamic_forcing": "100% Real In-Situ Observations (NOAA CO-OPS 8651370 & NDBC Buoy 44056)",
+                        "morphodynamics": f"Forward-Simulated via Calibrated {morph_model.upper()} Equilibrium Kinetics Driven by Real Wave Forcing",
+                        "is_synthetic_forcing": False,
+                    }
+                    return df_multi, label
+        except Exception:
+            pass
+
+    # 2. Try fetching live windows from NOAA APIs
     frames = []
     loaded_events = []
 
@@ -738,22 +772,26 @@ def load_multi_storm_dataset(
             except Exception:
                 pass
 
-        if "Ian" in name:
-            df_bench = generate_frf_duck_hurricane_ian_dataset(start_date=start, end_date=end)
-            df_bench["storm_event"] = name
-            df_bench["dominant_forcing"] = dominant
-            frames.append(df_bench)
-            loaded_events.append(f"{name} (benchmark)")
+    if frames:
+        df_multi = pd.concat(frames, axis=0)
+        label = f"Multi-Storm Real Observational ({', '.join(loaded_events)}, N={len(df_multi)}) — Morph: {morph_model.upper()}"
+        df_multi.attrs["data_provenance"] = {
+            "hydrodynamic_forcing": "100% Real In-Situ Observations (NOAA CO-OPS 8651370 & NDBC Buoy 44056)",
+            "morphodynamics": f"Forward-Simulated via Calibrated {morph_model.upper()} Kinetics",
+            "is_synthetic_forcing": False,
+        }
+        return df_multi, label
 
-    if not frames:
-        df_single = generate_frf_duck_hurricane_ian_dataset()
-        df_single["storm_event"] = "Hurricane Ian"
-        df_single["dominant_forcing"] = "Surge + Swell"
-        return df_single, "Benchmark Hurricane Ian 2022"
-
-    df_multi = pd.concat(frames, axis=0)
-    label = f"Multi-Storm ({', '.join(loaded_events)}) — Morph: {morph_model.upper()}"
-    return df_multi, label
+    # 3. Emergency fallback if no network and no cache (explicitly marked)
+    df_single = generate_frf_duck_hurricane_ian_dataset()
+    df_single["storm_event"] = "Hurricane Ian"
+    df_single["dominant_forcing"] = "Surge + Swell"
+    df_single.attrs["data_provenance"] = {
+        "hydrodynamic_forcing": "Synthetic Benchmark Offline Approximation",
+        "morphodynamics": "Yates (1985) Equilibrium Simulation",
+        "is_synthetic_forcing": True,
+    }
+    return df_single, f"Benchmark Hurricane Ian 2022 (Synthetic Fallback) — Morph: {morph_model.upper()}"
 
 
 def fetch_noaa_annual_dataset(
@@ -914,6 +952,11 @@ def load_annual_dataset(
             df_cached = pd.read_csv(cache_path, index_col=0, parse_dates=True)
             if "water_temp_c" in df_cached.columns and "delta_p_dissip" in df_cached.columns and len(df_cached) >= 8000:
                 label = f"Cached Continuous Annual Observational ({year}, NOAA Duck NC, N={len(df_cached)}) — Morph: {morph_model.upper()}"
+                df_cached.attrs["data_provenance"] = {
+                    "hydrodynamic_forcing": f"100% Real In-Situ Observations (NOAA CO-OPS 8651370 & NDBC Buoy 44056, Year {year})",
+                    "morphodynamics": f"Forward-Simulated via Calibrated {morph_model.upper()} Kinetics Driven by Real Wave Forcing",
+                    "is_synthetic_forcing": False,
+                }
                 return df_cached, label
         except Exception:
             pass
@@ -927,12 +970,18 @@ def load_annual_dataset(
                 except Exception:
                     pass
                 label = f"Live Continuous Annual Observational ({year}, NOAA Duck NC, N={len(df_live)}) — Morph: {morph_model.upper()}"
+                df_live.attrs["data_provenance"] = {
+                    "hydrodynamic_forcing": f"100% Real In-Situ Observations (NOAA CO-OPS 8651370 & NDBC Buoy 44056, Year {year})",
+                    "morphodynamics": f"Forward-Simulated via Calibrated {morph_model.upper()} Kinetics Driven by Real Wave Forcing",
+                    "is_synthetic_forcing": False,
+                }
                 return df_live, label
         except Exception:
             pass
 
-    # Benchmark fallback
-    return load_multi_storm_dataset(try_live_api=False, morph_model=morph_model)
+    # Real multi-storm observational fallback
+    df_multi, multi_label = load_multi_storm_dataset(try_live_api=try_live_api, morph_model=morph_model, cache_dir=cache_dir)
+    return df_multi, multi_label
 
 
 def load_dataset(
@@ -947,6 +996,7 @@ def load_dataset(
         sub_df = df.loc[start_date:end_date].copy()
         if not sub_df.empty:
             date_str = f"[{start_date or str(df.index.min())[:10]} to {end_date or str(df.index.max())[:10]}]"
+            sub_df.attrs = df.attrs.copy()
             return sub_df, f"{label} {date_str}"
     return df, label
 
