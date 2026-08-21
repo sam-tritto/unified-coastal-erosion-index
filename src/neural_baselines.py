@@ -17,6 +17,11 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import RobustScaler, StandardScaler
 
+try:
+    from src.models import evaluate_model_performance
+except ImportError:
+    from models import evaluate_model_performance  # type: ignore
+
 
 # ==============================================================================
 # Model Architectures
