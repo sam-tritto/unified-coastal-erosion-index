@@ -126,10 +126,15 @@ def test_xbeach_inspired_morphodynamics():
 
 
 def test_multi_storm_dataset_loader():
-    df_multi, label = load_multi_storm_dataset(try_live_api=False, morph_model="xbeach")
-    assert len(df_multi) > 100
-    assert "storm_event" in df_multi.columns
-    assert "dominant_forcing" in df_multi.columns
+    df_default, label_default = load_multi_storm_dataset(try_live_api=False)
+    assert len(df_default) > 100
+    assert "YATES" in label_default.upper()
+    assert "storm_event" in df_default.columns
+    assert "dominant_forcing" in df_default.columns
+
+    df_xbeach, label_xbeach = load_multi_storm_dataset(try_live_api=False, morph_model="xbeach")
+    assert len(df_xbeach) > 100
+    assert "XBEACH" in label_xbeach.upper()
 
 
 def test_latent_bayesian_model_structure():

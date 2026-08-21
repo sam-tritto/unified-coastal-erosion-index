@@ -710,7 +710,7 @@ def _fetch_and_merge_single_window(
 
 def load_multi_storm_dataset(
     try_live_api: bool = True,
-    morph_model: str = "xbeach",
+    morph_model: str = "yates",
     events: Optional[List[Dict[str, str]]] = None,
 ) -> Tuple[pd.DataFrame, str]:
     """Load and concatenate multiple 2022 storm windows from NOAA/NDBC Duck, NC."""
@@ -760,7 +760,7 @@ def fetch_noaa_annual_dataset(
     year: int = 2022,
     station_id: str = NOAA_COOPS_DUCK_ID,
     buoy_id: str = NDBC_BUOY_DUCK_ID,
-    morph_model: str = "xbeach",
+    morph_model: str = "yates",
     cache_dir: str = "data/cache",
 ) -> Optional[pd.DataFrame]:
     """Fetch verified 8,760 hourly observations for a full calendar year from NOAA CO-OPS and NDBC."""
@@ -770,7 +770,7 @@ def fetch_noaa_annual_dataset(
 
     merged = None
     # Check if any cached annual dataset exists to reuse raw forcing instantly
-    for cand in [raw_cache_path, os.path.join(cache_dir, f"frf_duck_{year}_xbeach.csv.gz"), os.path.join(cache_dir, f"frf_duck_{year}_yates.csv.gz")]:
+    for cand in [raw_cache_path, os.path.join(cache_dir, f"frf_duck_{year}_yates.csv.gz"), os.path.join(cache_dir, f"frf_duck_{year}_xbeach.csv.gz")]:
         if os.path.exists(cand):
             try:
                 df_cand = pd.read_csv(cand, index_col=0, parse_dates=True)
@@ -900,7 +900,7 @@ def fetch_noaa_annual_dataset(
 
 def load_annual_dataset(
     year: int = 2022,
-    morph_model: str = "xbeach",
+    morph_model: str = "yates",
     try_live_api: bool = True,
     cache_dir: str = "data/cache",
 ) -> Tuple[pd.DataFrame, str]:
@@ -939,9 +939,9 @@ def load_dataset(
     try_live_api: bool = True,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    morph_model: str = "xbeach",
+    morph_model: str = "yates",
 ) -> Tuple[pd.DataFrame, str]:
-    """High-level dataset loader defaulting to continuous annual 2022 observations with window slicing."""
+    """High-level dataset loader defaulting to continuous annual 2022 observations with non-circular Yates equilibrium morphodynamics."""
     df, label = load_annual_dataset(year=2022, morph_model=morph_model, try_live_api=try_live_api)
     if start_date is not None or end_date is not None:
         sub_df = df.loc[start_date:end_date].copy()
