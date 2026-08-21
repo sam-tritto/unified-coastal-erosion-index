@@ -464,6 +464,16 @@ class PhysicsRAG:
         self.model_name = model_name
         self.api_key = api_key
         self.scaler = self.scaler_meta.get("scaler")
+        if self.scaler is None and hasattr(self.df, "columns"):
+            try:
+                X_raw, _ = build_physics_anchored_feature_matrix(self.df)
+                scaler_type = self.scaler_meta.get("scaler_type", "robust")
+                scaler = RobustScaler() if scaler_type == "robust" else StandardScaler()
+                scaler.fit(X_raw)
+                self.scaler = scaler
+                self.scaler_meta["scaler"] = scaler
+            except Exception:
+                pass
         self.centroids = compute_regime_centroids(self.embeddings, self.df)
 
     @classmethod

@@ -20,3 +20,5 @@ __pycache__/
 # Data caches & large downloads
 data/cache/
 *.csv.gz
+
+.env
