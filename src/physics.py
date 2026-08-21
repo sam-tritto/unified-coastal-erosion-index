@@ -309,6 +309,8 @@ def compute_unified_coastal_vulnerability_index(
     water_temp_c: Optional[Union[float, np.ndarray]] = None,
     p_outer_Wm: Optional[Union[float, np.ndarray]] = None,
     hs_exponent: float = 2.5,
+    s_ref: float = 1.0,
+    r_ref: float = 2.0,
     d50_m: float = 0.00035,
     tan_beta: float = 0.08,
     shore_normal_deg: float = DUCK_SHORE_NORMAL_DEG,
@@ -316,7 +318,7 @@ def compute_unified_coastal_vulnerability_index(
     g: float = G_CONST,
     tau: float = TAU_CONST,
 ) -> pd.DataFrame:
-    """Compute the Unified Coastal Vulnerability Index (Υ) with parameterized Hs scaling exponent.
+    """Compute the Unified Coastal Vulnerability Index (Υ) with decoupled additive TWL amplification.
 
     Parameters
     ----------
@@ -339,6 +341,10 @@ def compute_unified_coastal_vulnerability_index(
         - n = 2.0: Canonical wave energy flux scaling (P ~ Hs^2 * Tp).
         - n = 2.5: Empirical non-linear scour / turbulence amplification.
         - n = 1.5: Shallow-water monochromatic transport scaling.
+    s_ref : float
+        Reference storm surge residual elevation scale in meters (default 1.0m).
+    r_ref : float
+        Reference wave runup elevation scale in meters (default 2.0m).
     d50_m : float
         Median grain size (default 0.00035 m).
     tan_beta : float
@@ -390,8 +396,8 @@ def compute_unified_coastal_vulnerability_index(
     # Wave energy & sediment kinetic core with parameterized exponent n: (Hs^n * Tp) / ws(T)
     wave_sed_core = ( (np.maximum(hs_arr, 0.01) ** n_exp) * np.maximum(tp_arr, 0.1) ) / ws
     
-    # Total Water Level / Surge amplification factor (non-collapsing)
-    twl_amplification = 1.0 + np.maximum((surge_arr + r_2) / (hs_arr + 0.1), 0.0)
+    # Total Water Level / Surge amplification factor (decoupled additive reference scaling)
+    twl_amplification = 1.0 + np.maximum(surge_arr / s_ref, 0.0) + np.maximum(r_2 / r_ref, 0.0)
     
     # Wind amplification factor
     wind_amplification = 1.0 + np.maximum(w_a / 10.0, -0.3)

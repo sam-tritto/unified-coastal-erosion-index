@@ -393,5 +393,40 @@ def test_learnable_exponent_bayesian_model():
     assert len(post_exp) == 100
 
 
+def test_decoupled_twl_additive_amplification():
+    """Verify that TWL amplification is decoupled from Hs and scales additively with surge."""
+    hs_large = np.array([5.0])
+    tp = np.array([12.0])
+    wind = np.array([10.0])
+    wind_dir = np.array([70.0])
+
+    # Case A: Large wave with zero surge
+    df_no_surge = compute_unified_coastal_vulnerability_index(
+        hs=hs_large,
+        tp=tp,
+        surge=np.array([0.0]),
+        wind_speed=wind,
+        wind_dir_deg=wind_dir,
+        s_ref=1.0,
+        r_ref=2.0,
+    )
+    
+    # Case B: Same large wave with 1.0m storm surge
+    df_with_surge = compute_unified_coastal_vulnerability_index(
+        hs=hs_large,
+        tp=tp,
+        surge=np.array([1.0]),
+        wind_speed=wind,
+        wind_dir_deg=wind_dir,
+        s_ref=1.0,
+        r_ref=2.0,
+    )
+
+    # 1.0m surge must produce a substantial relative amplification even under 5.0m waves
+    ups_ratio = df_with_surge["upsilon"].iloc[0] / df_no_surge["upsilon"].iloc[0]
+    assert ups_ratio > 1.30, f"Expected surge amplification ratio > 1.30, got {ups_ratio:.2f}"
+
+
+
 
 
