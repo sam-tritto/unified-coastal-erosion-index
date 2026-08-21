@@ -264,8 +264,14 @@ def predict_bayesian_model(
                 f_raw = df["p_flux_Wm"].values
             elif "dean" in m_name:
                 f_raw = df["dean_number"].values
-            else:
+            elif meta.get("use_log_upsilon", True) and "log_upsilon" in df.columns:
+                f_raw = df["log_upsilon"].values
+            elif meta.get("use_log_upsilon", True) and "upsilon" in df.columns:
+                f_raw = np.log10(np.maximum(df["upsilon"].values, 1e-4))
+            elif "upsilon" in df.columns:
                 f_raw = df["upsilon"].values
+            else:
+                f_raw = np.zeros(n_pts)
 
         f_scaled = (f_raw - meta["f_mean"]) / meta["f_std"]
         lag_mat = create_lag_matrix(f_scaled, max_lag=max_lag)
@@ -284,7 +290,16 @@ def predict_bayesian_model(
             f_raw = np.asarray(spec["forcing"], dtype=float)
         else:
             m_name = meta.get("model_name", "").lower()
-            f_raw = df["hs_m"].values if "hs" in m_name else df["upsilon"].values
+            if "hs" in m_name:
+                f_raw = df["hs_m"].values
+            elif meta.get("use_log_upsilon", True) and "log_upsilon" in df.columns:
+                f_raw = df["log_upsilon"].values
+            elif meta.get("use_log_upsilon", True) and "upsilon" in df.columns:
+                f_raw = np.log10(np.maximum(df["upsilon"].values, 1e-4))
+            elif "upsilon" in df.columns:
+                f_raw = df["upsilon"].values
+            else:
+                f_raw = np.zeros(n_pts)
 
         f_scaled = (f_raw - meta["f_mean"]) / meta["f_std"]
         degree = int(meta.get("degree", 3))
@@ -310,7 +325,17 @@ def predict_bayesian_model(
             mu_samples += beta_var[:, None] * f_scaled[None, :]
 
     elif model_type == "hybrid":
-        ups_raw = spec["upsilon"] if spec is not None and "upsilon" in spec else df["upsilon"].values
+        if spec is not None and "upsilon" in spec:
+            ups_raw = np.asarray(spec["upsilon"], dtype=float)
+        elif meta.get("use_log_upsilon", True) and "log_upsilon" in df.columns:
+            ups_raw = df["log_upsilon"].values
+        elif meta.get("use_log_upsilon", True) and "upsilon" in df.columns:
+            ups_raw = np.log10(np.maximum(df["upsilon"].values, 1e-4))
+        elif "upsilon" in df.columns:
+            ups_raw = df["upsilon"].values
+        else:
+            ups_raw = np.zeros(n_pts)
+
         u_scaled = (ups_raw - meta["upsilon_mean"]) / meta["upsilon_std"]
         lag_mat = create_lag_matrix(u_scaled, max_lag=max_lag)
 
@@ -338,7 +363,17 @@ def predict_bayesian_model(
                 mu_samples += delta_var[:, None] * f_scaled[None, :]
 
     elif model_type == "asymmetric":
-        ups_raw = spec["upsilon"] if spec is not None and "upsilon" in spec else df["upsilon"].values
+        if spec is not None and "upsilon" in spec:
+            ups_raw = np.asarray(spec["upsilon"], dtype=float)
+        elif meta.get("use_log_upsilon", True) and "log_upsilon" in df.columns:
+            ups_raw = df["log_upsilon"].values
+        elif meta.get("use_log_upsilon", True) and "upsilon" in df.columns:
+            ups_raw = np.log10(np.maximum(df["upsilon"].values, 1e-4))
+        elif "upsilon" in df.columns:
+            ups_raw = df["upsilon"].values
+        else:
+            ups_raw = np.zeros(n_pts)
+
         shield_raw = spec["shielding"] if spec is not None and "shielding" in spec else (
             df["shielding_factor"].values if "shielding_factor" in df.columns else np.ones(n_pts)
         )
@@ -441,6 +476,7 @@ def run_arviz_loo_comparison(
 def run_benchmark_model_comparison(
     df: pd.DataFrame,
     target_col: str = "shoreline_change_rate_mh",
+    use_log_upsilon: bool = True,
     train_split: float = 0.75,
     draws: int = 1000,
     tune: int = 800,
@@ -460,6 +496,8 @@ def run_benchmark_model_comparison(
         Synchronized hydrodynamic and morphodynamic observational dataset.
     target_col : str
         Target column name (default 'shoreline_change_rate_mh' for dx/dt rate of shoreline change).
+    use_log_upsilon : bool
+        Whether to use log10(Upsilon) as the primary forcing input to reduce distributional skew (default True).
     train_split : float
         Chronological training split fraction (default 0.75, giving 75% train, 25% out-of-sample test).
         Set to 1.0 for full-series training without holdout split.
@@ -524,17 +562,27 @@ def run_benchmark_model_comparison(
         y_obs_full = df["shoreline_pos_obs_m"].values
         y_true_full = df["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df.columns else y_obs_full
 
+    # Extract training and full Upsilon forcing with log transform if enabled
+    if use_log_upsilon:
+        ups_train = df_train["log_upsilon"].values if "log_upsilon" in df_train.columns else np.log10(np.maximum(df_train["upsilon"].values, 1e-4))
+        ups_full = df["log_upsilon"].values if "log_upsilon" in df.columns else np.log10(np.maximum(df["upsilon"].values, 1e-4))
+        ups_label = "Unified Index (log-Upsilon)"
+    else:
+        ups_train = df_train["upsilon"].values
+        ups_full = df["upsilon"].values
+        ups_label = "Unified Index (Upsilon)"
+
     # Define competing hypotheses (built on training split)
     candidates: Dict[str, Any] = {
-        "Hs (Linear)": {"type": "single", "forcing": df_train["hs_m"].values},
-        "Wave Power P (Linear)": {"type": "single", "forcing": df_train["p_flux_Wm"].values},
-        "Dean Number (Linear)": {"type": "single", "forcing": df_train["dean_number"].values},
-        "Unified Index (Upsilon)": {"type": "single", "forcing": df_train["upsilon"].values},
+        "Hs (Linear)": {"type": "single", "forcing": df_train["hs_m"].values, "full_forcing": df["hs_m"].values},
+        "Wave Power P (Linear)": {"type": "single", "forcing": df_train["p_flux_Wm"].values, "full_forcing": df["p_flux_Wm"].values},
+        "Dean Number (Linear)": {"type": "single", "forcing": df_train["dean_number"].values, "full_forcing": df["dean_number"].values},
+        ups_label: {"type": "single", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon},
     }
 
     if include_nonlinear:
-        candidates["Upsilon (Non-Linear)"] = {"type": "nonlinear", "forcing": df_train["upsilon"].values}
-        candidates["Hs (Non-Linear)"] = {"type": "nonlinear", "forcing": df_train["hs_m"].values}
+        candidates["Upsilon (Non-Linear)"] = {"type": "nonlinear", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon}
+        candidates["Hs (Non-Linear)"] = {"type": "nonlinear", "forcing": df_train["hs_m"].values, "full_forcing": df["hs_m"].values}
 
     if include_multivariate:
         candidates["Multivariate (Hs+S+Wa+Omega)"] = {
@@ -550,7 +598,9 @@ def run_benchmark_model_comparison(
     if include_hybrid:
         candidates["Hybrid (Upsilon Anchor + Multi Residuals)"] = {
             "type": "hybrid",
-            "upsilon": df_train["upsilon"].values,
+            "upsilon": ups_train,
+            "full_upsilon": ups_full,
+            "use_log_upsilon": use_log_upsilon,
             "forcings": {
                 "hs": df_train["hs_m"].values,
                 "surge": df_train["surge_m"].values,
@@ -565,7 +615,9 @@ def run_benchmark_model_comparison(
             "hs": df_train["hs_m"].values,
             "tp": df_train["tp_s"].values,
             "ws": df_train["w_s_ms"].values,
-            "upsilon": df_train["upsilon"].values,
+            "upsilon": ups_train,
+            "full_upsilon": ups_full,
+            "use_log_upsilon": use_log_upsilon,
             "shielding": df_train["shielding_factor"].values if "shielding_factor" in df_train.columns else np.ones(len(df_train)),
             "accretion": df_train["accretion_potential"].values if "accretion_potential" in df_train.columns else None,
         }
@@ -620,6 +672,7 @@ def run_benchmark_model_comparison(
         else:
             continue
 
+        meta["use_log_upsilon"] = spec.get("use_log_upsilon", use_log_upsilon)
         model_metas[name] = meta
 
         with model:
@@ -639,12 +692,20 @@ def run_benchmark_model_comparison(
 
         traces[name] = trace
 
+        # Prepare specification for full continuous prediction
+        spec_pred = None
+        if "full_forcing" in spec:
+            spec_pred = {"forcing": spec["full_forcing"]}
+        elif "full_upsilon" in spec:
+            spec_pred = {"upsilon": spec["full_upsilon"]}
+
         # Full continuous prediction across full dataset (train + test holdout)
         mu_full_mean, mu_full_samples, y_full_pred_samples = predict_bayesian_model(
             trace=trace,
             model_type=model_type,
             meta=meta,
             df=df,
+            spec=spec_pred,
             return_samples=True,
             random_seed=random_seed,
         )
@@ -701,9 +762,12 @@ def run_benchmark_model_comparison(
             pass
 
     # Provide aliasing for both naming styles
-    if "Unified Index (Upsilon)" in traces and "Upsilon (Linear)" not in traces:
-        traces["Upsilon (Linear)"] = traces["Unified Index (Upsilon)"]
-    elif "Upsilon (Linear)" in traces and "Unified Index (Upsilon)" not in traces:
+    for ups_key in ["Unified Index (log-Upsilon)", "Unified Index (Upsilon)"]:
+        if ups_key in traces:
+            traces["Upsilon (Linear)"] = traces[ups_key]
+            traces["Unified Index (Upsilon)"] = traces[ups_key]
+            traces["Unified Index (log-Upsilon)"] = traces[ups_key]
+    if "Upsilon (Linear)" in traces and "Unified Index (Upsilon)" not in traces:
         traces["Unified Index (Upsilon)"] = traces["Upsilon (Linear)"]
 
     comparison_df = pd.DataFrame(metrics_list)
