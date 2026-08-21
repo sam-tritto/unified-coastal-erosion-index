@@ -363,12 +363,24 @@ def fetch_multi_source_wave_data(
 def simulate_equilibrium_shoreline_evolution(
     hs: np.ndarray,
     tp: np.ndarray,
-    c_erosion: float = 0.016,
-    c_accretion: float = 0.007,
+    c_erosion: float = 0.014,
+    c_accretion: float = 0.008,
+    a_eq: float = -140.0,
+    b_eq: float = 850.0,
     memory_hours: int = 120,
     random_seed: int = 42,
+    **kwargs: Any,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Simulate shoreline cross-shore change using the Equilibrium Wave Energy model (Yates et al. 2009).
+
+    Formulation (Yates et al. 2009, JGR Oceans):
+    - Wave energy density: E(t) = 1/16 * rho * g * Hs^2 (J/m^2)
+    - Dynamic equilibrium energy: E_eq(x) = a_eq * x(t) + b_eq
+    - Energy disequilibrium: Delta E(t) = E_eq(x(t)) - E(t)
+    - Asymmetric cross-shore change: dx/dt = C_pm * sqrt(E(t)) * Delta E(t)
+
+    When the beach is eroded (x < 0), E_eq(x) increases, meaning fair-weather summer waves
+    (E < E_eq) exert a restorative onshore flux (Delta E > 0) that rebuilds the subaerial berm.
 
     Crucial: This morphodynamic evolution is driven ENTIRELY by wave energy disequilibrium (E - E_eq),
     with NO knowledge of Upsilon, storm surge residual S, Soulsby sediment kinetics, or wind projection.
@@ -378,26 +390,25 @@ def simulate_equilibrium_shoreline_evolution(
     n = len(hs)
     
     # Wave energy density E = 1/16 * rho * g * Hs^2
-    energy = (1.0 / 16.0) * 1025.0 * 9.81 * (hs ** 2)
-    
-    # Equilibrium energy E_eq computed via exponential moving average
-    decay_weights = np.exp(-np.arange(memory_hours) / (memory_hours / 3.0))
-    decay_weights /= np.sum(decay_weights)
-    padded_energy = np.pad(energy, (memory_hours - 1, 0), mode="edge")
-    e_eq = np.convolve(padded_energy, decay_weights, mode="valid")[:n]
+    energy = (1.0 / 16.0) * 1025.0 * 9.81 * (np.maximum(np.asarray(hs, dtype=float), 0.05) ** 2)
     
     x_pos = np.zeros(n)
     current_x = 0.0
     
     for t in range(1, n):
-        e_diff = e_eq[t] - energy[t]
+        # Dynamic equilibrium wave energy coupled to current cross-shore displacement x(t)
+        e_eq = a_eq * current_x + b_eq
+        e_diff = e_eq - energy[t]
+        
+        # Asymmetric rate constant for accretion (e_diff >= 0) vs erosion (e_diff < 0)
         coeff = c_accretion if e_diff >= 0 else c_erosion
-        rate = coeff * (np.sqrt(np.maximum(energy[t], 1.0)) / 1000.0) * (e_diff / 500.0)
+        rate = coeff * (np.sqrt(np.maximum(energy[t], 1.0)) / 100.0) * (e_diff / 1000.0)
+        
         current_x += rate
-        current_x = np.clip(current_x, -22.0, 5.0)
+        current_x = np.clip(current_x, -18.0, 5.0)
         x_pos[t] = current_x
         
-    survey_noise = rng.normal(0, 0.30, n)
+    survey_noise = rng.normal(0, 0.25, n)
     x_obs = x_pos + survey_noise
     return x_pos, x_obs
 
