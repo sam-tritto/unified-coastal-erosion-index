@@ -950,7 +950,7 @@ def fetch_noaa_annual_dataset(
 
 def load_annual_dataset(
     year: int = 2022,
-    morph_model: str = "yates",
+    morph_model: str = "xbeach",
     try_live_api: bool = True,
     cache_dir: str = "data/cache",
 ) -> Tuple[pd.DataFrame, str]:
@@ -1000,9 +1000,9 @@ def load_dataset(
     try_live_api: bool = True,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    morph_model: str = "yates",
+    morph_model: str = "xbeach",
 ) -> Tuple[pd.DataFrame, str]:
-    """High-level dataset loader defaulting to continuous annual 2022 observations with non-circular Yates equilibrium morphodynamics."""
+    """High-level dataset loader defaulting to continuous annual 2022 observations with non-circular XBeach-inspired morphodynamics."""
     df, label = load_annual_dataset(year=2022, morph_model=morph_model, try_live_api=try_live_api)
     if start_date is not None or end_date is not None:
         sub_df = df.loc[start_date:end_date].copy()
