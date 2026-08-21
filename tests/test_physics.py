@@ -36,6 +36,7 @@ from src.models import (
     build_nonlinear_response_model,
     build_physics_anchored_hybrid_model,
     build_asymmetric_dual_regime_model,
+    build_learnable_exponent_bayesian_model,
     compute_antecedent_memory_forcing,
     evaluate_model_performance,
     predict_bayesian_model,
@@ -336,6 +337,61 @@ def test_bayesian_benchmark_with_holdout_and_loo():
     assert df_comp.attrs["train_split"] == 0.75
     assert df_comp.attrs["split_idx"] == 60
     assert len(traces) >= 3
+
+
+def test_parameterized_hs_exponent_scaling():
+    """Verify that hs_exponent n in [1.0, 3.0] scales Upsilon monotonically for storm waves."""
+    hs_storm = np.array([4.0])
+    tp = np.array([12.0])
+    surge = np.array([0.8])
+    wind = np.array([15.0])
+    wind_dir = np.array([70.0])
+
+    ups_values = []
+    for n in [1.0, 1.5, 2.0, 2.5, 3.0]:
+        df = compute_unified_coastal_vulnerability_index(
+            hs=hs_storm,
+            tp=tp,
+            surge=surge,
+            wind_speed=wind,
+            wind_dir_deg=wind_dir,
+            hs_exponent=n,
+        )
+        assert "hs_exponent" in df.columns
+        assert df["hs_exponent"].iloc[0] == n
+        ups_values.append(df["upsilon"].iloc[0])
+
+    # Higher exponent n on Hs > 1.0m must produce strictly higher Upsilon
+    for i in range(len(ups_values) - 1):
+        assert ups_values[i + 1] > ups_values[i]
+
+
+def test_learnable_exponent_bayesian_model():
+    """Test construction and MCMC sampling of the learnable Hs exponent Bayesian model."""
+    df = generate_frf_duck_hurricane_ian_dataset().iloc[:60]
+    model, meta = build_learnable_exponent_bayesian_model(
+        hs=df["hs_m"].values,
+        tp=df["tp_s"].values,
+        ws=df["w_s_ms"].values,
+        surge=df["surge_m"].values,
+        runup=df["runup_r2_m"].values,
+        wind_normal=df["wind_normal_ms"].values,
+        delta_x_obs=df["shoreline_pos_obs_m"].values,
+        max_lag=12,
+        exponent_prior="uniform",
+        lower_bound=1.0,
+        upper_bound=3.0,
+    )
+    assert meta["model_name"] == "learnable_hs_exponent"
+    assert "hs_exponent" in model.named_vars
+
+    trace = fit_bayesian_model(model, draws=50, tune=50, chains=2, cores=1, random_seed=42)
+    assert "hs_exponent" in trace.posterior
+    post_exp = trace.posterior["hs_exponent"].values.flatten()
+    assert np.all(post_exp >= 1.0)
+    assert np.all(post_exp <= 3.0)
+    assert len(post_exp) == 100
+
 
 
 

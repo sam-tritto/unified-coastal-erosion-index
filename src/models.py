@@ -199,7 +199,7 @@ def evaluate_model_performance(
 
 def compute_mcmc_summary_table(idata: az.InferenceData) -> pd.DataFrame:
     """Generate clean parameter posterior summary table with R-hat and ESS."""
-    var_names = ["alpha", "beta_forcing", "gamma", "sigma", "nu", "beta_upsilon", "k_eros", "k_accrete", "omega_crit"]
+    var_names = ["alpha", "beta_forcing", "gamma", "sigma", "nu", "beta_upsilon", "k_eros", "k_accrete", "omega_crit", "hs_exponent"]
     available = [v for v in var_names if v in idata.posterior]
     return az.summary(idata, var_names=available)
 
@@ -997,5 +997,137 @@ def build_asymmetric_dual_regime_model(
         pm.StudentT("y_obs", nu=nu, mu=mu_det, sigma=sigma, observed=y_obs)
 
     return model, meta
+
+
+def build_learnable_exponent_bayesian_model(
+    hs: np.ndarray,
+    tp: np.ndarray,
+    ws: np.ndarray,
+    surge: np.ndarray,
+    runup: np.ndarray,
+    wind_normal: np.ndarray,
+    delta_x_obs: np.ndarray,
+    shielding_factor: Optional[np.ndarray] = None,
+    model_name: str = "learnable_hs_exponent",
+    max_lag: int = 48,
+    exponent_prior: str = "uniform",
+    prior_mu: float = 2.0,
+    prior_sigma: float = 0.5,
+    lower_bound: float = 1.0,
+    upper_bound: float = 3.0,
+) -> Tuple[pm.Model, Dict[str, Any]]:
+    """Build a Physics-Informed Bayesian Model that learns the Hs scaling exponent n in [1.0, 3.0] directly from observations.
+
+    Parameters
+    ----------
+    hs : np.ndarray
+        Significant wave height (m).
+    tp : np.ndarray
+        Peak wave period (s).
+    ws : np.ndarray
+        Sediment settling velocity (m/s).
+    surge : np.ndarray
+        Storm surge residual (m).
+    runup : np.ndarray
+        Stockdon wave runup R_2% (m).
+    wind_normal : np.ndarray
+        Shore-normal wind speed (m/s).
+    delta_x_obs : np.ndarray
+        Observed cross-shore position changes (m).
+    shielding_factor : np.ndarray, optional
+        Outer sandbar wave power transmission factor.
+    model_name : str
+        Model identifier.
+    max_lag : int
+        Convolution memory horizon (hours).
+    exponent_prior : str
+        'uniform' (default, Uniform(1.0, 3.0)) or 'truncated_normal' (TruncatedNormal(mu, sigma, 1.0, 3.0)).
+    prior_mu, prior_sigma : float
+        Hyperparameters for truncated_normal prior.
+    lower_bound, upper_bound : float
+        Bounds for exponent n (default 1.0 to 3.0).
+
+    Returns
+    -------
+    model : pm.Model
+        Constructed PyMC learnable-exponent model.
+    meta : dict
+        Model metadata.
+    """
+    hs_arr = np.maximum(np.asarray(hs, dtype=float), 0.01)
+    tp_arr = np.maximum(np.asarray(tp, dtype=float), 0.1)
+    ws_arr = np.maximum(np.asarray(ws, dtype=float), 1e-4)
+    surge_arr = np.asarray(surge, dtype=float)
+    runup_arr = np.asarray(runup, dtype=float)
+    wind_arr = np.asarray(wind_normal, dtype=float)
+    y_obs = np.asarray(delta_x_obs, dtype=float)
+    n_obs = len(y_obs)
+
+    shield_arr = np.asarray(shielding_factor, dtype=float) if shielding_factor is not None else np.ones(n_obs)
+    k_indices = np.arange(max_lag, dtype=float)
+
+    # Precompute non-exponent terms to optimize sampling graph
+    twl_arr = 1.0 + np.maximum((surge_arr + runup_arr) / (hs_arr + 0.1), 0.0)
+    wind_arr_mod = 1.0 + np.maximum(wind_arr / 10.0, -0.3)
+    prefactor = (1025.0 * (9.81 ** 1.5)) / (16.0 * ((2.0 * np.pi) ** 1.5))
+    kinematic_base = prefactor * 0.08 * (tp_arr / ws_arr) * twl_arr * wind_arr_mod * shield_arr
+
+    meta = {
+        "model_name": model_name,
+        "n_obs": n_obs,
+        "max_lag": max_lag,
+        "lower_bound": lower_bound,
+        "upper_bound": upper_bound,
+    }
+
+    with pm.Model() as model:
+        # Data containers
+        hs_data = pm.Data("hs_data", hs_arr)
+        kin_base_data = pm.Data("kin_base_data", kinematic_base)
+        k_vec = pm.Data("k_vec", k_indices)
+
+        # 1. Parameterized / Learnable Hs scaling exponent n in [1.0, 3.0]
+        if exponent_prior == "truncated_normal":
+            hs_exponent = pm.TruncatedNormal(
+                "hs_exponent",
+                mu=prior_mu,
+                sigma=prior_sigma,
+                lower=lower_bound,
+                upper=upper_bound,
+            )
+        else:
+            hs_exponent = pm.Uniform("hs_exponent", lower=lower_bound, upper=upper_bound)
+
+        # 2. Dynamic Upsilon computation inside PyTensor graph: Upsilon(n) = kin_base * (Hs^n)
+        raw_upsilon = kin_base_data * pt.power(hs_data, hs_exponent)
+
+        # Standardize dynamically to stabilize sampling
+        u_mean = pt.mean(raw_upsilon)
+        u_std = pt.std(raw_upsilon) + 1e-4
+        u_scaled = (raw_upsilon - u_mean) / u_std
+
+        # 3. Latent Memory Convolution in PyTensor
+        gamma = pm.Beta("gamma", alpha=2.0, beta=5.0)
+        unnorm_w = pt.power(gamma, k_vec)
+        weights = unnorm_w / pt.sum(unnorm_w)
+
+        # Differentiable lag tensor construction
+        u_padded = pt.concatenate([pt.zeros(max_lag - 1), u_scaled])
+        lag_slices = [u_padded[max_lag - 1 - k : max_lag - 1 - k + n_obs] for k in range(max_lag)]
+        lag_tensor = pt.stack(lag_slices, axis=1)
+        upsilon_memory = pm.Deterministic("upsilon_memory", pt.dot(lag_tensor, weights))
+
+        # 4. Morphodynamic Linear Predictor
+        beta_upsilon = pm.Normal("beta_upsilon", mu=-1.0, sigma=0.5)
+        alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
+        mu = pm.Deterministic("mu", alpha + beta_upsilon * upsilon_memory)
+
+        # 5. Robust Student-t Likelihood
+        sigma = pm.HalfNormal("sigma", sigma=1.0)
+        nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
+        pm.StudentT("y_obs", nu=nu, mu=mu, sigma=sigma, observed=y_obs)
+
+    return model, meta
+
 
 

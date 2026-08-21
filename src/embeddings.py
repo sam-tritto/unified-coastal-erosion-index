@@ -350,6 +350,7 @@ def synthesize_target_physics_vector(
             norm_key = param_map.get(k.lower(), k)
             baseline[norm_key] = float(v)
 
+    hs_exp = float(target_params.get("hs_exponent", 2.5))
     try:
         from src.physics import compute_unified_coastal_vulnerability_index
         synth_df = compute_unified_coastal_vulnerability_index(
@@ -360,6 +361,7 @@ def synthesize_target_physics_vector(
             wind_dir_deg=np.array([70.0 if baseline["wind_normal_ms"] >= 0 else 250.0]),
             water_temp_c=np.array([baseline["water_temp_c"]]),
             tan_beta=baseline["tan_beta"],
+            hs_exponent=hs_exp,
         )
     except Exception:
         hs = baseline["hs_m"]
@@ -371,7 +373,7 @@ def synthesize_target_physics_vector(
         xi = tan_b * np.sqrt(g / (2 * np.pi)) * (tp / np.sqrt(max(hs, 0.01)))
         dean = hs / (ws * tp)
         p_flux = (1025.0 * (g ** 2) / (16.0 * 2 * np.pi)) * (hs ** 2) * tp
-        ups = (1025.0 * (g ** 1.5) / (16.0 * (2 * np.pi) ** 1.5)) * tan_b * ((hs ** 2.5) * tp / ws)
+        ups = (1025.0 * (g ** 1.5) / (16.0 * (2 * np.pi) ** 1.5)) * tan_b * ((hs ** hs_exp) * tp / ws)
         synth_df = pd.DataFrame([{
             "hs_m": hs, "tp_s": tp, "surge_m": baseline["surge_m"],
             "wind_normal_ms": baseline["wind_normal_ms"], "water_temp_c": baseline["water_temp_c"],

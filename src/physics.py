@@ -308,6 +308,7 @@ def compute_unified_coastal_vulnerability_index(
     wind_dir_deg: Union[float, np.ndarray],
     water_temp_c: Optional[Union[float, np.ndarray]] = None,
     p_outer_Wm: Optional[Union[float, np.ndarray]] = None,
+    hs_exponent: float = 2.5,
     d50_m: float = 0.00035,
     tan_beta: float = 0.08,
     shore_normal_deg: float = DUCK_SHORE_NORMAL_DEG,
@@ -315,7 +316,7 @@ def compute_unified_coastal_vulnerability_index(
     g: float = G_CONST,
     tau: float = TAU_CONST,
 ) -> pd.DataFrame:
-    """Compute the Unified Coastal Vulnerability Index (Υ) with dynamic viscosity, settling velocity, and sandbar shielding.
+    """Compute the Unified Coastal Vulnerability Index (Υ) with parameterized Hs scaling exponent.
 
     Parameters
     ----------
@@ -333,6 +334,11 @@ def compute_unified_coastal_vulnerability_index(
         Observed seawater temperature in Celsius.
     p_outer_Wm : float or np.ndarray, optional
         Outer array wave power (W/m) to calculate sandbar dissipation ratio.
+    hs_exponent : float
+        Nonlinear wave height scaling exponent n in Hs^n (default 2.5, configurable/learnable n in [1.0, 3.0]).
+        - n = 2.0: Canonical wave energy flux scaling (P ~ Hs^2 * Tp).
+        - n = 2.5: Empirical non-linear scour / turbulence amplification.
+        - n = 1.5: Shallow-water monochromatic transport scaling.
     d50_m : float
         Median grain size (default 0.00035 m).
     tan_beta : float
@@ -354,6 +360,7 @@ def compute_unified_coastal_vulnerability_index(
     hs_arr = np.asarray(hs, dtype=float)
     tp_arr = np.asarray(tp, dtype=float)
     surge_arr = np.asarray(surge, dtype=float)
+    n_exp = float(hs_exponent)
     
     # 1. Dynamic temperature-dependent settling velocity
     ws = compute_settling_velocity_soulsby(d50_m=d50_m, water_temp_c=water_temp_c, rho_water=rho, g=g)
@@ -380,8 +387,8 @@ def compute_unified_coastal_vulnerability_index(
     # 5. Prefactor: (rho * g^1.5) / (16 * tau^1.5)
     prefactor = (rho * (g ** 1.5)) / (16.0 * (tau ** 1.5))
     
-    # Wave energy & sediment kinetic core: (Hs^2.5 * Tp) / ws(T)
-    wave_sed_core = ( (np.maximum(hs_arr, 0.01) ** 2.5) * np.maximum(tp_arr, 0.1) ) / ws
+    # Wave energy & sediment kinetic core with parameterized exponent n: (Hs^n * Tp) / ws(T)
+    wave_sed_core = ( (np.maximum(hs_arr, 0.01) ** n_exp) * np.maximum(tp_arr, 0.1) ) / ws
     
     # Total Water Level / Surge amplification factor (non-collapsing)
     twl_amplification = 1.0 + np.maximum((surge_arr + r_2) / (hs_arr + 0.1), 0.0)
@@ -396,7 +403,7 @@ def compute_unified_coastal_vulnerability_index(
     upsilon_shielded = upsilon * shielding
     
     # Raw closed-form synthesis for comparison
-    upsilon_raw = prefactor * tan_beta * ((np.maximum(hs_arr, 0.01) ** 2.5) * tp_arr * np.maximum(surge_arr, 0.01) / ws) * np.maximum(w_a, 0.01)
+    upsilon_raw = prefactor * tan_beta * ((np.maximum(hs_arr, 0.01) ** n_exp) * tp_arr * np.maximum(surge_arr, 0.01) / ws) * np.maximum(w_a, 0.01)
     log_upsilon = np.log10(np.maximum(upsilon, 1e-4))
     
     df_out = pd.DataFrame({
@@ -417,6 +424,7 @@ def compute_unified_coastal_vulnerability_index(
         "delta_p_dissip": delta_p,
         "shielding_factor": shielding,
         "accretion_potential": accretion_pot,
+        "hs_exponent": np.full_like(hs_arr, n_exp),
         "upsilon": upsilon,
         "upsilon_shielded": upsilon_shielded,
         "upsilon_raw": upsilon_raw,
