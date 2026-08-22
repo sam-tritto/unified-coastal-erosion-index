@@ -1242,9 +1242,90 @@ def build_learnable_exponent_bayesian_model(
         # 5. Robust Student-t Likelihood
         sigma = pm.HalfNormal("sigma", sigma=1.0)
         nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
-        pm.StudentT("y_obs", nu=nu, mu=mu, sigma=sigma, observed=y_obs)
-
     return model, meta
+
+
+def evaluate_field_survey_correlation(
+    df_aligned_surveys: pd.DataFrame,
+    target_col: str = "surveyed_delta_x_m",
+) -> pd.DataFrame:
+    """Evaluate empirical correlation and predictive skill of physical forcings against in-situ ground-truth field surveys.
+
+    Parameters
+    ----------
+    df_aligned_surveys : pd.DataFrame
+        Synchronized DataFrame pairing discrete field survey shoreline changes with antecedent physical forcings.
+    target_col : str
+        Target column in df_aligned_surveys ('surveyed_delta_x_m' for inter-survey change,
+        or 'cumulative_displacement_m' for total cross-shore shift).
+
+    Returns
+    -------
+    df_skill : pd.DataFrame
+        Ranked skill table comparing empirical correlation (Pearson r, Spearman rho),
+        R2 score, and RMSE against true field survey observations.
+    """
+    from scipy import stats
+
+    y_true = df_aligned_surveys[target_col].values
+    n = len(y_true)
+    if n < 3:
+        return pd.DataFrame()
+
+    var_base = float(np.var(y_true))
+    mse_base = float(np.mean((y_true - np.mean(y_true)) ** 2)) if var_base > 1e-6 else 1.0
+
+    predictors = {
+        "Unified Index (log-Upsilon Memory)": "antecedent_log_upsilon" if "antecedent_log_upsilon" in df_aligned_surveys.columns else "antecedent_upsilon_memory",
+        "Unified Index (Upsilon Memory)": "antecedent_upsilon_memory" if "antecedent_upsilon_memory" in df_aligned_surveys.columns else "antecedent_mean_upsilon",
+        "Peak Wave Height (max Hs)": "antecedent_max_hs_m",
+        "Mean Wave Height (mean Hs)": "antecedent_mean_hs_m",
+        "Dean Number (mean Omega)": "antecedent_mean_dean",
+        "Peak Wave Power (max P)": "antecedent_max_power_Wm",
+        "Peak Storm Surge (max S)": "antecedent_max_surge_m",
+    }
+
+    results = []
+    for label, col in predictors.items():
+        if col not in df_aligned_surveys.columns:
+            continue
+        x = df_aligned_surveys[col].values
+        if np.all(np.isnan(x)) or np.std(x) < 1e-8:
+            continue
+
+        # Correlation analysis
+        r, p_pearson = stats.pearsonr(x, y_true)
+        rho, p_spearman = stats.spearmanr(x, y_true)
+
+        # OLS Linear fit for skill metrics
+        slope, intercept, _, _, _ = stats.linregress(x, y_true)
+        y_pred = slope * x + intercept
+        rmse = float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
+        mae = float(np.mean(np.abs(y_true - y_pred)))
+        r2 = float(1.0 - (np.sum((y_true - y_pred) ** 2) / max(np.sum((y_true - np.mean(y_true)) ** 2), 1e-6)))
+        bss = float(1.0 - (np.mean((y_true - y_pred) ** 2) / mse_base))
+
+        results.append({
+            "Predictor": label,
+            "Pearson r": r,
+            "p-value (Pearson)": p_pearson,
+            "Spearman rho": rho,
+            "p-value (Spearman)": p_spearman,
+            "R2 Score": r2,
+            "RMSE (m)": rmse,
+            "MAE (m)": mae,
+            "Brier Skill Score (BSS)": bss,
+            "N Surveys": n,
+        })
+
+    df_skill = pd.DataFrame(results)
+    if not df_skill.empty:
+        # Sort by absolute correlation with observed morphodynamics
+        df_skill["Abs_r"] = df_skill["Pearson r"].abs()
+        df_skill = df_skill.sort_values(by="Abs_r", ascending=False).drop(columns=["Abs_r"]).reset_index(drop=True)
+
+    return df_skill
+
 
 
 

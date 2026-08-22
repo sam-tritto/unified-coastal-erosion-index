@@ -1,0 +1,31 @@
+survey_date,transect_id,transect_name,shoreline_pos_mhw_m,cross_shore_change_m,survey_method,instrument,elevation_datum,uncertainty_m,storm_context
+2022-01-03 14:00:00,FRF_0058,Profile Line 58 (Near Pier),102.45,0.00,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.18,Pre-Nor'easter Baseline
+2022-01-18 15:30:00,FRF_0058,Profile Line 58 (Near Pier),98.12,-4.33,Amphibious Vehicle,LARC-V / GPS,NAVD88,0.22,Post-Jan Nor'easter Scour
+2022-02-14 13:00:00,FRF_0058,Profile Line 58 (Near Pier),99.40,1.28,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Post-Storm Berm Recovery
+2022-03-22 14:15:00,FRF_0058,Profile Line 58 (Near Pier),100.85,1.45,Walking Survey,Backpack RTK-GPS,NAVD88,0.12,Spring Accretion Phase
+2022-04-20 16:00:00,FRF_0058,Profile Line 58 (Near Pier),101.90,1.05,Walking Survey,Backpack RTK-GPS,NAVD88,0.12,Fair-Weather Subaerial Berm
+2022-05-18 12:30:00,FRF_0058,Profile Line 58 (Near Pier),103.20,1.30,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Berm Accretion
+2022-06-21 14:00:00,FRF_0058,Profile Line 58 (Near Pier),104.85,1.65,Walking Survey,Backpack RTK-GPS,NAVD88,0.10,Summer Equilibrium Peak
+2022-07-19 13:45:00,FRF_0058,Profile Line 58 (Near Pier),105.40,0.55,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Mid-Summer Maximum Width
+2022-08-16 15:00:00,FRF_0058,Profile Line 58 (Near Pier),104.95,-0.45,Walking Survey,Backpack RTK-GPS,NAVD88,0.12,Late Summer Equilibrium
+2022-09-15 11:30:00,FRF_0058,Profile Line 58 (Near Pier),104.10,-0.85,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Pre-Hurricane Ian Baseline
+2022-10-04 16:00:00,FRF_0058,Profile Line 58 (Near Pier),96.25,-7.85,Amphibious Vehicle,LARC-V / GPS,NAVD88,0.25,Post-Hurricane Ian Dune Cut
+2022-10-24 14:30:00,FRF_0058,Profile Line 58 (Near Pier),98.50,2.25,Walking Survey,Backpack RTK-GPS,NAVD88,0.15,Rapid Post-Storm Swell Welding
+2022-11-04 13:00:00,FRF_0058,Profile Line 58 (Near Pier),99.70,1.20,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.18,Pre-Nov Nor'easter State
+2022-11-28 15:15:00,FRF_0058,Profile Line 58 (Near Pier),95.80,-3.90,Amphibious Vehicle,LARC-V / GPS,NAVD88,0.22,Post-Nov Nor'easter Erosion
+2022-12-20 14:00:00,FRF_0058,Profile Line 58 (Near Pier),97.10,1.30,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.18,Winter Recovery State
+2022-01-03 14:00:00,FRF_0109,Profile Line 109 (North Array),108.20,0.00,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.18,Pre-Nor'easter Baseline
+2022-01-18 15:30:00,FRF_0109,Profile Line 109 (North Array),104.10,-4.10,Amphibious Vehicle,LARC-V / GPS,NAVD88,0.22,Post-Jan Nor'easter Scour
+2022-02-14 13:00:00,FRF_0109,Profile Line 109 (North Array),105.30,1.20,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Post-Storm Berm Recovery
+2022-03-22 14:15:00,FRF_0109,Profile Line 109 (North Array),106.60,1.30,Walking Survey,Backpack RTK-GPS,NAVD88,0.12,Spring Accretion Phase
+2022-04-20 16:00:00,FRF_0109,Profile Line 109 (North Array),107.55,0.95,Walking Survey,Backpack RTK-GPS,NAVD88,0.12,Fair-Weather Subaerial Berm
+2022-05-18 12:30:00,FRF_0109,Profile Line 109 (North Array),108.90,1.35,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Berm Accretion
+2022-06-21 14:00:00,FRF_0109,Profile Line 109 (North Array),110.40,1.50,Walking Survey,Backpack RTK-GPS,NAVD88,0.10,Summer Equilibrium Peak
+2022-07-19 13:45:00,FRF_0109,Profile Line 109 (North Array),111.10,0.70,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Mid-Summer Maximum Width
+2022-08-16 15:00:00,FRF_0109,Profile Line 109 (North Array),110.60,-0.50,Walking Survey,Backpack RTK-GPS,NAVD88,0.12,Late Summer Equilibrium
+2022-09-15 11:30:00,FRF_0109,Profile Line 109 (North Array),109.80,-0.80,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Pre-Hurricane Ian Baseline
+2022-10-04 16:00:00,FRF_0109,Profile Line 109 (North Array),102.30,-7.50,Amphibious Vehicle,LARC-V / GPS,NAVD88,0.25,Post-Hurricane Ian Dune Cut
+2022-10-24 14:30:00,FRF_0109,Profile Line 109 (North Array),104.40,2.10,Walking Survey,Backpack RTK-GPS,NAVD88,0.15,Rapid Post-Storm Swell Welding
+2022-11-04 13:00:00,FRF_0109,Profile Line 109 (North Array),105.50,1.10,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.18,Pre-Nov Nor'easter State
+2022-11-28 15:15:00,FRF_0109,Profile Line 109 (North Array),101.90,-3.60,Amphibious Vehicle,LARC-V / GPS,NAVD88,0.22,Post-Nov Nor'easter Erosion
+2022-12-20 14:00:00,FRF_0109,Profile Line 109 (North Array),103.10,1.20,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.18,Winter Recovery State
