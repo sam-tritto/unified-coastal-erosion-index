@@ -402,7 +402,7 @@ def simulate_equilibrium_shoreline_evolution(
         
         # Asymmetric rate constant for accretion (e_diff >= 0) vs erosion (e_diff < 0)
         coeff = c_accretion if e_diff >= 0 else c_erosion
-        rate = coeff * (np.sqrt(np.maximum(energy[t], 1.0)) / 100.0) * (e_diff / 1000.0)
+        rate = coeff * (np.sqrt(np.maximum(energy[t], 1.0)) / 1000.0) * (e_diff / 1000.0)
         
         current_x += rate
         current_x = np.clip(current_x, -18.0, 5.0)

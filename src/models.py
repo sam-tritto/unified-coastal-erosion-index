@@ -473,8 +473,8 @@ def run_arviz_loo_comparison(
 
 def run_benchmark_model_comparison(
     df: pd.DataFrame,
-    target_col: str = "shoreline_change_rate_mh",
-    use_log_upsilon: bool = False,
+    target_col: str = "shoreline_pos_obs_m",
+    use_log_upsilon: bool = True,
     train_split: float = 0.75,
     draws: int = 1000,
     tune: int = 800,
@@ -493,9 +493,13 @@ def run_benchmark_model_comparison(
     df : pd.DataFrame
         Synchronized hydrodynamic and morphodynamic observational dataset.
     target_col : str
-        Target column name (default 'shoreline_change_rate_mh' for dx/dt rate of shoreline change).
+        Target column name (default 'shoreline_pos_obs_m' for cumulative cross-shore position).
+        Use 'shoreline_change_rate_mh' only with lag-memory model types that can resolve
+        the near-zero hourly finite-difference signal against survey noise.
     use_log_upsilon : bool
-        Whether to use log10(Upsilon) as the primary forcing input (default False to preserve raw physical power-law scaling).
+        Whether to use log10(Upsilon) as the primary forcing input (default True).
+        Υ spans ~3 orders of magnitude; log-transformation stabilises the predictor
+        variance and prevents Bayesian linear models from converging to beta ≈ 0.
     train_split : float
         Chronological training split fraction (default 0.75, giving 75% train, 25% out-of-sample test).
         Set to 1.0 for full-series training without holdout split.
@@ -537,28 +541,45 @@ def run_benchmark_model_comparison(
     df_train = df.iloc[:split_idx].copy()
     df_test = df.iloc[split_idx:].copy() if has_holdout else df.copy()
 
-    # Resolve target columns (default to shoreline_change_rate_mh / dx/dt rate of change)
+    # Resolve target columns.
+    # Priority: (1) exact target_col if present, (2) shoreline_pos_obs_m / shoreline_pos_true_m
+    # (position-based, the safe default for linear Bayesian models), (3) shoreline_change_rate_mh
+    # as a last resort when only rate data is available.
     if target_col in df_train.columns:
         y_obs_train = df_train[target_col].values
-        y_true_train = df_train[target_col].values
+        y_true_train = (
+            df_train["shoreline_pos_true_m"].values
+            if target_col == "shoreline_pos_obs_m" and "shoreline_pos_true_m" in df_train.columns
+            else df_train[target_col].values
+        )
         y_obs_test = df_test[target_col].values if has_holdout else y_obs_train
-        y_true_test = df_test[target_col].values if has_holdout else y_true_train
+        y_true_test = (
+            df_test["shoreline_pos_true_m"].values
+            if target_col == "shoreline_pos_obs_m" and has_holdout and "shoreline_pos_true_m" in df_test.columns
+            else (df_test[target_col].values if has_holdout else y_true_train)
+        )
         y_obs_full = df[target_col].values
-        y_true_full = df[target_col].values
-    elif "shoreline_change_rate_mh" in df_train.columns:
-        y_obs_train = df_train["shoreline_change_rate_mh"].values
-        y_true_train = df_train["shoreline_change_rate_mh"].values
-        y_obs_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_obs_train
-        y_true_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_true_train
-        y_obs_full = df["shoreline_change_rate_mh"].values
-        y_true_full = df["shoreline_change_rate_mh"].values
-    else:
+        y_true_full = (
+            df["shoreline_pos_true_m"].values
+            if target_col == "shoreline_pos_obs_m" and "shoreline_pos_true_m" in df.columns
+            else df[target_col].values
+        )
+    elif "shoreline_pos_obs_m" in df_train.columns:
+        # Safe position-based fallback
         y_obs_train = df_train["shoreline_pos_obs_m"].values
         y_true_train = df_train["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df_train.columns else y_obs_train
         y_obs_test = df_test["shoreline_pos_obs_m"].values if has_holdout else y_obs_train
         y_true_test = df_test["shoreline_pos_true_m"].values if (has_holdout and "shoreline_pos_true_m" in df_test.columns) else y_obs_test
         y_obs_full = df["shoreline_pos_obs_m"].values
         y_true_full = df["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df.columns else y_obs_full
+    else:
+        # Last resort: finite-difference rate column
+        y_obs_train = df_train["shoreline_change_rate_mh"].values
+        y_true_train = df_train["shoreline_change_rate_mh"].values
+        y_obs_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_obs_train
+        y_true_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_true_train
+        y_obs_full = df["shoreline_change_rate_mh"].values
+        y_true_full = df["shoreline_change_rate_mh"].values
 
     # Extract training and full Upsilon forcing with log transform if enabled
     if use_log_upsilon:

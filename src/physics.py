@@ -633,8 +633,18 @@ def compute_unified_coastal_vulnerability_index(
     # Wave energy & sediment kinetic core with parameterized exponent n: (Hs^n * Tp) / ws(T)
     wave_sed_core = ( (np.maximum(hs_arr, 0.01) ** n_exp) * np.maximum(tp_arr, 0.1) ) / ws
     
-    # Total Water Level / Surge amplification factor (decoupled additive reference scaling)
-    twl_amplification = 1.0 + np.maximum(surge_arr / s_ref, 0.0) + np.maximum(r_2 / r_ref, 0.0)
+    # Total Water Level / Surge amplification factor.
+    # Surge and runup are normalised by their respective reference scales, but each term is
+    # additionally divided by (Hs + 0.1) so that extreme surge/runup events during low-wave
+    # conditions do not produce unbounded amplification.  This preserves the decoupled
+    # s_ref / r_ref parameterisation introduced in dd74490 while restoring the physical
+    # non-dimensionalisation that prevents the Υ distribution from becoming heavy-tailed.
+    hs_denom = np.maximum(hs_arr, 0.01) + 0.1
+    twl_amplification = (
+        1.0
+        + np.maximum(surge_arr / np.maximum(s_ref * hs_denom, 1e-3), 0.0)
+        + np.maximum(r_2 / np.maximum(r_ref * hs_denom, 1e-3), 0.0)
+    )
     
     # Wind amplification factor: quadratic stress scaling with symmetric bounding
     w_sign = np.sign(w_a)

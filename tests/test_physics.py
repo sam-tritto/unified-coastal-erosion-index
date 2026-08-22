@@ -398,38 +398,60 @@ def test_learnable_exponent_bayesian_model():
     assert len(post_exp) == 100
 
 
-def test_decoupled_twl_additive_amplification():
-    """Verify that TWL amplification is decoupled from Hs and scales additively with surge."""
-    hs_large = np.array([5.0])
+def test_twl_surge_amplification_hs_bounded():
+    """Verify that TWL amplification: (a) always increases Υ with surge, (b) is bounded
+    by Hs so that extreme-surge events do not produce unbounded heavy-tailed Υ values,
+    and (c) shows stronger relative surge impact under small waves than large waves
+    (physically correct Hs-normalised non-dimensionalisation).
+    """
     tp = np.array([12.0])
     wind = np.array([10.0])
     wind_dir = np.array([70.0])
 
-    # Case A: Large wave with zero surge
+    # --- (a) Surge must always increase Υ ----------------------------------------
+    for hs_val, surge_val in [(1.0, 0.5), (2.0, 0.5), (5.0, 1.0)]:
+        df_no = compute_unified_coastal_vulnerability_index(
+            hs=np.array([hs_val]), tp=tp, surge=np.array([0.0]),
+            wind_speed=wind, wind_dir_deg=wind_dir, s_ref=1.0, r_ref=2.0,
+        )
+        df_with = compute_unified_coastal_vulnerability_index(
+            hs=np.array([hs_val]), tp=tp, surge=np.array([surge_val]),
+            wind_speed=wind, wind_dir_deg=wind_dir, s_ref=1.0, r_ref=2.0,
+        )
+        ratio = df_with["upsilon"].iloc[0] / df_no["upsilon"].iloc[0]
+        assert ratio > 1.0, f"Hs={hs_val}, surge={surge_val}: expected ratio > 1.0, got {ratio:.3f}"
+
+    # --- (b) Under large waves (Hs=5m) 1m surge must not inflate Υ by >50% -------
+    # (The old additive formula allowed >100% inflation; we bound this to keep the
+    #  Υ distribution compact and Bayesian linear models numerically stable.)
     df_no_surge = compute_unified_coastal_vulnerability_index(
-        hs=hs_large,
-        tp=tp,
-        surge=np.array([0.0]),
-        wind_speed=wind,
-        wind_dir_deg=wind_dir,
-        s_ref=1.0,
-        r_ref=2.0,
+        hs=np.array([5.0]), tp=tp, surge=np.array([0.0]),
+        wind_speed=wind, wind_dir_deg=wind_dir, s_ref=1.0, r_ref=2.0,
     )
-    
-    # Case B: Same large wave with 1.0m storm surge
     df_with_surge = compute_unified_coastal_vulnerability_index(
-        hs=hs_large,
-        tp=tp,
-        surge=np.array([1.0]),
-        wind_speed=wind,
-        wind_dir_deg=wind_dir,
-        s_ref=1.0,
-        r_ref=2.0,
+        hs=np.array([5.0]), tp=tp, surge=np.array([1.0]),
+        wind_speed=wind, wind_dir_deg=wind_dir, s_ref=1.0, r_ref=2.0,
+    )
+    ratio_large = df_with_surge["upsilon"].iloc[0] / df_no_surge["upsilon"].iloc[0]
+    assert 1.0 < ratio_large < 1.50, (
+        f"Under large waves (Hs=5m) surge amplification ratio should be in (1.0, 1.50), "
+        f"got {ratio_large:.2f}"
     )
 
-    # 1.0m surge must produce a substantial relative amplification even under 5.0m waves
-    ups_ratio = df_with_surge["upsilon"].iloc[0] / df_no_surge["upsilon"].iloc[0]
-    assert ups_ratio > 1.30, f"Expected surge amplification ratio > 1.30, got {ups_ratio:.2f}"
+    # --- (c) Small-wave surge impact > large-wave surge impact -------------------
+    df_small_no = compute_unified_coastal_vulnerability_index(
+        hs=np.array([0.5]), tp=tp, surge=np.array([0.0]),
+        wind_speed=wind, wind_dir_deg=wind_dir, s_ref=1.0, r_ref=2.0,
+    )
+    df_small_with = compute_unified_coastal_vulnerability_index(
+        hs=np.array([0.5]), tp=tp, surge=np.array([1.0]),
+        wind_speed=wind, wind_dir_deg=wind_dir, s_ref=1.0, r_ref=2.0,
+    )
+    ratio_small = df_small_with["upsilon"].iloc[0] / df_small_no["upsilon"].iloc[0]
+    assert ratio_small > ratio_large, (
+        f"Surge amplification should be larger under small waves: "
+        f"ratio_small={ratio_small:.2f}, ratio_large={ratio_large:.2f}"
+    )
 
 
 def test_quadratic_symmetric_wind_scaling():
