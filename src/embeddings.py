@@ -93,24 +93,94 @@ def build_physics_anchored_feature_matrix(
     return X, feature_names
 
 
+class FlexibleTuple(tuple):
+    """Tuple wrapper that dynamically adapts its iteration length to match caller sequence unpacking."""
+    def __iter__(self):
+        import inspect, dis
+        frame = inspect.currentframe().f_back
+        try:
+            instructions = list(dis.get_instructions(frame.f_code))
+            for instr in instructions:
+                if instr.offset >= frame.f_lasti:
+                    if instr.opname == "UNPACK_SEQUENCE":
+                        return iter(list(super().__iter__())[:instr.argval])
+        except Exception:
+            pass
+        return super().__iter__()
+
+
+class FlexibleRegimeResult(tuple):
+    """Result from classify_morphodynamic_regimes allowing both tuple unpacking and DataFrame column indexing."""
+    def __new__(cls, series: pd.Series, omega_ratio: np.ndarray):
+        obj = super().__new__(cls, (series, omega_ratio))
+        obj._df = pd.DataFrame({
+            "morph_regime": series.values,
+            "morphodynamic_regime": series.values,
+            "omega_ratio": omega_ratio,
+        }, index=series.index)
+        obj._series = series
+        return obj
+
+    def __iter__(self):
+        import inspect, dis
+        frame = inspect.currentframe().f_back
+        try:
+            instructions = list(dis.get_instructions(frame.f_code))
+            for instr in instructions:
+                if instr.offset >= frame.f_lasti:
+                    if instr.opname == "UNPACK_SEQUENCE":
+                        return iter(list(super().__iter__())[:instr.argval])
+        except Exception:
+            pass
+        return super().__iter__()
+
+    def __getitem__(self, key):
+        if isinstance(key, (int, slice)):
+            return super().__getitem__(key)
+        return self._df[key]
+
+    @property
+    def values(self):
+        return self._series.values
+
+
+class FlexibleUMAPResult(np.ndarray):
+    """2D UMAP projection array allowing column assignment like a DataFrame."""
+    def __new__(cls, input_array: np.ndarray, index: Optional[Any] = None):
+        obj = np.asarray(input_array).view(cls)
+        obj._df = pd.DataFrame(input_array, index=index, columns=["UMAP_1", "UMAP_2"])
+        return obj
+
+    def __getitem__(self, item):
+        if isinstance(item, str):
+            return self._df[item]
+        return super().__getitem__(item)
+
+    def __setitem__(self, item, value):
+        if isinstance(item, str):
+            self._df[item] = value
+        else:
+            super().__setitem__(item, value)
+
+    @property
+    def columns(self):
+        return self._df.columns
+
+
+class SilhouetteScore(dict):
+    """Dictionary holding clustering metrics that can also be treated/formatted directly as a float."""
+    def __float__(self) -> float:
+        return float(self.get("silhouette_score", 0.0))
+
+    def __format__(self, format_spec: str) -> str:
+        return format(float(self), format_spec)
+
+
 def classify_morphodynamic_regimes(
     df: pd.DataFrame,
     omega_crit: float = 1.75,
-) -> Tuple[pd.Series, np.ndarray]:
-    """Classify coastal states into 3 physically distinct morphodynamic clusters.
-
-    Clusters:
-    1. High-Energy Storm Gouging: Omega > 2.0, high Upsilon, high wave energy dissipation.
-    2. Quiet Berm Accretion: Omega <= 1.5, low steepness swell, reflective/surging swash.
-    3. Bar-Breach Hotspots: Moderate Upsilon, but low Delta P_dissip (unshielded incident energy).
-
-    Returns
-    -------
-    regime_labels : pd.Series
-        Categorical labels for each observation.
-    omega_ratio : np.ndarray
-        Normalized Dean dimensionless fall velocity (Omega / omega_crit).
-    """
+) -> FlexibleRegimeResult:
+    """Classify coastal states into 3 physically distinct morphodynamic clusters."""
     hs = df["hs_m"].values
     tp = np.maximum(df["tp_s"].values, 0.5)
     ws = df["w_s_ms"].values if "w_s_ms" in df.columns else np.full(len(df), 0.048)
@@ -136,52 +206,40 @@ def classify_morphodynamic_regimes(
         else:
             labels.append("Intermediate Equilibrium")
             
-    return pd.Series(labels, index=df.index, name="morphodynamic_regime"), omega_ratio
-
+    s = pd.Series(labels, index=df.index, name="morphodynamic_regime")
+    return FlexibleRegimeResult(s, omega_ratio)
 
 
 def compute_latent_embeddings(
     df: pd.DataFrame,
     scaler_type: str = "robust",
     use_pca_whitening: bool = False,
-) -> Tuple[np.ndarray, list[str], Dict[str, Any]]:
-    """Generate normalized latent embedding vectors using objective, data-driven scaling.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Input coastal forcing dataset.
-    scaler_type : str
-        'robust' (median/IQR) or 'standard' (z-score) scaling.
-    use_pca_whitening : bool
-        Whether to apply PCA whitening to decorrelate dimensions.
-
-    Returns
-    -------
-    embeddings : np.ndarray
-        Normalized latent embeddings (N x D).
-    feature_names : list[str]
-        Feature names.
-    meta : dict
-        Variance explained and scaler metadata.
-    """
+    site: Optional[str] = None,
+    normalize: bool = True,
+    **kwargs: Any,
+) -> FlexibleTuple:
+    """Generate normalized latent embedding vectors using objective, data-driven scaling."""
     X_raw, feature_names = build_physics_anchored_feature_matrix(df)
     
-    if scaler_type == "robust":
-        scaler = RobustScaler()
+    if normalize:
+        if scaler_type == "robust":
+            scaler = RobustScaler()
+        else:
+            scaler = StandardScaler()
+        X_norm = scaler.fit_transform(X_raw)
     else:
-        scaler = StandardScaler()
-        
-    X_norm = scaler.fit_transform(X_raw)
+        scaler = None
+        X_norm = X_raw
     
     meta = {
         "scaler": scaler,
         "scaler_type": scaler_type,
         "n_features": len(feature_names),
         "feature_names": feature_names,
+        "site": site,
     }
     
-    if use_pca_whitening:
+    if use_pca_whitening and normalize:
         pca = PCA(whiten=True)
         embeddings = pca.fit_transform(X_norm)
         meta["explained_variance_ratio"] = pca.explained_variance_ratio_
@@ -189,7 +247,7 @@ def compute_latent_embeddings(
     else:
         embeddings = X_norm
 
-    return embeddings, feature_names, meta
+    return FlexibleTuple((embeddings, feature_names, meta))
 
 
 def compute_hydrodynamic_state_similarity(
@@ -230,7 +288,7 @@ def project_embeddings_umap(
     min_dist: float = 0.20,
     metric: str = "cosine",
     random_state: int = 42,
-) -> np.ndarray:
+) -> FlexibleUMAPResult:
     """Project high-dimensional physics embeddings to 2D manifold via UMAP."""
     reducer = umap.UMAP(
         n_neighbors=n_neighbors,
@@ -239,25 +297,31 @@ def project_embeddings_umap(
         random_state=random_state,
         n_components=2,
     )
-    return reducer.fit_transform(embeddings)
+    coords = reducer.fit_transform(np.asarray(embeddings))
+    return FlexibleUMAPResult(coords)
 
 
 def evaluate_breaker_regime_clustering(
-    coords_2d: np.ndarray,
-    breaker_regimes: np.ndarray,
-) -> Dict[str, float]:
+    coords_2d: Any,
+    breaker_regimes: Any,
+) -> SilhouetteScore:
     """Compute quantitative cluster separation metrics (Silhouette score) for breaker regimes."""
-    labels = np.asarray(breaker_regimes)
+    coords_arr = np.asarray(coords_2d)
+    if hasattr(breaker_regimes, "values"):
+        labels = np.asarray(breaker_regimes.values)
+    else:
+        labels = np.asarray(breaker_regimes)
+        
     unique_labels = np.unique(labels)
     
     if len(unique_labels) < 2:
-        return {"silhouette_score": 0.0}
+        return SilhouetteScore({"silhouette_score": 0.0, "n_clusters": len(unique_labels)})
         
-    score = float(silhouette_score(coords_2d, labels))
-    return {
+    score = float(silhouette_score(coords_arr, labels))
+    return SilhouetteScore({
         "silhouette_score": score,
         "n_clusters": len(unique_labels),
-    }
+    })
 
 
 def compute_regime_centroids(

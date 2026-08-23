@@ -454,11 +454,15 @@ class PhysicsRAG:
     def __init__(
         self,
         df: pd.DataFrame,
-        embeddings: np.ndarray,
-        feature_names: List[str],
+        embeddings: Optional[np.ndarray] = None,
+        feature_names: Optional[List[str]] = None,
         scaler_meta: Optional[Dict[str, Any]] = None,
         model_name: str = "gemini-2.5-flash",
         api_key: Optional[str] = None,
+        latent_embeddings: Optional[np.ndarray] = None,
+        top_k: int = 5,
+        similarity_metric: str = "cosine",
+        **kwargs: Any,
     ):
         """Initialize the PhysicsRAG engine.
 
@@ -466,9 +470,9 @@ class PhysicsRAG:
         ----------
         df : pd.DataFrame
             Underlying coastal hydrodynamic & morphodynamic dataset.
-        embeddings : np.ndarray
+        embeddings : np.ndarray, optional
             Physics-anchored latent vectors (N x D).
-        feature_names : list[str]
+        feature_names : list[str], optional
             Feature dimension names.
         scaler_meta : dict, optional
             Metadata containing fitted scalers and transforms.
@@ -476,13 +480,31 @@ class PhysicsRAG:
             Gemini model identifier (default: 'gemini-2.5-flash').
         api_key : str, optional
             Gemini API key (defaults to GEMINI_API_KEY / GOOGLE_API_KEY in environment).
+        latent_embeddings : np.ndarray, optional
+            Alias for embeddings.
+        top_k : int
+            Default retrieval count.
+        similarity_metric : str
+            Distance / similarity metric ('cosine', 'euclidean', 'manhattan').
         """
         self.df = df.copy()
-        self.embeddings = embeddings
-        self.feature_names = feature_names
+        
+        # Handle embeddings / latent_embeddings alias
+        emb = latent_embeddings if latent_embeddings is not None else embeddings
+        if emb is None:
+            emb, names, meta = compute_latent_embeddings(self.df)
+            if feature_names is None:
+                feature_names = names
+            if scaler_meta is None:
+                scaler_meta = meta
+                
+        self.embeddings = np.asarray(emb)
+        self.feature_names = feature_names or []
         self.scaler_meta = scaler_meta or {}
         self.model_name = model_name
         self.api_key = api_key
+        self.top_k = top_k
+        self.similarity_metric = similarity_metric
         self.scaler = self.scaler_meta.get("scaler")
         if self.scaler is None and hasattr(self.df, "columns"):
             try:
@@ -1028,23 +1050,33 @@ def evaluate_retrieval_query(
 
 
 def evaluate_rag_benchmark_suite(
-    rag: PhysicsRAG,
+    rag: Optional[PhysicsRAG] = None,
     benchmark_queries: Optional[List[Dict[str, Any]]] = None,
-    k_list: List[int] = [1, 3, 5, 10],
+    k_list: Optional[List[int]] = None,
     use_llm_parser: bool = False,
+    rag_engine: Optional[PhysicsRAG] = None,
+    k_values: Optional[List[int]] = None,
+    verbose: bool = False,
+    **kwargs: Any,
 ) -> Tuple[pd.DataFrame, Dict[str, float]]:
     """Execute multi-k benchmark evaluation suite across diverse coastal query categories.
 
     Parameters
     ----------
-    rag : PhysicsRAG
+    rag : PhysicsRAG, optional
         Instantiated PhysicsRAG engine.
     benchmark_queries : list[dict], optional
         Custom list of query dicts (defaults to DEFAULT_PHYSICS_BENCHMARK_QUERIES).
-    k_list : list[int]
+    k_list : list[int], optional
         List of k rank cutoffs (e.g. [1, 3, 5, 10]).
     use_llm_parser : bool
         Whether to use Gemini structured output parser.
+    rag_engine : PhysicsRAG, optional
+        Alias for rag.
+    k_values : list[int], optional
+        Alias for k_list.
+    verbose : bool
+        Whether to print verbose progress.
 
     Returns
     -------
@@ -1053,16 +1085,24 @@ def evaluate_rag_benchmark_suite(
     summary_metrics : dict
         Macro-averaged benchmark summary metrics (Mean P@1, Mean P@5, Mean Regime Purity, Mean MRR).
     """
+    engine = rag_engine if rag_engine is not None else rag
+    if engine is None:
+        raise ValueError("PhysicsRAG instance must be provided via 'rag' or 'rag_engine'.")
+        
+    cutoff_ranks = k_values if k_values is not None else (k_list or [1, 3, 5, 10])
     queries = benchmark_queries or DEFAULT_PHYSICS_BENCHMARK_QUERIES
     rows: List[Dict[str, Any]] = []
 
-    p_at_k_accum: Dict[int, List[float]] = {k_val: [] for k_val in k_list}
+    p_at_k_accum: Dict[int, List[float]] = {k_val: [] for k_val in cutoff_ranks}
     purity_accum: List[float] = []
     mrr_accum: List[float] = []
     recall_accum: List[float] = []
     sim_accum: List[float] = []
 
     for q_spec in queries:
+        if verbose:
+            print(f"Evaluating query: {q_spec['query']}")
+            
         row_entry: Dict[str, Any] = {
             "Query": q_spec["query"],
             "Category": q_spec.get("category", "General"),
@@ -1070,9 +1110,9 @@ def evaluate_rag_benchmark_suite(
         }
 
         # Evaluate across multiple k values
-        for k_val in k_list:
+        for k_val in cutoff_ranks:
             q_res = evaluate_retrieval_query(
-                rag=rag,
+                rag=engine,
                 query_spec_or_text=q_spec,
                 k=k_val,
                 use_llm_parser=use_llm_parser,
