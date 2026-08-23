@@ -371,10 +371,15 @@ def run_deep_learning_benchmark(
     lookback: int = 24,
     train_split: float = 0.75,
     epochs: int = 30,
+    lr: float = 0.005,
+    hidden_dim: int = 32,
     batch_size: int = 64,
+    target_col: str = "shoreline_pos_obs_m",
     storm_start_idx: Optional[int] = None,
     storm_duration: int = 72,
+    storm_window: Optional[Tuple[str, str]] = None,
     random_seed: int = 42,
+    **kwargs: Any,
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Execute multi-horizon benchmark comparison across MLP, Standard LSTM, and PG-LSTM."""
     torch.manual_seed(random_seed)
@@ -382,8 +387,14 @@ def run_deep_learning_benchmark(
     device = "cpu"
 
     df_aug = df.copy()
-    if "shoreline_lag1" not in df_aug.columns and "shoreline_pos_obs_m" in df_aug.columns:
-        df_aug["shoreline_lag1"] = df_aug["shoreline_pos_obs_m"].shift(1).bfill()
+    if target_col not in df_aug.columns:
+        if "shoreline_pos_obs_m" in df_aug.columns:
+            target_col = "shoreline_pos_obs_m"
+        elif "shoreline_pos_true_m" in df_aug.columns:
+            target_col = "shoreline_pos_true_m"
+
+    if "shoreline_lag1" not in df_aug.columns and target_col in df_aug.columns:
+        df_aug["shoreline_lag1"] = df_aug[target_col].shift(1).bfill()
     if "log_upsilon" not in df_aug.columns and "upsilon" in df_aug.columns:
         df_aug["log_upsilon"] = np.log10(np.maximum(df_aug["upsilon"].values, 1e-4))
     if "omega_ratio" not in df_aug.columns and "dean_number" in df_aug.columns:
@@ -397,11 +408,19 @@ def run_deep_learning_benchmark(
     physics_features = raw_features + ["log_upsilon", "omega_ratio", "delta_p_dissip", "accretion_potential"]
 
     data_raw = create_sliding_window_dataset(
-        df_aug, feature_cols=raw_features, target_col="shoreline_pos_obs_m", lookback=lookback, train_split=train_split
+        df_aug, feature_cols=raw_features, target_col=target_col, lookback=lookback, train_split=train_split
     )
     data_phys = create_sliding_window_dataset(
-        df_aug, feature_cols=physics_features, target_col="shoreline_pos_obs_m", lookback=lookback, train_split=train_split
+        df_aug, feature_cols=physics_features, target_col=target_col, lookback=lookback, train_split=train_split
     )
+
+    if storm_window is not None:
+        try:
+            w_start = pd.to_datetime(storm_window[0])
+            idx_loc = df_aug.index.get_indexer([w_start], method="nearest")[0]
+            storm_start_idx = max(lookback + 1, idx_loc)
+        except Exception:
+            pass
 
     if storm_start_idx is None:
         peak_idx = int(np.argmax(df_aug["hs_m"].values))
@@ -415,9 +434,9 @@ def run_deep_learning_benchmark(
 
     # --- Architecture 1: Multi-Layer Perceptron (MLP) ---
     mlp_input_dim = len(data_raw["feature_cols"]) * lookback
-    model_mlp = CoastalMLP(input_dim=mlp_input_dim, hidden_dims=[64, 32], dropout=0.15)
+    model_mlp = CoastalMLP(input_dim=mlp_input_dim, hidden_dims=[hidden_dim * 2, hidden_dim], dropout=0.15)
     model_mlp, loss_mlp = train_neural_model(
-        model_mlp, data_raw["x_train"], data_raw["y_train"], epochs=epochs, batch_size=batch_size, device=device
+        model_mlp, data_raw["x_train"], data_raw["y_train"], epochs=epochs, lr=lr, batch_size=batch_size, device=device
     )
     m_mlp, p_test_mlp, p_full_mlp = evaluate_dual_horizon(model_mlp, data_raw, device=device)
     p_storm_mlp, y_storm_true, time_storm = simulate_storm_rollout(
@@ -439,9 +458,9 @@ def run_deep_learning_benchmark(
     storm_rollouts["MLP"] = p_storm_mlp
 
     # --- Architecture 2: Standard LSTM (Black-Box Recurrent) ---
-    model_lstm = CoastalLSTM(input_dim=len(data_raw["feature_cols"]), hidden_dim=32, num_layers=2, dropout=0.10)
+    model_lstm = CoastalLSTM(input_dim=len(data_raw["feature_cols"]), hidden_dim=hidden_dim, num_layers=2, dropout=0.10)
     model_lstm, loss_lstm = train_neural_model(
-        model_lstm, data_raw["x_train"], data_raw["y_train"], epochs=epochs, batch_size=batch_size, device=device
+        model_lstm, data_raw["x_train"], data_raw["y_train"], epochs=epochs, lr=lr, batch_size=batch_size, device=device
     )
     m_lstm, p_test_lstm, p_full_lstm = evaluate_dual_horizon(model_lstm, data_raw, device=device)
     p_storm_lstm, _, _ = simulate_storm_rollout(
@@ -463,9 +482,9 @@ def run_deep_learning_benchmark(
     storm_rollouts["LSTM"] = p_storm_lstm
 
     # --- Architecture 3: Physics-Guided LSTM (PG-LSTM) ---
-    model_pgnn = PhysicsGuidedLSTM(input_dim=len(data_phys["feature_cols"]), hidden_dim=48, num_layers=2, dropout=0.10)
+    model_pgnn = PhysicsGuidedLSTM(input_dim=len(data_phys["feature_cols"]), hidden_dim=int(hidden_dim * 1.5), num_layers=2, dropout=0.10)
     model_pgnn, loss_pgnn = train_neural_model(
-        model_pgnn, data_phys["x_train"], data_phys["y_train"], epochs=epochs, batch_size=batch_size, device=device
+        model_pgnn, data_phys["x_train"], data_phys["y_train"], epochs=epochs, lr=lr, batch_size=batch_size, device=device
     )
     m_pgnn, p_test_pgnn, p_full_pgnn = evaluate_dual_horizon(model_pgnn, data_phys, device=device)
     p_storm_pgnn, _, _ = simulate_storm_rollout(

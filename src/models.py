@@ -251,6 +251,15 @@ def predict_bayesian_model(
     alphas = trace.posterior["alpha"].values.reshape(-1)
     sigmas = trace.posterior["sigma"].values.reshape(-1) if "sigma" in trace.posterior else np.full(len(alphas), 0.3)
     nus = trace.posterior["nu"].values.reshape(-1) if "nu" in trace.posterior else np.full(len(alphas), 5.0)
+    
+    # Sub-sample posterior draws to 200 for fast, memory-safe out-of-sample evaluation on large multi-year series
+    if len(alphas) > 200:
+        sub_idx = np.linspace(0, len(alphas) - 1, 200, dtype=int)
+        alphas = alphas[sub_idx]
+        sigmas = sigmas[sub_idx]
+        nus = nus[sub_idx]
+    else:
+        sub_idx = np.arange(len(alphas))
     n_samples = len(alphas)
 
     if model_type == "single":
@@ -278,8 +287,8 @@ def predict_bayesian_model(
         f_scaled = (f_raw - meta["f_mean"]) / meta["f_std"]
         lag_mat = create_lag_matrix(f_scaled, max_lag=max_lag)
 
-        betas = trace.posterior["beta_forcing"].values.reshape(-1)
-        gammas = trace.posterior["gamma"].values.reshape(-1)
+        betas = trace.posterior["beta_forcing"].values.reshape(-1)[sub_idx]
+        gammas = trace.posterior["gamma"].values.reshape(-1)[sub_idx]
 
         mu_samples = np.zeros((n_samples, n_pts), dtype=float)
         for i in range(n_samples):
@@ -306,7 +315,7 @@ def predict_bayesian_model(
         f_scaled = (f_raw - meta["f_mean"]) / meta["f_std"]
         degree = int(meta.get("degree", 3))
         basis_matrix = np.column_stack([f_scaled ** (d + 1) for d in range(degree)])
-        beta_poly = trace.posterior["beta_poly"].values.reshape(-1, degree)
+        beta_poly = trace.posterior["beta_poly"].values.reshape(-1, degree)[sub_idx]
 
         mu_samples = alphas[:, None] + (beta_poly @ basis_matrix.T)
 
@@ -323,7 +332,7 @@ def predict_bayesian_model(
                 raw_f = df[col].values if col in df.columns else np.zeros(n_pts)
 
             f_scaled = (raw_f - meta[f"{fname}_mean"]) / meta[f"{fname}_std"]
-            beta_var = trace.posterior[f"beta_{fname}"].values.reshape(-1)
+            beta_var = trace.posterior[f"beta_{fname}"].values.reshape(-1)[sub_idx]
             mu_samples += beta_var[:, None] * f_scaled[None, :]
 
     elif model_type == "hybrid":
@@ -341,8 +350,8 @@ def predict_bayesian_model(
         u_scaled = (ups_raw - meta["upsilon_mean"]) / meta["upsilon_std"]
         lag_mat = create_lag_matrix(u_scaled, max_lag=max_lag)
 
-        beta_ups = trace.posterior["beta_upsilon"].values.reshape(-1)
-        gammas = trace.posterior["gamma"].values.reshape(-1)
+        beta_ups = trace.posterior["beta_upsilon"].values.reshape(-1)[sub_idx]
+        gammas = trace.posterior["gamma"].values.reshape(-1)[sub_idx]
 
         mu_samples = np.zeros((n_samples, n_pts), dtype=float)
         for i in range(n_samples):
@@ -361,7 +370,7 @@ def predict_bayesian_model(
                     raw_f = df[col].values if col in df.columns else np.zeros(n_pts)
 
                 f_scaled = (raw_f - meta[f"{fname}_mean"]) / meta[f"{fname}_std"]
-                delta_var = trace.posterior[f"delta_{fname}"].values.reshape(-1)
+                delta_var = trace.posterior[f"delta_{fname}"].values.reshape(-1)[sub_idx]
                 mu_samples += delta_var[:, None] * f_scaled[None, :]
 
     elif model_type == "asymmetric":
@@ -403,10 +412,10 @@ def predict_bayesian_model(
         lag_eros = create_lag_matrix(f_eros_scaled, max_lag=max_lag)
         lag_acc = create_lag_matrix(f_acc_scaled, max_lag=max_lag)
 
-        gammas = trace.posterior["gamma"].values.reshape(-1)
-        o_crits = trace.posterior["omega_crit"].values.reshape(-1)
-        k_e = trace.posterior["k_eros"].values.reshape(-1)
-        k_a = trace.posterior["k_accrete"].values.reshape(-1)
+        gammas = trace.posterior["gamma"].values.reshape(-1)[sub_idx]
+        o_crits = trace.posterior["omega_crit"].values.reshape(-1)[sub_idx]
+        k_e = trace.posterior["k_eros"].values.reshape(-1)[sub_idx]
+        k_a = trace.posterior["k_accrete"].values.reshape(-1)[sub_idx]
 
         mu_samples = np.zeros((n_samples, n_pts), dtype=float)
         for i in range(n_samples):
@@ -713,8 +722,6 @@ def run_benchmark_model_comparison(
                 return_inferencedata=True,
             )
             pm.compute_log_likelihood(trace, progressbar=False)
-            ppc_train = pm.sample_posterior_predictive(trace, random_seed=random_seed, progressbar=False)
-            trace.extend(ppc_train)
 
         traces[name] = trace
 
@@ -725,16 +732,19 @@ def run_benchmark_model_comparison(
         elif "full_upsilon" in spec:
             spec_pred = {"upsilon": spec["full_upsilon"]}
 
-        # Full continuous prediction across full dataset (train + test holdout)
-        mu_full_mean, mu_full_samples, y_full_pred_samples = predict_bayesian_model(
+        # Memory-efficient full continuous prediction across dataset (train + test holdout)
+        mu_full_mean = predict_bayesian_model(
             trace=trace,
             model_type=model_type,
             meta=meta,
             df=df,
             spec=spec_pred,
-            return_samples=True,
+            return_samples=False,
             random_seed=random_seed,
         )
+
+        import gc
+        gc.collect()
 
         mu_train_pred = mu_full_mean[:split_idx]
         mu_test_pred = mu_full_mean[split_idx:] if has_holdout else mu_train_pred
