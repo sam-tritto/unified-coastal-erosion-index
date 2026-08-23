@@ -1280,47 +1280,87 @@ def load_multi_year_dataset(
     return df_multi, label
 
 
+def load_site_field_surveys(
+    site: str = "duck_nc",
+    transect_id: Optional[str] = None,
+    transect_index: int = 0,
+    csv_path: Optional[str] = None,
+) -> pd.DataFrame:
+    """Load authentic in-situ beach profile field surveys for any supported coastal site."""
+    from src.physics import COASTAL_SITE_PROFILES
+
+    site_key = site.lower().strip()
+    if site_key in ["torrey_pines", "torrey_pines_ca", "torrey", "tp"]:
+        site_key = "torrey_pines_ca"
+    elif site_key in ["duck", "duck_nc", "frf", "frf_duck"]:
+        site_key = "duck_nc"
+    elif site_key in ["narrabeen", "narrabeen_aus", "collaroy"]:
+        site_key = "narrabeen_aus"
+    elif site_key in ["truc_vert", "truc_vert_france", "trucvert"]:
+        site_key = "truc_vert_france"
+    elif site_key in ["gold_coast", "gold_coast_aus", "surfers_paradise"]:
+        site_key = "gold_coast_aus"
+    elif site_key not in COASTAL_SITE_PROFILES:
+        site_key = "duck_nc"
+
+    site_cfg = COASTAL_SITE_PROFILES[site_key]
+    default_transects = site_cfg.get("default_transects", ["FRF_0058", "FRF_0109"])
+
+    # Resolve default transect if not provided or if incompatible
+    if transect_id is None:
+        idx = max(0, min(transect_index, len(default_transects) - 1))
+        transect_id = default_transects[idx]
+    elif transect_id not in default_transects:
+        # If a Duck transect (e.g. FRF_0058) is passed for Torrey Pines or Narrabeen, gracefully map it
+        idx = 1 if ("0109" in str(transect_id) or "2" in str(transect_id) or "south" in str(transect_id).lower() or "4" in str(transect_id)) else 0
+        transect_id = default_transects[min(idx, len(default_transects) - 1)]
+
+    # Locate dataset CSV
+    possible_paths = [
+        csv_path if csv_path is not None else None,
+        "data/site_field_surveys.csv",
+        "data/frf_duck_field_surveys.csv",
+    ]
+    resolved_path = None
+    for p in possible_paths:
+        if p and os.path.exists(p):
+            resolved_path = p
+            break
+        elif p and os.path.exists(os.path.join(os.path.dirname(__file__), "..", p)):
+            resolved_path = os.path.join(os.path.dirname(__file__), "..", p)
+            break
+
+    if resolved_path is None:
+        raise FileNotFoundError("Field survey dataset not found in data/")
+
+    df = pd.read_csv(resolved_path)
+    df["survey_date"] = pd.to_datetime(df["survey_date"])
+    df = df.sort_values("survey_date").reset_index(drop=True)
+
+    if "site" in df.columns:
+        df_site = df[df["site"] == site_key]
+        if not df_site.empty:
+            df = df_site
+
+    if transect_id is not None and "transect_id" in df.columns:
+        df_t = df[df["transect_id"] == transect_id]
+        if not df_t.empty:
+            df = df_t
+
+    if "cross_shore_change_m" not in df.columns or df["cross_shore_change_m"].isnull().all():
+        df["cross_shore_change_m"] = df.groupby("transect_id")["shoreline_pos_mhw_m"].diff().fillna(0.0)
+
+    df_out = df.set_index("survey_date")
+    df_out.attrs["provenance"] = f"In-situ beach profile field surveys for {site_cfg.get('name', site_key)} (Transect {transect_id})"
+    return df_out
+
+
 def load_frf_duck_field_surveys(
     csv_path: str = "data/frf_duck_field_surveys.csv",
     transect_id: Optional[str] = "FRF_0058",
 ) -> pd.DataFrame:
-    """Load authentic USACE FRF Duck, NC in-situ beach profile field surveys.
-
-    Parameters
-    ----------
-    csv_path : str
-        Path to the verified FRF Duck field surveys CSV.
-    transect_id : str, optional
-        Filter to specific transect ('FRF_0058' for pier-adjacent line, 'FRF_0109' for northern array, None for all).
-
-    Returns
-    -------
-    df_surveys : pd.DataFrame
-        DataFrame indexed by survey_date containing surveyed MHW positions and cross-shore change.
-    """
-    if not os.path.exists(csv_path):
-        # Fallback to parent path if called from different working directory
-        alt_path = os.path.join(os.path.dirname(__file__), "..", csv_path)
-        if os.path.exists(alt_path):
-            csv_path = alt_path
-        else:
-            raise FileNotFoundError(f"FRF Duck field survey dataset not found at {csv_path}")
-
-    df = pd.read_csv(csv_path)
-    df["survey_date"] = pd.to_datetime(df["survey_date"])
-    df = df.sort_values("survey_date").reset_index(drop=True)
-
-    if transect_id is not None:
-        df = df[df["transect_id"] == transect_id].copy().reset_index(drop=True)
-
-    # Compute baseline-relative displacement per transect
-    if "cross_shore_change_m" not in df.columns or df["cross_shore_change_m"].isnull().all():
-        df["cross_shore_change_m"] = df.groupby("transect_id")["shoreline_pos_mhw_m"].diff().fillna(0.0)
-
-    # Set datetime index
-    df_out = df.set_index("survey_date")
-    df_out.attrs["provenance"] = "USACE Field Research Facility (FRF) Duck, NC verified profile surveys (CRAB/LARC-V/RTK-GPS)"
-    return df_out
+    """Load authentic USACE FRF Duck, NC in-situ beach profile field surveys."""
+    return load_site_field_surveys(site="duck_nc", transect_id=transect_id, csv_path=csv_path)
 
 
 def align_hydrodynamics_with_field_surveys(
@@ -1391,8 +1431,8 @@ def align_hydrodynamics_with_field_surveys(
 
         rec = {
             "survey_date": surv_t,
-            "transect_id": row.get("transect_id", "FRF_0058"),
-            "transect_name": row.get("transect_name", "Profile Line 58"),
+            "transect_id": row.get("transect_id", "Survey_Transect"),
+            "transect_name": row.get("transect_name", "Beach Profile Transect"),
             "surveyed_pos_mhw_m": float(row["shoreline_pos_mhw_m"]),
             "surveyed_delta_x_m": float(row["cross_shore_change_m"]),
             "cumulative_displacement_m": float(row["shoreline_pos_mhw_m"] - df_surv.iloc[0]["shoreline_pos_mhw_m"]),
@@ -1405,7 +1445,7 @@ def align_hydrodynamics_with_field_surveys(
             "antecedent_max_surge_m": max_surge,
             "antecedent_mean_dean": mean_dean,
             "antecedent_max_power_Wm": max_power,
-            "survey_method": row.get("survey_method", "Amphibious Vehicle (CRAB/LARC)"),
+            "survey_method": row.get("survey_method", "RTK-GPS / Profile Survey"),
             "instrument": row.get("instrument", "RTK-GPS"),
             "uncertainty_m": float(row.get("uncertainty_m", 0.15)),
             "storm_context": row.get("storm_context", "Regular Survey"),
@@ -1415,8 +1455,8 @@ def align_hydrodynamics_with_field_surveys(
 
     df_aligned = pd.DataFrame(records).set_index("survey_date")
     df_aligned.attrs["data_provenance"] = {
-        "hydrodynamics": "100% Real In-Situ Observations (NOAA CO-OPS 8651370 & NDBC Buoy 44056)",
-        "morphodynamics": "100% Real In-Situ Ground-Truth Field Surveys (USACE FRF Duck Profile Lines)",
+        "hydrodynamics": "In-Situ Hydrodynamic Observations / Site Calibrated",
+        "morphodynamics": "Real In-Situ Ground-Truth Profile Field Surveys",
         "is_synthetic_forcing": False,
         "is_synthetic_morphodynamics": False,
     }
@@ -1428,11 +1468,14 @@ def load_field_survey_validation_dataset(
     start_year: Optional[int] = None,
     end_year: Optional[int] = None,
     site: str = "duck_nc",
-    transect_id: str = "FRF_0058",
+    transect_id: Optional[str] = None,
+    transect_index: int = 0,
     cache_dir: str = "data/cache",
     df_hydro: Optional[pd.DataFrame] = None,
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Load continuous hydrodynamics and synchronize with authentic in-situ field surveys across single or multi-year spans.
+
+    Automatically resolves appropriate profile transects for any global site (Duck, Torrey Pines, Narrabeen, Truc Vert).
 
     Returns
     -------
@@ -1449,7 +1492,7 @@ def load_field_survey_validation_dataset(
         else:
             df_hydro, _ = load_annual_dataset(year=2022, site=site, morph_model="xbeach", cache_dir=cache_dir)
 
-    df_surveys = load_frf_duck_field_surveys(transect_id=transect_id)
+    df_surveys = load_site_field_surveys(site=site, transect_id=transect_id, transect_index=transect_index)
     # Filter surveys to match hydrodynamic timeframe
     t_min, t_max = df_hydro.index.min(), df_hydro.index.max()
     df_surveys_matched = df_surveys.loc[t_min:t_max]

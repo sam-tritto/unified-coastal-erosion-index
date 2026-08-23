@@ -35,6 +35,7 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "min_slope": 0.035,
         "max_slope": 0.12,
         "tide_range_m": 1.0,     # Microtidal
+        "default_transects": ["FRF_0058", "FRF_0109"],
     },
     "narrabeen_aus": {
         "name": "Narrabeen-Collaroy, NSW, Australia",
@@ -45,6 +46,7 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "min_slope": 0.040,
         "max_slope": 0.13,
         "tide_range_m": 1.5,
+        "default_transects": ["PF2", "PF4"],
     },
     "torrey_pines_ca": {
         "name": "Torrey Pines Beach, CA, USA",
@@ -55,6 +57,7 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "min_slope": 0.025,
         "max_slope": 0.07,
         "tide_range_m": 1.8,
+        "default_transects": ["TP_NORTH", "TP_SOUTH"],
     },
     "gold_coast_aus": {
         "name": "Gold Coast (Surfers Paradise), QLD, Australia",
@@ -65,6 +68,7 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "min_slope": 0.030,
         "max_slope": 0.08,
         "tide_range_m": 1.4,
+        "default_transects": ["GC_NORTH", "GC_SOUTH"],
     },
     "truc_vert_france": {
         "name": "Truc Vert Beach, Gironde, France",
@@ -75,6 +79,7 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "min_slope": 0.035,
         "max_slope": 0.10,
         "tide_range_m": 3.5,     # Mesotidal
+        "default_transects": ["TV_MAIN", "TV_NORTH"],
     },
 }
 
