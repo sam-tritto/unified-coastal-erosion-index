@@ -264,27 +264,53 @@ def predict_bayesian_model(
         sub_idx = np.arange(len(alphas))
     n_samples = len(alphas)
 
+    is_survey = "antecedent_upsilon_memory" in df.columns or "surveyed_delta_x_m" in df.columns
+
     if model_type == "single":
         if spec is not None and "forcing" in spec:
             f_raw = np.asarray(spec["forcing"], dtype=float)
         else:
             m_name = meta.get("model_name", "").lower()
-            if "hs" in m_name:
-                f_raw = df["hs_m"].values
-            elif "power" in m_name or "flux" in m_name:
-                f_raw = df["p_flux_Wm"].values
-            elif "dean" in m_name:
-                f_raw = df["dean_number"].values
-            elif "signed" in m_name and "signed_upsilon" in df.columns:
-                f_raw = df["signed_upsilon"].values
-            elif meta.get("use_log_upsilon", False) and "log_upsilon" in df.columns:
-                f_raw = df["log_upsilon"].values
-            elif meta.get("use_log_upsilon", False) and "upsilon" in df.columns:
-                f_raw = np.log10(np.maximum(df["upsilon"].values, 1e-4))
-            elif "upsilon" in df.columns:
-                f_raw = df["upsilon"].values
+            if is_survey:
+                if "yates" in m_name:
+                    f_raw = df["yates_simulated_delta_x_m"].values if "yates_simulated_delta_x_m" in df.columns else df["yates_simulated_pos_m"].values
+                elif "xbeach" in m_name:
+                    f_raw = df["xbeach_simulated_delta_x_m"].values if "xbeach_simulated_delta_x_m" in df.columns else df["xbeach_simulated_pos_m"].values
+                elif "hs" in m_name:
+                    f_raw = df["antecedent_mean_hs_m"].values if "antecedent_mean_hs_m" in df.columns else df["antecedent_max_hs_m"].values
+                elif "power" in m_name or "flux" in m_name:
+                    f_raw = df["antecedent_max_power_Wm"].values if "antecedent_max_power_Wm" in df.columns else np.zeros(n_pts)
+                elif "dean" in m_name:
+                    f_raw = df["antecedent_mean_dean"].values if "antecedent_mean_dean" in df.columns else np.zeros(n_pts)
+                elif meta.get("use_log_upsilon", False) and "antecedent_log_upsilon" in df.columns:
+                    f_raw = df["antecedent_log_upsilon"].values
+                elif "antecedent_upsilon_memory" in df.columns:
+                    f_raw = df["antecedent_upsilon_memory"].values
+                elif "antecedent_mean_upsilon" in df.columns:
+                    f_raw = df["antecedent_mean_upsilon"].values
+                else:
+                    f_raw = np.zeros(n_pts)
             else:
-                f_raw = np.zeros(n_pts)
+                if "yates" in m_name and "yates_simulated_delta_x_m" in df.columns:
+                    f_raw = df["yates_simulated_delta_x_m"].values
+                elif "xbeach" in m_name and "xbeach_simulated_delta_x_m" in df.columns:
+                    f_raw = df["xbeach_simulated_delta_x_m"].values
+                elif "hs" in m_name:
+                    f_raw = df["hs_m"].values
+                elif "power" in m_name or "flux" in m_name:
+                    f_raw = df["p_flux_Wm"].values
+                elif "dean" in m_name:
+                    f_raw = df["dean_number"].values
+                elif "signed" in m_name and "signed_upsilon" in df.columns:
+                    f_raw = df["signed_upsilon"].values
+                elif meta.get("use_log_upsilon", False) and "log_upsilon" in df.columns:
+                    f_raw = df["log_upsilon"].values
+                elif meta.get("use_log_upsilon", False) and "upsilon" in df.columns:
+                    f_raw = np.log10(np.maximum(df["upsilon"].values, 1e-4))
+                elif "upsilon" in df.columns:
+                    f_raw = df["upsilon"].values
+                else:
+                    f_raw = np.zeros(n_pts)
 
         f_scaled = (f_raw - meta["f_mean"]) / meta["f_std"]
         lag_mat = create_lag_matrix(f_scaled, max_lag=max_lag)
@@ -303,16 +329,26 @@ def predict_bayesian_model(
             f_raw = np.asarray(spec["forcing"], dtype=float)
         else:
             m_name = meta.get("model_name", "").lower()
-            if "hs" in m_name:
-                f_raw = df["hs_m"].values
-            elif meta.get("use_log_upsilon", False) and "log_upsilon" in df.columns:
-                f_raw = df["log_upsilon"].values
-            elif meta.get("use_log_upsilon", False) and "upsilon" in df.columns:
-                f_raw = np.log10(np.maximum(df["upsilon"].values, 1e-4))
-            elif "upsilon" in df.columns:
-                f_raw = df["upsilon"].values
+            if is_survey:
+                if "hs" in m_name:
+                    f_raw = df["antecedent_mean_hs_m"].values if "antecedent_mean_hs_m" in df.columns else df["antecedent_max_hs_m"].values
+                elif meta.get("use_log_upsilon", False) and "antecedent_log_upsilon" in df.columns:
+                    f_raw = df["antecedent_log_upsilon"].values
+                elif "antecedent_upsilon_memory" in df.columns:
+                    f_raw = df["antecedent_upsilon_memory"].values
+                else:
+                    f_raw = np.zeros(n_pts)
             else:
-                f_raw = np.zeros(n_pts)
+                if "hs" in m_name:
+                    f_raw = df["hs_m"].values
+                elif meta.get("use_log_upsilon", False) and "log_upsilon" in df.columns:
+                    f_raw = df["log_upsilon"].values
+                elif meta.get("use_log_upsilon", False) and "upsilon" in df.columns:
+                    f_raw = np.log10(np.maximum(df["upsilon"].values, 1e-4))
+                elif "upsilon" in df.columns:
+                    f_raw = df["upsilon"].values
+                else:
+                    f_raw = np.zeros(n_pts)
 
         f_scaled = (f_raw - meta["f_mean"]) / meta["f_std"]
         degree = int(meta.get("degree", 3))
@@ -325,7 +361,16 @@ def predict_bayesian_model(
         fnames = meta.get("forcing_names", ["hs", "surge", "wind", "dean"])
         mu_samples = np.repeat(alphas[:, None], n_pts, axis=1)
 
-        col_map = {"hs": "hs_m", "surge": "surge_m", "wind": "wind_normal_ms", "dean": "dean_number"}
+        if is_survey:
+            col_map = {
+                "hs": "antecedent_mean_hs_m" if "antecedent_mean_hs_m" in df.columns else "antecedent_max_hs_m",
+                "surge": "antecedent_max_surge_m",
+                "wind": "antecedent_mean_hs_m",
+                "dean": "antecedent_mean_dean",
+            }
+        else:
+            col_map = {"hs": "hs_m", "surge": "surge_m", "wind": "wind_normal_ms", "dean": "dean_number"}
+
         for fname in fnames:
             if spec is not None and "forcings" in spec and fname in spec["forcings"]:
                 raw_f = np.asarray(spec["forcings"][fname], dtype=float)
@@ -333,13 +378,21 @@ def predict_bayesian_model(
                 col = col_map.get(fname, fname)
                 raw_f = df[col].values if col in df.columns else np.zeros(n_pts)
 
-            f_scaled = (raw_f - meta[f"{fname}_mean"]) / meta[f"{fname}_std"]
-            beta_var = trace.posterior[f"beta_{fname}"].values.reshape(-1)[sub_idx]
-            mu_samples += beta_var[:, None] * f_scaled[None, :]
+            if f"{fname}_mean" in meta:
+                f_scaled = (raw_f - meta[f"{fname}_mean"]) / meta[f"{fname}_std"]
+                beta_var = trace.posterior[f"beta_{fname}"].values.reshape(-1)[sub_idx]
+                mu_samples += beta_var[:, None] * f_scaled[None, :]
 
     elif model_type == "hybrid":
         if spec is not None and "upsilon" in spec:
             ups_raw = np.asarray(spec["upsilon"], dtype=float)
+        elif is_survey:
+            if meta.get("use_log_upsilon", False) and "antecedent_log_upsilon" in df.columns:
+                ups_raw = df["antecedent_log_upsilon"].values
+            elif "antecedent_upsilon_memory" in df.columns:
+                ups_raw = df["antecedent_upsilon_memory"].values
+            else:
+                ups_raw = np.zeros(n_pts)
         elif meta.get("use_log_upsilon", False) and "log_upsilon" in df.columns:
             ups_raw = df["log_upsilon"].values
         elif meta.get("use_log_upsilon", False) and "upsilon" in df.columns:
@@ -362,7 +415,16 @@ def predict_bayesian_model(
             mu_samples[i] = alphas[i] + beta_ups[i] * eff_u
 
         fnames = ["hs", "surge", "wind", "dean"]
-        col_map = {"hs": "hs_m", "surge": "surge_m", "wind": "wind_normal_ms", "dean": "dean_number"}
+        if is_survey:
+            col_map = {
+                "hs": "antecedent_mean_hs_m" if "antecedent_mean_hs_m" in df.columns else "antecedent_max_hs_m",
+                "surge": "antecedent_max_surge_m",
+                "wind": "antecedent_mean_hs_m",
+                "dean": "antecedent_mean_dean",
+            }
+        else:
+            col_map = {"hs": "hs_m", "surge": "surge_m", "wind": "wind_normal_ms", "dean": "dean_number"}
+
         for fname in fnames:
             if f"{fname}_mean" in meta:
                 if spec is not None and "forcings" in spec and fname in spec["forcings"]:
