@@ -36,6 +36,10 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "max_slope": 0.12,
         "tide_range_m": 1.0,     # Microtidal
         "default_transects": ["FRF_0058", "FRF_0109"],
+        "coops_station_id": "8651370",
+        "primary_buoy_id": "44056",
+        "outer_buoy_id": "44100",
+        "fallback_buoys": ["44100", "44014", "41025"],
     },
     "narrabeen_aus": {
         "name": "Narrabeen-Collaroy, NSW, Australia",
@@ -58,6 +62,10 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "max_slope": 0.07,
         "tide_range_m": 1.8,
         "default_transects": ["TP_NORTH", "TP_SOUTH"],
+        "coops_station_id": "9410230",
+        "primary_buoy_id": "46254",
+        "outer_buoy_id": "46225",
+        "fallback_buoys": ["46225", "46232", "46086"],
     },
     "gold_coast_aus": {
         "name": "Gold Coast (Surfers Paradise), QLD, Australia",

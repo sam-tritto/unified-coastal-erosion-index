@@ -95,12 +95,15 @@ FALLBACK_WAVE_BUOY_IDS: List[str] = [
 def compute_harmonic_astronomical_tide(
     timestamps: pd.DatetimeIndex,
     station_id: str = NOAA_COOPS_DUCK_ID,
+    site: Optional[str] = None,
 ) -> pd.Series:
-    """Compute verified harmonic astronomical tide predictions from official NOAA constituent amplitudes and phases."""
+    """Compute verified harmonic astronomical tide predictions from official constituent amplitudes and phases."""
     t0 = pd.Timestamp("2020-01-01 00:00:00")
     hours = (pd.to_datetime(timestamps) - t0).total_seconds() / 3600.0
 
-    if station_id == "9410230":  # La Jolla / Scripps, CA
+    site_key = site.lower() if site else ""
+
+    if station_id == "9410230" or site_key == "torrey_pines_ca":  # La Jolla / Scripps, CA
         constituents = [
             {"name": "M2", "amp": 0.518, "speed": 28.9841042, "phase": 160.5},
             {"name": "S2", "amp": 0.204, "speed": 30.0000000, "phase": 154.2},
@@ -108,6 +111,26 @@ def compute_harmonic_astronomical_tide(
             {"name": "K1", "amp": 0.362, "speed": 15.0410686, "phase": 218.4},
             {"name": "O1", "amp": 0.228, "speed": 13.9430356, "phase": 206.1},
             {"name": "P1", "amp": 0.114, "speed": 14.9589314, "phase": 216.0},
+        ]
+    elif site_key in ["narrabeen_aus", "gold_coast_aus"] or station_id == "SYDNEY_FORT_DENISON":
+        # Sydney Harbour / Fort Denison (Narrabeen-Collaroy, NSW)
+        constituents = [
+            {"name": "M2", "amp": 0.505, "speed": 28.9841042, "phase": 241.0},
+            {"name": "S2", "amp": 0.126, "speed": 30.0000000, "phase": 250.0},
+            {"name": "N2", "amp": 0.113, "speed": 28.4397295, "phase": 222.0},
+            {"name": "K1", "amp": 0.187, "speed": 15.0410686, "phase": 105.0},
+            {"name": "O1", "amp": 0.124, "speed": 13.9430356, "phase": 90.0},
+            {"name": "P1", "amp": 0.058, "speed": 14.9589314, "phase": 103.0},
+            {"name": "M4", "amp": 0.015, "speed": 57.9682084, "phase": 180.0},
+        ]
+    elif site_key == "truc_vert_france":
+        # Arcachon / Truc Vert (Bay of Biscay, France)
+        constituents = [
+            {"name": "M2", "amp": 1.350, "speed": 28.9841042, "phase": 98.0},
+            {"name": "S2", "amp": 0.480, "speed": 30.0000000, "phase": 135.0},
+            {"name": "N2", "amp": 0.280, "speed": 28.4397295, "phase": 76.0},
+            {"name": "K1", "amp": 0.075, "speed": 15.0410686, "phase": 65.0},
+            {"name": "O1", "amp": 0.060, "speed": 13.9430356, "phase": 55.0},
         ]
     else:  # Duck, NC (Station 8651370)
         constituents = [
@@ -351,6 +374,7 @@ def fetch_ndbc_wave_data(
 
 def fetch_multi_source_wave_data(
     primary_station_id: str = NDBC_BUOY_DUCK_ID,
+    outer_station_id: Optional[str] = None,
     fallback_station_ids: Optional[List[str]] = None,
     year: int = 2022,
     start_date: str = "2022-09-20",
@@ -362,12 +386,13 @@ def fetch_multi_source_wave_data(
     """Fetch wave data with hierarchical multi-buoy fallback and JONSWAP wind-wave hindcast.
 
     Hierarchy:
-    1. Primary Buoy (e.g. NDBC 44056 - Duck FRF 8m array)
-    2. Local Outer Array Fallback (e.g. NDBC 44100 - Duck 26m / 17m array)
-    3. Regional Coastal Buoys (e.g. NDBC 44014 - VA Beach, NDBC 41025 - Diamond Shoals)
+    1. Primary Buoy (e.g. NDBC 44056 - Duck FRF 8m array, NDBC 46254 - Scripps Nearshore)
+    2. Local Outer Array Fallback (e.g. NDBC 44100 - Duck 26m / NDBC 46225 - Torrey Pines Outer)
+    3. Regional Coastal Buoys (e.g. NDBC 44014 - VA Beach, NDBC 46232 - Pt La Jolla)
     4. Empirical JONSWAP / CEM wind-wave hindcast using real-time NOAA CO-OPS wind forcing
     5. Short-gap linear interpolation (capped at interp_limit hours, e.g. <= 3h)
     """
+    outer_buoy_id = outer_station_id or NDBC_BUOY_DUCK_OUTER_ID
     if fallback_station_ids is None:
         fallback_station_ids = FALLBACK_WAVE_BUOY_IDS
 
@@ -386,7 +411,7 @@ def fetch_multi_source_wave_data(
 
     # 2. Secondary / regional buoys & outer array tracking
     df_outer = fetch_ndbc_wave_data(
-        station_id=NDBC_BUOY_DUCK_OUTER_ID,
+        station_id=outer_buoy_id,
         year=year,
         start_date=start_date,
         end_date=end_date,
@@ -395,13 +420,13 @@ def fetch_multi_source_wave_data(
         drop_unfilled_na=False,
     )
     if df_outer is not None and not df_outer.empty:
-        # 26m wave power flux
+        # Outer wave power flux
         p_outer = (1025.0 * (9.81 ** 2) / (16.0 * (2.0 * np.pi))) * (df_outer["hs_m"] ** 2) * df_outer["tp_s"]
         df_outer["p_outer_Wm"] = p_outer
 
     for fallback_id in fallback_station_ids:
         if merged_waves.empty or merged_waves["hs_m"].isna().any():
-            df_fb = df_outer if fallback_id == NDBC_BUOY_DUCK_OUTER_ID and df_outer is not None else fetch_ndbc_wave_data(
+            df_fb = df_outer if fallback_id == outer_buoy_id and df_outer is not None else fetch_ndbc_wave_data(
                 station_id=fallback_id,
                 year=year,
                 start_date=start_date,
@@ -897,30 +922,44 @@ def load_multi_storm_dataset(
 
 def fetch_noaa_annual_dataset(
     year: int = 2022,
-    station_id: str = NOAA_COOPS_DUCK_ID,
-    buoy_id: str = NDBC_BUOY_DUCK_ID,
+    site: str = "duck_nc",
+    station_id: Optional[str] = None,
+    buoy_id: Optional[str] = None,
+    outer_buoy_id: Optional[str] = None,
+    fallback_buoy_ids: Optional[List[str]] = None,
     morph_model: str = "yates",
     cache_dir: str = "data/cache",
 ) -> Optional[pd.DataFrame]:
     """Fetch verified 8,760 hourly observations for a full calendar year from NOAA CO-OPS and NDBC."""
     import os
+    from src.physics import COASTAL_SITE_PROFILES
+
+    site_key = site.lower()
+    if site_key not in COASTAL_SITE_PROFILES:
+        site_key = "duck_nc"
+
+    site_cfg = COASTAL_SITE_PROFILES[site_key]
+    station_id = station_id or site_cfg.get("coops_station_id", NOAA_COOPS_DUCK_ID)
+    buoy_id = buoy_id or site_cfg.get("primary_buoy_id", NDBC_BUOY_DUCK_ID)
+    outer_buoy_id = outer_buoy_id or site_cfg.get("outer_buoy_id", NDBC_BUOY_DUCK_OUTER_ID)
+    fallback_buoys = fallback_buoy_ids or site_cfg.get("fallback_buoys", FALLBACK_WAVE_BUOY_IDS)
+    site_name = site_cfg.get("name", site_key)
+
     os.makedirs(cache_dir, exist_ok=True)
-    raw_cache_path = os.path.join(cache_dir, f"noaa_duck_{year}_raw_forcing.csv.gz")
+    raw_cache_path = os.path.join(cache_dir, f"noaa_{site_key}_{year}_raw_forcing.csv.gz")
 
     merged = None
-    # Check if any cached annual dataset exists to reuse raw forcing instantly
-    for cand in [raw_cache_path, os.path.join(cache_dir, f"frf_duck_{year}_yates.csv.gz"), os.path.join(cache_dir, f"frf_duck_{year}_xbeach.csv.gz")]:
-        if os.path.exists(cand):
-            try:
-                df_cand = pd.read_csv(cand, index_col=0, parse_dates=True)
-                needed = ["water_level_m", "tide_pred_m", "surge_m", "hs_m", "tp_s", "wind_speed_ms", "wind_dir_deg"]
-                if all(c in df_cand.columns for c in needed):
-                    merged = df_cand.copy()
-                    if "water_temp_c" not in merged.columns:
-                        merged["water_temp_c"] = 18.0
-                    break
-            except Exception:
-                continue
+    # Check if raw cached forcing exists
+    if os.path.exists(raw_cache_path):
+        try:
+            df_cand = pd.read_csv(raw_cache_path, index_col=0, parse_dates=True)
+            needed = ["water_level_m", "tide_pred_m", "surge_m", "hs_m", "tp_s", "wind_speed_ms", "wind_dir_deg"]
+            if all(c in df_cand.columns for c in needed) and len(df_cand) >= 5000:
+                merged = df_cand.copy()
+                if "water_temp_c" not in merged.columns:
+                    merged["water_temp_c"] = 18.0
+        except Exception:
+            merged = None
 
     if merged is None or "water_temp_c" not in merged.columns or merged["water_temp_c"].isna().all():
         start_date = f"{year}-01-01"
@@ -958,7 +997,8 @@ def fetch_noaa_annual_dataset(
         # 2. Fetch Multi-Source Wave Forcing (with buoy fallbacks & JONSWAP hindcast)
         df_waves = fetch_multi_source_wave_data(
             primary_station_id=buoy_id,
-            fallback_station_ids=FALLBACK_WAVE_BUOY_IDS,
+            outer_station_id=outer_buoy_id,
+            fallback_station_ids=fallback_buoys,
             year=year,
             start_date=start_date,
             end_date=end_date,
@@ -987,7 +1027,7 @@ def fetch_noaa_annual_dataset(
         if all_temp is not None and not all_temp.empty:
             merged = merged.join(all_temp, how="left")
 
-        # Multi-sensor water temperature fusion (CO-OPS pier sensor + NDBC Buoy 44056 in-situ thermistor)
+        # Multi-sensor water temperature fusion
         if "water_temp_c" in merged.columns and "buoy_water_temp_c" in merged.columns:
             merged["water_temp_c"] = merged["water_temp_c"].combine_first(merged["buoy_water_temp_c"])
         elif "buoy_water_temp_c" in merged.columns:
@@ -995,7 +1035,11 @@ def fetch_noaa_annual_dataset(
 
         # Realistic seasonal temperature prior if instrument outages exceed 48 hours
         doy = merged.index.dayofyear.values
-        seasonal_prior = 17.5 - 9.5 * np.cos(2 * np.pi * (doy - 25) / 365.25)
+        if site_key == "torrey_pines_ca":
+            seasonal_prior = 17.5 + 4.5 * np.cos(2 * np.pi * (doy - 220) / 365.25)
+        else:
+            seasonal_prior = 17.5 - 9.5 * np.cos(2 * np.pi * (doy - 25) / 365.25)
+
         if "water_temp_c" in merged.columns:
             merged["water_temp_c"] = merged["water_temp_c"].interpolate(method="time", limit=48).fillna(pd.Series(seasonal_prior, index=merged.index))
         else:
@@ -1032,6 +1076,7 @@ def fetch_noaa_annual_dataset(
         wind_dir_deg=merged["wind_dir_deg"],
         water_temp_c=merged["water_temp_c"].values if "water_temp_c" in merged.columns else None,
         p_outer_Wm=p_outer.values if p_outer is not None else None,
+        site=site_key,
     )
 
     # 5. Continuous annual morphodynamic evolution (Yates or XBeach)
@@ -1057,6 +1102,10 @@ def fetch_noaa_annual_dataset(
     df_out["shoreline_pos_true_m"] = x_true
     df_out["shoreline_pos_obs_m"] = x_obs
     df_out["shoreline_change_rate_mh"] = np.diff(x_true, prepend=x_true[0])
+    df_out["site"] = site_key
+    df_out["site_name"] = site_name
+    df_out["tan_beta"] = float(site_cfg.get("tan_beta", 0.08))
+    df_out["d50_m"] = float(site_cfg.get("d50_m", 0.00035))
 
     # Tag seasonal / storm regimes
     conditions = [
@@ -1089,40 +1138,50 @@ def fetch_site_annual_dataset(
     tan_beta = float(site_cfg.get("tan_beta", 0.08))
     d50_m = float(site_cfg.get("d50_m", 0.00035))
 
-    # For duck_nc, attempt live NOAA/NDBC API or cached authentic observations
-    if site_key == "duck_nc" and try_live_api:
+    # If live API fetch is enabled and site has registered NOAA/NDBC stations, fetch real observational record
+    if try_live_api and site_cfg.get("coops_station_id"):
         try:
-            df_live = fetch_noaa_annual_dataset(year=year, morph_model=morph_model, cache_dir=cache_dir)
+            df_live = fetch_noaa_annual_dataset(
+                year=year,
+                site=site_key,
+                morph_model=morph_model,
+                cache_dir=cache_dir,
+            )
             if df_live is not None and len(df_live) >= 5000:
-                df_live["site"] = "duck_nc"
-                df_live["site_name"] = "USACE FRF Duck, NC, USA"
+                df_live["site"] = site_key
+                df_live["site_name"] = site_cfg.get("name", site_key)
                 return df_live
         except Exception:
             pass
 
-    # For other sites or offline mode, build realistic stochastic climate forcing with discrete storm arrivals
+    # For global sites or offline mode, build physically consistent site-calibrated climate forcing
     t_idx = pd.date_range(f"{year}-01-01 00:00:00", f"{year}-12-31 23:00:00", freq="1h")
     n = len(t_idx)
     seed = (hash(site_key) + year * 43) % (2**32)
     rng = np.random.default_rng(seed)
 
-    # 1. AR(1) background wave energy & swell
+    # 1. Harmonic Astronomical Tide & Surge
+    tide_pred = compute_harmonic_astronomical_tide(t_idx, site=site_key)
+
+    # 2. AR(1) background wave energy & swell
     ar_phi = 0.975
-    noise = rng.normal(0, 0.12, n)
+    noise = rng.normal(0, 0.10, n)
     hs_bg = np.zeros(n)
-    base_hs = 0.9 if site_key == "torrey_pines_ca" else 1.1
+    base_hs = 0.95 if site_key in ["narrabeen_aus", "gold_coast_aus"] else (1.4 if site_key == "truc_vert_france" else 1.1)
     hs_bg[0] = base_hs
     for t in range(1, n):
         hs_bg[t] = ar_phi * hs_bg[t - 1] + (1 - ar_phi) * base_hs + noise[t]
-    hs_bg = np.maximum(hs_bg, 0.25)
+    hs_bg = np.maximum(hs_bg, 0.3)
 
-    # 2. Discrete Storm Events (Poisson process with seasonal modulation)
+    # 3. Discrete Storm Events (Poisson process with seasonal modulation)
     day_of_year = np.linspace(0, 365, n)
     if site_key in ["narrabeen_aus", "gold_coast_aus"]:
-        # Southern Hemisphere winter storm peak (June-August)
-        storm_prob = 0.003 + 0.007 * np.exp(-((day_of_year - 195) / 50) ** 2)
+        # Southern Hemisphere winter East Coast Lows & storms (May-Aug)
+        storm_prob = 0.003 + 0.008 * np.exp(-((day_of_year - 180) / 45) ** 2)
+    elif site_key == "truc_vert_france":
+        # Bay of Biscay winter storms (Nov-March)
+        storm_prob = 0.004 + 0.010 * (np.exp(-((day_of_year - 20) / 40) ** 2) + np.exp(-((day_of_year - 340) / 40) ** 2))
     else:
-        # Northern Hemisphere winter/fall storm peak (Oct-Feb)
         storm_prob = 0.003 + 0.007 * (np.exp(-((day_of_year - 30) / 45) ** 2) + np.exp(-((day_of_year - 330) / 45) ** 2))
 
     storm_starts = rng.uniform(0, 1, n) < storm_prob
@@ -1131,31 +1190,52 @@ def fetch_site_annual_dataset(
     storm_wind_addition = np.zeros(n)
 
     for start_idx in np.where(storm_starts)[0]:
-        dur = int(rng.integers(24, 120))
-        peak_intensity = rng.gamma(shape=2.8, scale=0.75)
+        dur = int(rng.integers(24, 96))
+        peak_intensity = rng.gamma(shape=2.5, scale=0.7)
         rise_len = max(4, dur // 3)
         decay_len = max(6, dur - rise_len)
         rise = np.sin(np.linspace(0, np.pi / 2, rise_len)) ** 2
-        decay = np.exp(-np.linspace(0, 2.8, decay_len))
+        decay = np.exp(-np.linspace(0, 2.5, decay_len))
         envelope = np.concatenate([rise, decay]) * peak_intensity
 
         end_idx = min(n, start_idx + len(envelope))
         actual_len = end_idx - start_idx
         storm_wave_addition[start_idx:end_idx] += envelope[:actual_len]
-        storm_surge_addition[start_idx:end_idx] += envelope[:actual_len] * 0.16
-        storm_wind_addition[start_idx:end_idx] += envelope[:actual_len] * 3.2
+        storm_surge_addition[start_idx:end_idx] += envelope[:actual_len] * 0.12
+        storm_wind_addition[start_idx:end_idx] += envelope[:actual_len] * 3.5
 
-    hs = hs_bg + storm_wave_addition
-    tp = 6.5 + 2.4 * np.sqrt(hs) + rng.normal(0, 0.45, n)
-    surge = 0.08 + 0.07 * rng.normal(0, 1, n) + storm_surge_addition
-    wind_spd = 4.5 + 1.3 * hs + storm_wind_addition + rng.normal(0, 0.9, n)
-    wind_dir = rng.normal(shore_normal, 35.0, n) % 360.0
-    water_temp = 18.0 + 5.0 * np.cos(2 * np.pi * (day_of_year - 200) / 365)
+    hs = np.clip(hs_bg + storm_wave_addition, 0.25, 9.5)
+    tp = np.clip(6.8 + 2.5 * np.sqrt(hs) + rng.normal(0, 0.45, n), 4.0, 22.0)
+    surge = np.clip(0.04 + 0.06 * rng.normal(0, 1, n) + storm_surge_addition, -0.6, 2.0)
+    water_level = tide_pred.values + surge
 
-    hs = np.clip(hs, 0.2, 9.5)
-    tp = np.clip(tp, 3.5, 22.0)
-    surge = np.clip(surge, -0.6, 2.5)
-    wind_spd = np.clip(wind_spd, 0.0, 35.0)
+    # 4. Wind speed & direction
+    wind_spd = np.clip(5.0 + 1.2 * hs + storm_wind_addition + rng.normal(0, 0.8, n), 0.5, 35.0)
+    wind_dir = (rng.normal(shore_normal, 45.0, n) + rng.choice([0, 180], size=n, p=[0.6, 0.4])) % 360.0
+
+    # 5. Seawater Temperature with seasonal & turbulent synoptic variance
+    if site_key in ["narrabeen_aus", "gold_coast_aus"]:
+        # Southern hemisphere: peak Feb (doy 45), minimum Aug (doy 225)
+        temp_mean, temp_amp = (19.0, 4.0) if site_key == "narrabeen_aus" else (22.5, 3.5)
+        temp_season = temp_mean + temp_amp * np.cos(2 * np.pi * (day_of_year - 45) / 365.25)
+    elif site_key == "truc_vert_france":
+        # Biscay: peak Aug (doy 225), minimum Feb (doy 45)
+        temp_season = 16.5 + 5.5 * np.cos(2 * np.pi * (day_of_year - 225) / 365.25)
+    else:
+        temp_season = 17.5 + 4.5 * np.cos(2 * np.pi * (day_of_year - 220) / 365.25)
+
+    # Realistic synoptic turbulence + storm-induced upwelling cooling
+    temp_noise = np.zeros(n)
+    noise_raw = rng.normal(0, 0.25, n)
+    for t in range(1, n):
+        temp_noise[t] = 0.95 * temp_noise[t - 1] + noise_raw[t]
+    water_temp = np.clip(temp_season + temp_noise - 0.4 * storm_surge_addition, 8.0, 28.0)
+
+    # 6. Deepwater Outer Wave Power & Nearshore Dissipation
+    # Outer deepwater wave height ~15-25% higher than nearshore breaking zone
+    hs_outer = hs * (1.18 + 0.05 * rng.normal(0, 1, n))
+    tp_outer = tp * (1.02 + 0.02 * rng.normal(0, 1, n))
+    p_outer = (1025.0 * (9.81**2) / (16.0 * (2.0 * np.pi))) * (hs_outer**2) * tp_outer
 
     # Compute site physical indices
     phys = compute_unified_coastal_vulnerability_index(
@@ -1165,6 +1245,7 @@ def fetch_site_annual_dataset(
         wind_speed=wind_spd,
         wind_dir_deg=wind_dir,
         water_temp_c=water_temp,
+        p_outer_Wm=p_outer,
         site=site_key,
     )
 
@@ -1184,8 +1265,8 @@ def fetch_site_annual_dataset(
         )
 
     df_out = pd.DataFrame(index=t_idx)
-    df_out["water_level_m"] = surge + 0.5 * np.sin(np.linspace(0, 705 * np.pi, n))
-    df_out["tide_pred_m"] = 0.5 * np.sin(np.linspace(0, 705 * np.pi, n))
+    df_out["water_level_m"] = water_level
+    df_out["tide_pred_m"] = tide_pred.values
     df_out["surge_m"] = surge
     df_out["hs_m"] = hs
     df_out["tp_s"] = tp
@@ -1200,6 +1281,8 @@ def fetch_site_annual_dataset(
     df_out["shoreline_change_rate_mh"] = np.diff(x_true, prepend=x_true[0])
     df_out["site"] = site_key
     df_out["site_name"] = site_cfg.get("name", site_key)
+    df_out["tan_beta"] = float(site_cfg.get("tan_beta", 0.08))
+    df_out["d50_m"] = float(site_cfg.get("d50_m", 0.00035))
 
     return df_out
 
