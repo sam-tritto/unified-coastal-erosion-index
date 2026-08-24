@@ -99,3 +99,33 @@ def test_load_global_sites_field_surveys():
         assert "site" in df.columns
         assert (df["site"] == site).all()
 
+
+def test_bayesian_benchmark_on_field_surveys():
+    """Verify that Bayesian multi-model comparison runs on real field survey dataset with Yates and XBeach competitors."""
+    from src.models import run_benchmark_model_comparison
+
+    df_aligned, meta = load_field_survey_validation_dataset(start_year=2022, end_year=2022, site="duck_nc", transect_id="FRF_0058")
+    assert not df_aligned.empty
+    assert "yates_simulated_delta_x_m" in df_aligned.columns
+    assert "xbeach_simulated_delta_x_m" in df_aligned.columns
+
+    df_comp, traces = run_benchmark_model_comparison(
+        df=df_aligned,
+        train_split=0.75,
+        target_col="surveyed_delta_x_m",
+        draws=100,
+        tune=100,
+        chains=2,
+        cores=1,
+        include_nonlinear=False,
+        include_multivariate=False,
+        include_hybrid=False,
+        compute_loo=False,
+    )
+    assert not df_comp.empty
+    models_tested = df_comp["Model"].tolist()
+    assert any("Upsilon" in m for m in models_tested)
+    assert any("Yates" in m for m in models_tested)
+    assert any("XBeach" in m for m in models_tested)
+
+

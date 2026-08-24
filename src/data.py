@@ -1431,6 +1431,25 @@ def align_hydrodynamics_with_field_surveys(
     else:
         ups_memory_full = np.zeros(len(df_hydro))
 
+    # Pre-calculate continuous competing forward model trajectories (Yates & XBeach)
+    if "hs_m" in df_hydro.columns and "tp_s" in df_hydro.columns:
+        hs_vals = df_hydro["hs_m"].values
+        tp_vals = df_hydro["tp_s"].values
+        yates_full, _ = simulate_equilibrium_shoreline_evolution(hs=hs_vals, tp=tp_vals)
+    else:
+        yates_full = np.zeros(len(df_hydro))
+
+    if all(c in df_hydro.columns for c in ["hs_m", "tp_s", "surge_m", "wind_speed_ms", "wind_dir_deg"]):
+        xbeach_full, _ = simulate_xbeach_inspired_morphodynamics(
+            hs=df_hydro["hs_m"].values,
+            tp=df_hydro["tp_s"].values,
+            surge=df_hydro["surge_m"].values,
+            wind_speed=df_hydro["wind_speed_ms"].values,
+            wind_dir_deg=df_hydro["wind_dir_deg"].values,
+        )
+    else:
+        xbeach_full = np.zeros(len(df_hydro))
+
     for idx, (surv_t, row) in enumerate(df_surv.iterrows()):
         # Interval window: from previous survey (or antecedent window for first survey)
         if prev_time is None:
@@ -1446,7 +1465,13 @@ def align_hydrodynamics_with_field_surveys(
 
         # Extract instantaneous and interval statistics
         exact_pos = df_hydro.index.get_indexer([surv_t], method="nearest")[0]
+        prev_pos = df_hydro.index.get_indexer([prev_time], method="nearest")[0] if prev_time is not None else max(0, exact_pos - 24)
+
         ups_mem_val = float(ups_memory_full[exact_pos]) if exact_pos < len(ups_memory_full) else float(sub_hydro["upsilon"].mean())
+        yates_delta = float(yates_full[exact_pos] - yates_full[prev_pos]) if exact_pos < len(yates_full) and prev_pos < len(yates_full) else 0.0
+        yates_pos = float(yates_full[exact_pos]) if exact_pos < len(yates_full) else 0.0
+        xbeach_delta = float(xbeach_full[exact_pos] - xbeach_full[prev_pos]) if exact_pos < len(xbeach_full) and prev_pos < len(xbeach_full) else 0.0
+        xbeach_pos = float(xbeach_full[exact_pos]) if exact_pos < len(xbeach_full) else 0.0
 
         mean_ups = float(sub_hydro["upsilon"].mean()) if "upsilon" in sub_hydro.columns else 0.0
         peak_ups = float(sub_hydro["upsilon"].max()) if "upsilon" in sub_hydro.columns else 0.0
@@ -1473,6 +1498,10 @@ def align_hydrodynamics_with_field_surveys(
             "antecedent_max_surge_m": max_surge,
             "antecedent_mean_dean": mean_dean,
             "antecedent_max_power_Wm": max_power,
+            "yates_simulated_delta_x_m": yates_delta,
+            "yates_simulated_pos_m": yates_pos,
+            "xbeach_simulated_delta_x_m": xbeach_delta,
+            "xbeach_simulated_pos_m": xbeach_pos,
             "survey_method": row.get("survey_method", "RTK-GPS / Profile Survey"),
             "instrument": row.get("instrument", "RTK-GPS"),
             "uncertainty_m": float(row.get("uncertainty_m", 0.15)),
@@ -1519,6 +1548,8 @@ def load_field_survey_validation_dataset(
             df_hydro, _ = load_annual_dataset(year=year, site=site, morph_model="xbeach", cache_dir=cache_dir)
         else:
             df_hydro, _ = load_annual_dataset(year=2022, site=site, morph_model="xbeach", cache_dir=cache_dir)
+    elif isinstance(df_hydro, tuple):
+        df_hydro = df_hydro[0]
 
     df_surveys = load_site_field_surveys(site=site, transect_id=transect_id, transect_index=transect_index)
     # Filter surveys to match hydrodynamic timeframe

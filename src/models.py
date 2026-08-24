@@ -41,6 +41,7 @@ def create_lag_matrix(forcing: np.ndarray, max_lag: int = 48) -> np.ndarray:
     X_lag[t, k] = forcing[max(0, t - k)]
     """
     n = len(forcing)
+    max_lag = max(1, min(max_lag, n))
     lag_mat = np.zeros((n, max_lag), dtype=float)
     for k in range(max_lag):
         lag_mat[k:, k] = forcing[: n - k]
@@ -92,6 +93,7 @@ def build_latent_memory_bayesian_model(
     f_std = float(np.std(forcing_arr)) if np.std(forcing_arr) > 1e-6 else 1.0
     f_scaled = (forcing_arr - f_mean) / f_std if scale_forcing else forcing_arr
     
+    max_lag = max(1, min(max_lag, len(y_obs)))
     lag_mat = create_lag_matrix(f_scaled, max_lag=max_lag)
     k_indices = np.arange(max_lag, dtype=float)
 
@@ -541,7 +543,9 @@ def run_benchmark_model_comparison(
     n_total = len(df)
     if train_split < 1.0:
         split_idx = int(n_total * train_split)
-        if split_idx <= 24:
+        if n_total > 100 and split_idx <= 24:
+            split_idx = n_total
+        elif n_total <= 100 and (split_idx < 3 or n_total - split_idx < 1):
             split_idx = n_total
     else:
         split_idx = n_total
@@ -590,72 +594,145 @@ def run_benchmark_model_comparison(
         y_obs_full = df["shoreline_change_rate_mh"].values
         y_true_full = df["shoreline_change_rate_mh"].values
 
-    # Extract training and full Upsilon forcing with log transform if enabled
-    if use_log_upsilon:
-        ups_train = df_train["log_upsilon"].values if "log_upsilon" in df_train.columns else np.log10(np.maximum(df_train["upsilon"].values, 1e-4))
-        ups_full = df["log_upsilon"].values if "log_upsilon" in df.columns else np.log10(np.maximum(df["upsilon"].values, 1e-4))
-        ups_label = "Unified Index (log-Upsilon)"
+    is_survey_data = "antecedent_upsilon_memory" in df_train.columns or "surveyed_delta_x_m" in df_train.columns
+    effective_max_lag = min(48, max(2, len(df_train) // 4)) if len(df_train) < 60 else 48
+
+    if is_survey_data:
+        # Survey-epoch dataset mapping
+        ups_raw_train = df_train["antecedent_upsilon_memory"].values if "antecedent_upsilon_memory" in df_train.columns else df_train["antecedent_mean_upsilon"].values
+        ups_raw_full = df["antecedent_upsilon_memory"].values if "antecedent_upsilon_memory" in df.columns else df["antecedent_mean_upsilon"].values
+        if use_log_upsilon:
+            ups_train = df_train["antecedent_log_upsilon"].values if "antecedent_log_upsilon" in df_train.columns else np.log10(np.maximum(ups_raw_train, 1e-4))
+            ups_full = df["antecedent_log_upsilon"].values if "antecedent_log_upsilon" in df.columns else np.log10(np.maximum(ups_raw_full, 1e-4))
+            ups_label = "Unified Index (log-Upsilon)"
+        else:
+            ups_train = ups_raw_train
+            ups_full = ups_raw_full
+            ups_label = "Unified Index (Upsilon)"
+
+        hs_train = df_train["antecedent_mean_hs_m"].values if "antecedent_mean_hs_m" in df_train.columns else df_train["antecedent_max_hs_m"].values
+        hs_full = df["antecedent_mean_hs_m"].values if "antecedent_mean_hs_m" in df.columns else df["antecedent_max_hs_m"].values
+        p_train = df_train["antecedent_max_power_Wm"].values if "antecedent_max_power_Wm" in df_train.columns else np.zeros(len(df_train))
+        p_full = df["antecedent_max_power_Wm"].values if "antecedent_max_power_Wm" in df.columns else np.zeros(len(df))
+        omega_train = df_train["antecedent_mean_dean"].values if "antecedent_mean_dean" in df_train.columns else np.zeros(len(df_train))
+        omega_full = df["antecedent_mean_dean"].values if "antecedent_mean_dean" in df.columns else np.zeros(len(df))
+
+        candidates: Dict[str, Any] = {
+            "Mean Wave Height (Hs)": {"type": "single", "forcing": hs_train, "full_forcing": hs_full},
+            "Wave Power P (Linear)": {"type": "single", "forcing": p_train, "full_forcing": p_full},
+            "Dean Number (Linear)": {"type": "single", "forcing": omega_train, "full_forcing": omega_full},
+            ups_label: {"type": "single", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon},
+        }
+
+        # Add Yates and XBeach baseline competitors if present
+        yates_col = "yates_simulated_delta_x_m" if (target_col == "surveyed_delta_x_m" or "yates_simulated_delta_x_m" in df_train.columns) else "yates_simulated_pos_m"
+        if yates_col in df_train.columns:
+            candidates["Yates (2009) Equilibrium"] = {
+                "type": "single",
+                "forcing": df_train[yates_col].values,
+                "full_forcing": df[yates_col].values,
+            }
+
+        xbeach_col = "xbeach_simulated_delta_x_m" if (target_col == "surveyed_delta_x_m" or "xbeach_simulated_delta_x_m" in df_train.columns) else "xbeach_simulated_pos_m"
+        if xbeach_col in df_train.columns:
+            candidates["XBeach Process Model"] = {
+                "type": "single",
+                "forcing": df_train[xbeach_col].values,
+                "full_forcing": df[xbeach_col].values,
+            }
+
+        if include_nonlinear:
+            candidates["Upsilon (Non-Linear)"] = {"type": "nonlinear", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon}
+
+        if include_multivariate and "antecedent_max_surge_m" in df_train.columns:
+            candidates["Multivariate (Hs+S+Omega)"] = {
+                "type": "multivariate",
+                "forcings": {
+                    "hs": hs_train,
+                    "surge": df_train["antecedent_max_surge_m"].values,
+                    "dean": omega_train,
+                },
+            }
+
+        if include_hybrid and "antecedent_max_surge_m" in df_train.columns:
+            candidates["Hybrid (Upsilon Anchor + Multi Residuals)"] = {
+                "type": "hybrid",
+                "upsilon": ups_train,
+                "full_upsilon": ups_full,
+                "use_log_upsilon": use_log_upsilon,
+                "forcings": {
+                    "hs": hs_train,
+                    "surge": df_train["antecedent_max_surge_m"].values,
+                    "dean": omega_train,
+                },
+            }
+
     else:
-        ups_train = df_train["upsilon"].values
-        ups_full = df["upsilon"].values
-        ups_label = "Unified Index (Upsilon)"
+        # Continuous hourly dataset mapping
+        if use_log_upsilon:
+            ups_train = df_train["log_upsilon"].values if "log_upsilon" in df_train.columns else np.log10(np.maximum(df_train["upsilon"].values, 1e-4))
+            ups_full = df["log_upsilon"].values if "log_upsilon" in df.columns else np.log10(np.maximum(df["upsilon"].values, 1e-4))
+            ups_label = "Unified Index (log-Upsilon)"
+        else:
+            ups_train = df_train["upsilon"].values
+            ups_full = df["upsilon"].values
+            ups_label = "Unified Index (Upsilon)"
 
-    # Define competing hypotheses (built on training split)
-    candidates: Dict[str, Any] = {
-        "Hs (Linear)": {"type": "single", "forcing": df_train["hs_m"].values, "full_forcing": df["hs_m"].values},
-        "Wave Power P (Linear)": {"type": "single", "forcing": df_train["p_flux_Wm"].values, "full_forcing": df["p_flux_Wm"].values},
-        "Dean Number (Linear)": {"type": "single", "forcing": df_train["dean_number"].values, "full_forcing": df["dean_number"].values},
-        ups_label: {"type": "single", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon},
-    }
-
-    if "signed_upsilon" in df_train.columns:
-        candidates["Signed Index (Upsilon_signed)"] = {
-            "type": "single",
-            "forcing": df_train["signed_upsilon"].values,
-            "full_forcing": df["signed_upsilon"].values,
+        candidates: Dict[str, Any] = {
+            "Hs (Linear)": {"type": "single", "forcing": df_train["hs_m"].values, "full_forcing": df["hs_m"].values},
+            "Wave Power P (Linear)": {"type": "single", "forcing": df_train["p_flux_Wm"].values, "full_forcing": df["p_flux_Wm"].values},
+            "Dean Number (Linear)": {"type": "single", "forcing": df_train["dean_number"].values, "full_forcing": df["dean_number"].values},
+            ups_label: {"type": "single", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon},
         }
 
-    if include_nonlinear:
-        candidates["Upsilon (Non-Linear)"] = {"type": "nonlinear", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon}
-        candidates["Hs (Non-Linear)"] = {"type": "nonlinear", "forcing": df_train["hs_m"].values, "full_forcing": df["hs_m"].values}
+        if "signed_upsilon" in df_train.columns:
+            candidates["Signed Index (Upsilon_signed)"] = {
+                "type": "single",
+                "forcing": df_train["signed_upsilon"].values,
+                "full_forcing": df["signed_upsilon"].values,
+            }
 
-    if include_multivariate:
-        candidates["Multivariate (Hs+S+Wa+Omega)"] = {
-            "type": "multivariate",
-            "forcings": {
+        if include_nonlinear:
+            candidates["Upsilon (Non-Linear)"] = {"type": "nonlinear", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon}
+            candidates["Hs (Non-Linear)"] = {"type": "nonlinear", "forcing": df_train["hs_m"].values, "full_forcing": df["hs_m"].values}
+
+        if include_multivariate:
+            candidates["Multivariate (Hs+S+Wa+Omega)"] = {
+                "type": "multivariate",
+                "forcings": {
+                    "hs": df_train["hs_m"].values,
+                    "surge": df_train["surge_m"].values,
+                    "wind": df_train["wind_normal_ms"].values,
+                    "dean": df_train["dean_number"].values,
+                },
+            }
+
+        if include_hybrid:
+            candidates["Hybrid (Upsilon Anchor + Multi Residuals)"] = {
+                "type": "hybrid",
+                "upsilon": ups_train,
+                "full_upsilon": ups_full,
+                "use_log_upsilon": use_log_upsilon,
+                "forcings": {
+                    "hs": df_train["hs_m"].values,
+                    "surge": df_train["surge_m"].values,
+                    "wind": df_train["wind_normal_ms"].values,
+                    "dean": df_train["dean_number"].values,
+                },
+            }
+
+        if "w_s_ms" in df_train.columns:
+            candidates["Asymmetric Dual-Regime (Erosion vs Accretion)"] = {
+                "type": "asymmetric",
                 "hs": df_train["hs_m"].values,
-                "surge": df_train["surge_m"].values,
-                "wind": df_train["wind_normal_ms"].values,
-                "dean": df_train["dean_number"].values,
-            },
-        }
-
-    if include_hybrid:
-        candidates["Hybrid (Upsilon Anchor + Multi Residuals)"] = {
-            "type": "hybrid",
-            "upsilon": ups_train,
-            "full_upsilon": ups_full,
-            "use_log_upsilon": use_log_upsilon,
-            "forcings": {
-                "hs": df_train["hs_m"].values,
-                "surge": df_train["surge_m"].values,
-                "wind": df_train["wind_normal_ms"].values,
-                "dean": df_train["dean_number"].values,
-            },
-        }
-
-    if "w_s_ms" in df_train.columns:
-        candidates["Asymmetric Dual-Regime (Erosion vs Accretion)"] = {
-            "type": "asymmetric",
-            "hs": df_train["hs_m"].values,
-            "tp": df_train["tp_s"].values,
-            "ws": df_train["w_s_ms"].values,
-            "upsilon": ups_train,
-            "full_upsilon": ups_full,
-            "use_log_upsilon": use_log_upsilon,
-            "shielding": df_train["shielding_factor"].values if "shielding_factor" in df_train.columns else np.ones(len(df_train)),
-            "accretion": df_train["accretion_potential"].values if "accretion_potential" in df_train.columns else None,
-        }
+                "tp": df_train["tp_s"].values,
+                "ws": df_train["w_s_ms"].values,
+                "upsilon": ups_train,
+                "full_upsilon": ups_full,
+                "use_log_upsilon": use_log_upsilon,
+                "shielding": df_train["shielding_factor"].values if "shielding_factor" in df_train.columns else np.ones(len(df_train)),
+                "accretion": df_train["accretion_potential"].values if "accretion_potential" in df_train.columns else None,
+            }
 
     traces: Dict[str, az.InferenceData] = {}
     model_metas: Dict[str, Dict[str, Any]] = {}
@@ -669,7 +746,7 @@ def run_benchmark_model_comparison(
                 forcing=spec["forcing"],
                 delta_x_obs=y_obs_train,
                 model_name=name,
-                max_lag=48,
+                max_lag=effective_max_lag,
             )
         elif model_type == "nonlinear":
             model, meta = build_nonlinear_response_model(
@@ -690,7 +767,7 @@ def run_benchmark_model_comparison(
                 forcings=spec["forcings"],
                 delta_x_obs=y_obs_train,
                 model_name=name,
-                max_lag=48,
+                max_lag=effective_max_lag,
             )
         elif model_type == "asymmetric":
             model, meta = build_asymmetric_dual_regime_model(
@@ -702,7 +779,7 @@ def run_benchmark_model_comparison(
                 shielding_factor=spec["shielding"],
                 accretion_potential=spec["accretion"],
                 model_name=name,
-                max_lag=48,
+                max_lag=effective_max_lag,
             )
         else:
             continue
@@ -771,6 +848,11 @@ def run_benchmark_model_comparison(
             row["Full RMSE (m)"] = perf_full["RMSE (m)"]
             row["Full R2 Score"] = perf_full["R2 Score"]
         else:
+            row["Test RMSE (m)"] = perf_train["RMSE (m)"]
+            row["Test R2 Score"] = perf_train["R2 Score"]
+            row["Test BSS"] = perf_train["Brier Skill Score (BSS)"]
+            row["Train RMSE (m)"] = perf_train["RMSE (m)"]
+            row["Train R2 Score"] = perf_train["R2 Score"]
             row["RMSE (m)"] = perf_train["RMSE (m)"]
             row["R2 Score"] = perf_train["R2 Score"]
             row["BSS"] = perf_train["Brier Skill Score (BSS)"]
@@ -928,6 +1010,7 @@ def build_physics_anchored_hybrid_model(
     ups_arr = np.asarray(upsilon, dtype=float)
     y_obs = np.asarray(delta_x_obs, dtype=float)
 
+    max_lag = max(1, min(max_lag, len(y_obs)))
     meta = {"model_name": model_name, "n_obs": len(y_obs), "max_lag": max_lag}
 
     # Standardize Upsilon
@@ -1285,9 +1368,14 @@ def evaluate_field_survey_correlation(
     var_base = float(np.var(y_true))
     mse_base = float(np.mean((y_true - np.mean(y_true)) ** 2)) if var_base > 1e-6 else 1.0
 
+    yates_col = "yates_simulated_delta_x_m" if target_col == "surveyed_delta_x_m" else "yates_simulated_pos_m"
+    xbeach_col = "xbeach_simulated_delta_x_m" if target_col == "surveyed_delta_x_m" else "xbeach_simulated_pos_m"
+
     predictors = {
-        "Unified Index (log-Upsilon Memory)": "antecedent_log_upsilon" if "antecedent_log_upsilon" in df_aligned_surveys.columns else "antecedent_upsilon_memory",
         "Unified Index (Upsilon Memory)": "antecedent_upsilon_memory" if "antecedent_upsilon_memory" in df_aligned_surveys.columns else "antecedent_mean_upsilon",
+        "Unified Index (log-Upsilon Memory)": "antecedent_log_upsilon" if "antecedent_log_upsilon" in df_aligned_surveys.columns else "antecedent_upsilon_memory",
+        "Yates (2009) Equilibrium Model": yates_col,
+        "Process-Based (XBeach-inspired)": xbeach_col,
         "Peak Wave Height (max Hs)": "antecedent_max_hs_m",
         "Mean Wave Height (mean Hs)": "antecedent_mean_hs_m",
         "Dean Number (mean Omega)": "antecedent_mean_dean",
