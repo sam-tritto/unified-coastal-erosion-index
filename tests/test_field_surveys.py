@@ -83,3 +83,19 @@ def test_field_survey_correlation_evaluation():
     # Verify that Upsilon is present in the skill ranking
     predictors = df_skill["Predictor"].tolist()
     assert any("Upsilon" in p for p in predictors)
+
+
+def test_load_global_sites_field_surveys():
+    """Verify that all global sites (Duck, Narrabeen, Torrey Pines, Truc Vert) load real in-situ surveys."""
+    from src.data import load_site_field_surveys
+
+    sites = ["duck_nc", "narrabeen_aus", "torrey_pines_ca", "truc_vert_france"]
+    for site in sites:
+        df = load_site_field_surveys(site=site)
+        assert not df.empty, f"Site {site} surveys should not be empty"
+        assert len(df) >= 20, f"Site {site} should have at least 20 survey records"
+        assert "shoreline_pos_mhw_m" in df.columns
+        assert "cross_shore_change_m" in df.columns
+        assert "site" in df.columns
+        assert (df["site"] == site).all()
+

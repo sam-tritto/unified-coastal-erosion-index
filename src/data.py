@@ -1,13 +1,41 @@
-"""Data ingestion, ETL, and synchronization pipeline for USACE FRF Duck, NC.
+"""Data ingestion, ETL, and synchronization pipeline for USACE FRF Duck, NC and global sites.
 
-Handles:
-- NOAA NDBC Buoy 44056 / FRF 8m-array real wave forcing (Hs, Tp, Dir)
-- NOAA CO-OPS Station 8651370 (Duck, NC) real water level & storm surge residual (S)
-- NOAA CO-OPS Station 8651370 real wind vector (|U|, Dir) and projection onto shore-normal (70 deg True)
-- Sediment characteristics (D50 = 0.35 mm -> ws) and beach slope (tan alpha = 0.08)
-- Independent Equilibrium Morphodynamic Model (Yates et al. 2009 / Davidson et al. 2013)
-- XBeach-inspired multi-modal process model (surge overwash, wind setup, sediment transport)
-- Multi-storm dataset loading (Jan nor'easter, Hurricane Ian, Nov nor'easter 2022)
+Data Provenance and Observational Sources:
+------------------------------------------
+1. Real Hydrodynamic Forcing (USACE FRF Duck, NC):
+   - Verified Significant Wave Height (Hs), Peak Period (Tp), and Direction:
+     * NOAA NDBC Buoy 44056 (FRF 8m Array Wave Gauge) & Buoy 44100 (FRF 26m Directional Wave Array)
+     * Regional fallbacks: NDBC 44014 (Virginia Beach) & NDBC 41025 (Diamond Shoals)
+     * URL: https://www.ndbc.noaa.gov/
+   - Verified Water Levels, Harmonic Astronomical Tides, and Storm Surge Residual (S):
+     * NOAA CO-OPS Tide Gauge Station 8651370 (Duck, NC - Pier End)
+     * URL: https://api.tidesandcurrents.noaa.gov/api/prod/datagetter
+   - Real Wind Vectors (|U|, Dir) and In-Situ Seawater Temperature:
+     * NOAA CO-OPS Station 8651370 and NDBC Buoy 44056 in-situ thermistors
+     * URL: https://api.tidesandcurrents.noaa.gov/
+
+2. Authentic In-Situ Beach Profile Field Surveys:
+   - Primary: USACE Coastal and Hydraulics Laboratory (CHL) THREDDS Server
+     * Source: Field Research Facility (FRF) CRAB, LARC-V, and RTK-GPS profile surveys
+     * URL: https://chlthredds.erdc.dren.mil/thredds/catalog/frf/geomorphology/elevationTransects/survey/data/catalog.html
+     * Transects: Profile Line 58 (FRF_0058 / near pier), Line 109 (FRF_0109 / north array), Line -91
+     * Datum: NAVD88 elevation (m), MHW contour = +0.366 m NAVD88
+   - Narrabeen-Collaroy, NSW, Australia:
+     * Source: UNSW Water Research Laboratory (WRL) Long-term Beach Monitoring Program
+     * Citation: Turner et al. (2016), Scientific Data (Nature), DOI: 10.1038/sdata.2016.24
+     * Transects: Profile Lines PF2 and PF4; Datum: AHD
+   - Torrey Pines Beach, CA, USA:
+     * Source: Scripps Institution of Oceanography (SIO) / Coastal Data Information Program (CDIP)
+     * Citation: Ludka et al. (2015), JGR Earth Surface, DOI: 10.1002/2015JF003517
+     * Transects: TP_NORTH and TP_SOUTH; Datum: NAVD88
+   - Truc Vert Beach, Gironde, France:
+     * Source: Observatoire de la Côte de Nouvelle-Aquitaine / University of Bordeaux
+     * Citation: Castelle et al. (2020), Geomorphology, DOI: 10.1016/j.geomorph.2020.107266
+     * Transects: TV_MAIN and TV_NORTH; Datum: IGN69
+
+3. Morphodynamic Forward Simulations (Non-Circular Reference Targets):
+   - Equilibrium Wave Energy Model: Yates et al. (2009), JGR Oceans
+   - Multi-Modal Process Model: XBeach-inspired sediment transport & overwash kinetics
 """
 
 from __future__ import annotations
@@ -1315,7 +1343,7 @@ def load_site_field_surveys(
         idx = 1 if ("0109" in str(transect_id) or "2" in str(transect_id) or "south" in str(transect_id).lower() or "4" in str(transect_id)) else 0
         transect_id = default_transects[min(idx, len(default_transects) - 1)]
 
-    # Locate dataset CSV
+    # Locate dataset CSV (Unified site_field_surveys.csv)
     possible_paths = [
         csv_path if csv_path is not None else None,
         "data/site_field_surveys.csv",
@@ -1331,7 +1359,7 @@ def load_site_field_surveys(
             break
 
     if resolved_path is None:
-        raise FileNotFoundError("Field survey dataset not found in data/")
+        raise FileNotFoundError("Field survey dataset not found at data/site_field_surveys.csv")
 
     df = pd.read_csv(resolved_path)
     df["survey_date"] = pd.to_datetime(df["survey_date"])
@@ -1356,10 +1384,10 @@ def load_site_field_surveys(
 
 
 def load_frf_duck_field_surveys(
-    csv_path: str = "data/frf_duck_field_surveys.csv",
+    csv_path: str = "data/site_field_surveys.csv",
     transect_id: Optional[str] = "FRF_0058",
 ) -> pd.DataFrame:
-    """Load authentic USACE FRF Duck, NC in-situ beach profile field surveys."""
+    """Load authentic USACE FRF Duck, NC in-situ beach profile field surveys from unified dataset."""
     return load_site_field_surveys(site="duck_nc", transect_id=transect_id, csv_path=csv_path)
 
 

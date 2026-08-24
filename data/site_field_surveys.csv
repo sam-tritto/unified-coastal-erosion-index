@@ -1,497 +1,349 @@
-survey_date,site,transect_id,transect_name,shoreline_pos_mhw_m,cross_shore_change_m,survey_method,instrument,elevation_datum,uncertainty_m,storm_context
-2020-01-14 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),98.2,-3.8,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Nor'easter / Storm Cut
-2020-02-18 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),99.3,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Recovery
-2020-03-24 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),100.7,1.4,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Welding
-2020-04-21 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),101.6,0.9,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2020-05-19 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),102.9,1.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Berm Growth
-2020-06-23 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),104.7,1.8,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak
-2020-07-21 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),105.3,0.6,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer State
-2020-08-25 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),106.5,1.2,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2020-09-22 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),104.6,-1.9,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Autumn Cut
-2020-10-20 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),105.8,1.2,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Adjustment
-2020-11-17 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),102.6,-3.2,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Scour
-2020-12-15 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),103.4,0.8,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter State
-2021-01-19 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),99.3,-4.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,January Storm Cut
-2021-02-16 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),100.0,0.7,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm State
-2021-03-23 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),101.5,1.5,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2021-04-20 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),102.6,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Berm Building
-2021-05-18 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),103.8,1.2,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Summer Berm
-2021-06-22 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),105.5,1.7,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Maximum Width
-2021-07-20 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),106.0,0.5,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak
-2021-08-17 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),105.6,-0.4,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2021-09-21 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),105.0,-0.6,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Equinox State
-2021-10-19 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),101.5,-3.5,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Scour
-2021-11-09 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),97.7,-3.8,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Coastal Storm Cut
-2021-12-14 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),99.1,1.4,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Accretion
-2022-01-18 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),94.8,-4.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Storm Scour
-2022-02-14 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),96.1,1.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Recovery
-2022-03-22 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),97.6,1.5,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion Phase
-2022-04-20 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),98.7,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Subaerial Berm
-2022-05-18 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),100.0,1.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Berm Accretion
-2022-06-21 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),101.7,1.7,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak Width
-2022-07-19 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),102.3,0.6,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer Peak
-2022-08-16 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),101.8,-0.5,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer Equilibrium
-2022-09-15 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),100.9,-0.9,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Autumn State
-2022-10-04 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),94.4,-6.5,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Major Autumn Storm Cut
-2022-10-24 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),96.7,2.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Swell Recovery
-2022-11-28 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),92.8,-3.9,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Autumn Erosion
-2022-12-20 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),94.1,1.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Recovery State
-2023-01-17 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),90.5,-3.6,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,January Storm Cut
-2023-02-21 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),91.6,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Swell Accretion
-2023-03-21 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),93.0,1.4,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Welding
-2023-04-18 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),94.2,1.2,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Berm Building
-2023-05-16 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),95.7,1.5,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Summer Accretion
-2023-06-20 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),97.3,1.6,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak Width
-2023-07-18 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),97.7,0.4,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer State
-2023-08-15 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),97.4,-0.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2023-09-02 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),92.2,-5.2,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,September Storm Scour
-2023-09-22 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),94.5,2.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Recovery
-2023-10-17 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),95.3,0.8,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Profile
-2023-11-21 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),91.9,-3.4,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Cut
-2023-12-19 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),93.0,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Profile
-2024-01-16 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),88.8,-4.2,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Winter Storm Scour
-2024-02-20 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),89.7,0.9,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Winter State
-2024-03-19 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),91.0,1.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Phase
-2024-04-16 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),92.2,1.2,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2024-05-21 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),93.6,1.4,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Berm Formation
-2024-06-18 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),95.3,1.7,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Maximum Width
-2024-07-16 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),95.7,0.4,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer Equilibrium
-2024-08-20 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),95.2,-0.5,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer Berm
-2024-09-17 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),94.4,-0.8,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Transition
-2024-10-15 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),90.4,-4.0,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,October Storm Scour
-2024-11-19 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),87.6,-2.8,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,November Storm Scour
-2024-12-17 14:00:00,duck_nc,FRF_0058,Profile Line 58 (Near Pier),88.8,1.2,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Equilibrated State
-2020-01-14 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),104.39,-3.61,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Nor'easter / Storm Cut
-2020-02-18 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),105.44,1.04,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Recovery
-2020-03-24 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),106.77,1.33,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Welding
-2020-04-21 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),107.62,0.85,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2020-05-19 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),108.86,1.23,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Berm Growth
-2020-06-23 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),110.56,1.71,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak
-2020-07-21 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),111.13,0.57,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer State
-2020-08-25 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),112.27,1.14,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2020-09-22 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),110.47,-1.8,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Autumn Cut
-2020-10-20 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),111.61,1.14,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Adjustment
-2020-11-17 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),108.57,-3.04,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Scour
-2020-12-15 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),109.33,0.76,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter State
-2021-01-19 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),105.43,-3.89,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,January Storm Cut
-2021-02-16 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),106.1,0.66,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm State
-2021-03-23 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),107.52,1.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2021-04-20 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),108.57,1.04,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Berm Building
-2021-05-18 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),109.71,1.14,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Summer Berm
-2021-06-22 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),111.32,1.61,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Maximum Width
-2021-07-20 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),111.8,0.47,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak
-2021-08-17 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),111.42,-0.38,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2021-09-21 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),110.85,-0.57,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Equinox State
-2021-10-19 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),107.52,-3.32,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Scour
-2021-11-09 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),103.91,-3.61,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Coastal Storm Cut
-2021-12-14 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),105.24,1.33,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Accretion
-2022-01-18 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),101.16,-4.08,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Storm Scour
-2022-02-14 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),102.39,1.23,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Recovery
-2022-03-22 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),103.82,1.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion Phase
-2022-04-20 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),104.86,1.04,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Subaerial Berm
-2022-05-18 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),106.1,1.23,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Berm Accretion
-2022-06-21 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),107.71,1.61,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak Width
-2022-07-19 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),108.28,0.57,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer Peak
-2022-08-16 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),107.81,-0.47,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer Equilibrium
-2022-09-15 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),106.95,-0.85,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Autumn State
-2022-10-04 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),100.78,-6.17,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Major Autumn Storm Cut
-2022-10-24 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),102.96,2.18,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Swell Recovery
-2022-11-28 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),99.26,-3.7,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Autumn Erosion
-2022-12-20 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),100.49,1.23,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Recovery State
-2023-01-17 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),97.07,-3.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,January Storm Cut
-2023-02-21 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),98.12,1.04,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Swell Accretion
-2023-03-21 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),99.45,1.33,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Welding
-2023-04-18 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),100.59,1.14,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Berm Building
-2023-05-16 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),102.01,1.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Summer Accretion
-2023-06-20 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),103.53,1.52,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak Width
-2023-07-18 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),103.91,0.38,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer State
-2023-08-15 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),103.63,-0.28,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2023-09-02 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),98.69,-4.94,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,September Storm Scour
-2023-09-22 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),100.87,2.18,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Recovery
-2023-10-17 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),101.63,0.76,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Profile
-2023-11-21 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),98.4,-3.23,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Cut
-2023-12-19 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),99.45,1.04,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Profile
-2024-01-16 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),95.46,-3.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Winter Storm Scour
-2024-02-20 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),96.31,0.85,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Winter State
-2024-03-19 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),97.55,1.23,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Phase
-2024-04-16 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),98.69,1.14,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2024-05-21 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),100.02,1.33,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Berm Formation
-2024-06-18 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),101.63,1.61,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Maximum Width
-2024-07-16 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),102.01,0.38,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer Equilibrium
-2024-08-20 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),101.54,-0.47,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer Berm
-2024-09-17 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),100.78,-0.76,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Transition
-2024-10-15 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),96.98,-3.8,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,October Storm Scour
-2024-11-19 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),94.32,-2.66,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,November Storm Scour
-2024-12-17 14:00:00,duck_nc,FRF_0109,Profile Line 109 (North Array),95.46,1.14,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Equilibrated State
-2020-01-14 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),62.53,-2.47,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Nor'easter / Storm Cut
-2020-02-18 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),63.25,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Recovery
-2020-03-24 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),64.16,0.91,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Welding
-2020-04-21 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),64.74,0.59,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2020-05-19 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),65.58,0.85,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Berm Growth
-2020-06-23 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),66.75,1.17,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak
-2020-07-21 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),67.14,0.39,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer State
-2020-08-25 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),67.92,0.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2020-09-22 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),66.69,-1.23,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Autumn Cut
-2020-10-20 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),67.47,0.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Adjustment
-2020-11-17 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),65.39,-2.08,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Scour
-2020-12-15 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),65.91,0.52,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter State
-2021-01-19 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),63.24,-2.67,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,January Storm Cut
-2021-02-16 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),63.7,0.45,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm State
-2021-03-23 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),64.67,0.98,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2021-04-20 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),65.39,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Berm Building
-2021-05-18 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),66.17,0.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Summer Berm
-2021-06-22 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),67.28,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Maximum Width
-2021-07-20 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),67.6,0.33,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak
-2021-08-17 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),67.34,-0.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2021-09-21 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),66.95,-0.39,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Equinox State
-2021-10-19 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),64.67,-2.27,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Scour
-2021-11-09 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),62.2,-2.47,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Coastal Storm Cut
-2021-12-14 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),63.11,0.91,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Accretion
-2022-01-18 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),60.32,-2.79,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Storm Scour
-2022-02-14 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),61.16,0.85,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Recovery
-2022-03-22 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),62.14,0.98,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion Phase
-2022-04-20 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),62.85,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Subaerial Berm
-2022-05-18 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),63.7,0.85,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Berm Accretion
-2022-06-21 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),64.8,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak Width
-2022-07-19 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),65.19,0.39,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer Peak
-2022-08-16 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),64.87,-0.33,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer Equilibrium
-2022-09-15 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),64.28,-0.59,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Autumn State
-2022-10-04 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),60.06,-4.23,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Major Autumn Storm Cut
-2022-10-24 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),61.55,1.49,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Swell Recovery
-2022-11-28 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),59.02,-2.54,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Autumn Erosion
-2022-12-20 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),59.86,0.85,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Recovery State
-2023-01-17 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),57.52,-2.34,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,January Storm Cut
-2023-02-21 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),58.24,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Swell Accretion
-2023-03-21 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),59.15,0.91,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Welding
-2023-04-18 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),59.93,0.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Berm Building
-2023-05-16 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),60.9,0.98,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Summer Accretion
-2023-06-20 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),61.94,1.04,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak Width
-2023-07-18 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),62.2,0.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer State
-2023-08-15 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),62.01,-0.2,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2023-09-02 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),58.63,-3.38,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,September Storm Scour
-2023-09-22 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),60.12,1.49,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Recovery
-2023-10-17 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),60.64,0.52,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Profile
-2023-11-21 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),58.43,-2.21,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Cut
-2023-12-19 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),59.15,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Profile
-2024-01-16 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),56.42,-2.73,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Winter Storm Scour
-2024-02-20 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),57.0,0.59,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Winter State
-2024-03-19 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),57.85,0.85,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Phase
-2024-04-16 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),58.63,0.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2024-05-21 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),59.54,0.91,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Berm Formation
-2024-06-18 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),60.64,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Maximum Width
-2024-07-16 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),60.9,0.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer Equilibrium
-2024-08-20 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),60.58,-0.33,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer Berm
-2024-09-17 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),60.06,-0.52,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Transition
-2024-10-15 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),57.46,-2.6,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,October Storm Scour
-2024-11-19 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),55.64,-1.82,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,November Storm Scour
-2024-12-17 14:00:00,torrey_pines_ca,TP_NORTH,Torrey Pines North Profile (SIO Transect),56.42,0.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Equilibrated State
-2020-01-14 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),55.72,-2.28,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Nor'easter / Storm Cut
-2020-02-18 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),56.38,0.66,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Recovery
-2020-03-24 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),57.22,0.84,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Welding
-2020-04-21 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),57.76,0.54,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2020-05-19 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),58.54,0.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Berm Growth
-2020-06-23 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),59.62,1.08,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak
-2020-07-21 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),59.98,0.36,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer State
-2020-08-25 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),60.7,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2020-09-22 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),59.56,-1.14,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Autumn Cut
-2020-10-20 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),60.28,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Adjustment
-2020-11-17 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),58.36,-1.92,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Scour
-2020-12-15 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),58.84,0.48,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter State
-2021-01-19 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),56.38,-2.46,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,January Storm Cut
-2021-02-16 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),56.8,0.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm State
-2021-03-23 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),57.7,0.9,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2021-04-20 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),58.36,0.66,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Berm Building
-2021-05-18 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),59.08,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Summer Berm
-2021-06-22 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),60.1,1.02,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Maximum Width
-2021-07-20 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),60.4,0.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak
-2021-08-17 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),60.16,-0.24,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2021-09-21 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),59.8,-0.36,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Equinox State
-2021-10-19 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),57.7,-2.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Scour
-2021-11-09 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),55.42,-2.28,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Coastal Storm Cut
-2021-12-14 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),56.26,0.84,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Accretion
-2022-01-18 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),53.68,-2.58,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Storm Scour
-2022-02-14 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),54.46,0.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Recovery
-2022-03-22 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),55.36,0.9,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion Phase
-2022-04-20 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),56.02,0.66,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Subaerial Berm
-2022-05-18 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),56.8,0.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Berm Accretion
-2022-06-21 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),57.82,1.02,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak Width
-2022-07-19 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),58.18,0.36,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer Peak
-2022-08-16 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),57.88,-0.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer Equilibrium
-2022-09-15 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),57.34,-0.54,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Autumn State
-2022-10-04 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),53.44,-3.9,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Major Autumn Storm Cut
-2022-10-24 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),54.82,1.38,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Swell Recovery
-2022-11-28 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),52.48,-2.34,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Autumn Erosion
-2022-12-20 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),53.26,0.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Recovery State
-2023-01-17 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),51.1,-2.16,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,January Storm Cut
-2023-02-21 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),51.76,0.66,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Swell Accretion
-2023-03-21 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),52.6,0.84,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Welding
-2023-04-18 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),53.32,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Berm Building
-2023-05-16 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),54.22,0.9,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Early Summer Accretion
-2023-06-20 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),55.18,0.96,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Peak Width
-2023-07-18 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),55.42,0.24,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer State
-2023-08-15 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),55.24,-0.18,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer State
-2023-09-02 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),52.12,-3.12,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,September Storm Scour
-2023-09-22 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),53.5,1.38,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Post-Storm Recovery
-2023-10-17 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),53.98,0.48,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Profile
-2023-11-21 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),51.94,-2.04,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Storm Cut
-2023-12-19 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),52.6,0.66,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Profile
-2024-01-16 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),50.08,-2.52,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Winter Storm Scour
-2024-02-20 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),50.62,0.54,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Winter State
-2024-03-19 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),51.4,0.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Swell Phase
-2024-04-16 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),52.12,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Spring Accretion
-2024-05-21 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),52.96,0.84,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Berm Formation
-2024-06-18 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),53.98,1.02,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Summer Maximum Width
-2024-07-16 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),54.22,0.24,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Mid-Summer Equilibrium
-2024-08-20 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),53.92,-0.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Late Summer Berm
-2024-09-17 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),53.44,-0.48,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Autumn Transition
-2024-10-15 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),51.04,-2.4,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,October Storm Scour
-2024-11-19 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),49.36,-1.68,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,November Storm Scour
-2024-12-17 14:00:00,torrey_pines_ca,TP_SOUTH,Torrey Pines South Profile (Flat Rock),50.08,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,NAVD88,0.12,Winter Equilibrated State
-2020-01-14 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),78.23,3.23,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2020-02-18 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),79.17,0.94,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2020-03-24 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),80.36,1.19,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Swell Welding
-2020-04-21 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.12,0.77,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Accretion
-2020-05-19 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),82.23,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Berm Growth
-2020-06-23 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),80.7,-1.53,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2020-07-21 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),80.19,-0.51,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2020-08-25 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),79.17,-1.02,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2020-09-22 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),77.55,-1.61,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Early Autumn Cut
-2020-10-20 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),78.57,1.02,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Adjustment
-2020-11-17 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),75.85,-2.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Storm Scour
-2020-12-15 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),76.53,0.68,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2021-01-19 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),80.02,3.48,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2021-02-16 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),80.61,0.59,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2021-03-23 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.89,1.27,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Accretion
-2021-04-20 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),82.82,0.94,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Berm Building
-2021-05-18 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),83.84,1.02,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Early Summer Berm
-2021-06-22 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),82.4,-1.44,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2021-07-20 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.97,-0.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2021-08-17 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.63,-0.34,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Winter Storm Cut
-2021-09-21 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.12,-0.51,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Equinox State
-2021-10-19 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),78.15,-2.98,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Storm Scour
-2021-11-09 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),74.92,-3.23,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Coastal Storm Cut
-2021-12-14 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),76.11,1.19,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2022-01-18 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),79.76,3.65,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2022-02-14 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),80.87,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2022-03-22 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),82.14,1.27,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Accretion Phase
-2022-04-20 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),83.08,0.94,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Subaerial Berm
-2022-05-18 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),84.18,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Summer Berm Accretion
-2022-06-21 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),82.74,-1.44,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2022-07-19 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),82.23,-0.51,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2022-08-16 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.8,-0.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Winter Storm Cut
-2022-09-15 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.04,-0.77,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Early Autumn State
-2022-10-04 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),75.51,-5.52,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Major Autumn Storm Cut
-2022-10-24 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),77.47,1.95,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Post-Storm Swell Recovery
-2022-11-28 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),74.15,-3.31,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Late Autumn Erosion
-2022-12-20 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),75.26,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2023-01-17 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),78.32,3.06,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2023-02-21 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),79.25,0.94,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2023-03-21 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),80.44,1.19,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Swell Welding
-2023-04-18 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.46,1.02,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Berm Building
-2023-05-16 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),82.74,1.27,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Early Summer Accretion
-2023-06-20 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.38,-1.36,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2023-07-18 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.04,-0.34,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2023-08-15 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),80.78,-0.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Winter Storm Cut
-2023-09-02 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),76.36,-4.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,September Storm Scour
-2023-09-22 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),78.32,1.95,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Post-Storm Recovery
-2023-10-17 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),79.0,0.68,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Profile
-2023-11-21 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),76.11,-2.89,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Storm Cut
-2023-12-19 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),77.04,0.94,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2024-01-16 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),80.61,3.57,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2024-02-20 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.38,0.77,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2024-03-19 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),82.48,1.1,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Swell Phase
-2024-04-16 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),83.5,1.02,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Accretion
-2024-05-21 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),84.69,1.19,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Summer Berm Formation
-2024-06-18 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),83.25,-1.44,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2024-07-16 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),82.91,-0.34,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2024-08-20 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),82.48,-0.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Winter Storm Cut
-2024-09-17 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),81.8,-0.68,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Transition
-2024-10-15 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),78.4,-3.4,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,October Storm Scour
-2024-11-19 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),76.02,-2.38,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,November Storm Scour
-2024-12-17 14:00:00,narrabeen_aus,PF2,Profile Line 2 (North Narrabeen),77.04,1.02,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2020-01-14 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),71.42,3.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2020-02-18 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),72.41,0.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2020-03-24 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),73.67,1.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Swell Welding
-2020-04-21 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),74.48,0.81,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Accretion
-2020-05-19 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),75.65,1.17,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Berm Growth
-2020-06-23 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),74.03,-1.62,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2020-07-21 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),73.49,-0.54,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2020-08-25 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),72.41,-1.08,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2020-09-22 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),70.7,-1.71,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Early Autumn Cut
-2020-10-20 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),71.78,1.08,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Adjustment
-2020-11-17 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),68.9,-2.88,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Storm Scour
-2020-12-15 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),69.62,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2021-01-19 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),73.31,3.69,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2021-02-16 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),73.94,0.63,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2021-03-23 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),75.29,1.35,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Accretion
-2021-04-20 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),76.28,0.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Berm Building
-2021-05-18 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),77.36,1.08,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Early Summer Berm
-2021-06-22 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),75.83,-1.53,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2021-07-20 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),75.38,-0.45,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2021-08-17 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),75.02,-0.36,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Winter Storm Cut
-2021-09-21 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),74.48,-0.54,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Equinox State
-2021-10-19 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),71.33,-3.15,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Storm Scour
-2021-11-09 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),67.91,-3.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Coastal Storm Cut
-2021-12-14 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),69.17,1.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2022-01-18 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),73.04,3.87,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2022-02-14 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),74.21,1.17,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2022-03-22 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),75.56,1.35,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Accretion Phase
-2022-04-20 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),76.55,0.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Subaerial Berm
-2022-05-18 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),77.72,1.17,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Summer Berm Accretion
-2022-06-21 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),76.19,-1.53,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2022-07-19 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),75.65,-0.54,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2022-08-16 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),75.2,-0.45,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Winter Storm Cut
-2022-09-15 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),74.39,-0.81,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Early Autumn State
-2022-10-04 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),68.54,-5.85,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Major Autumn Storm Cut
-2022-10-24 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),70.61,2.07,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Post-Storm Swell Recovery
-2022-11-28 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),67.1,-3.51,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Late Autumn Erosion
-2022-12-20 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),68.27,1.17,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2023-01-17 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),71.51,3.24,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2023-02-21 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),72.5,0.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2023-03-21 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),73.76,1.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Swell Welding
-2023-04-18 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),74.84,1.08,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Berm Building
-2023-05-16 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),76.19,1.35,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Early Summer Accretion
-2023-06-20 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),74.75,-1.44,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2023-07-18 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),74.39,-0.36,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2023-08-15 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),74.12,-0.27,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Winter Storm Cut
-2023-09-02 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),69.44,-4.68,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,September Storm Scour
-2023-09-22 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),71.51,2.07,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Post-Storm Recovery
-2023-10-17 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),72.23,0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Profile
-2023-11-21 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),69.17,-3.06,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Storm Cut
-2023-12-19 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),70.16,0.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2024-01-16 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),73.94,3.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2024-02-20 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),74.75,0.81,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2024-03-19 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),75.92,1.17,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Swell Phase
-2024-04-16 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),77.0,1.08,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Spring Accretion
-2024-05-21 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),78.26,1.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Summer Berm Formation
-2024-06-18 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),76.73,-1.53,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2024-07-16 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),76.37,-0.36,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Winter State
-2024-08-20 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),75.92,-0.45,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Winter Storm Cut
-2024-09-17 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),75.2,-0.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Autumn Transition
-2024-10-15 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),71.6,-3.6,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,October Storm Scour
-2024-11-19 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),69.08,-2.52,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,November Storm Scour
-2024-12-17 14:00:00,narrabeen_aus,PF4,Profile Line 4 (Collaroy Transect),70.16,1.08,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,AHD,0.12,Southern Summer Berm Accretion
-2020-01-14 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),90.82,-4.18,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Nor'easter / Storm Cut
-2020-02-18 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),92.03,1.21,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Recovery
-2020-03-24 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),93.57,1.54,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Swell Welding
-2020-04-21 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),94.56,0.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Accretion
-2020-05-19 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),95.99,1.43,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Berm Growth
-2020-06-23 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),97.97,1.98,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Peak
-2020-07-21 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),98.63,0.66,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer State
-2020-08-25 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),99.95,1.32,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Summer State
-2020-09-22 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),97.86,-2.09,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Early Autumn Cut
-2020-10-20 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),99.18,1.32,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Adjustment
-2020-11-17 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),95.66,-3.52,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Storm Scour
-2020-12-15 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),96.54,0.88,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter State
-2021-01-19 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),92.03,-4.51,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,January Storm Cut
-2021-02-16 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),92.8,0.77,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Post-Storm State
-2021-03-23 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),94.45,1.65,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Accretion
-2021-04-20 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),95.66,1.21,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Berm Building
-2021-05-18 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),96.98,1.32,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Early Summer Berm
-2021-06-22 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),98.85,1.87,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Maximum Width
-2021-07-20 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),99.4,0.55,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Peak
-2021-08-17 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),98.96,-0.44,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Summer State
-2021-09-21 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),98.3,-0.66,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Equinox State
-2021-10-19 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),94.45,-3.85,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Storm Scour
-2021-11-09 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),90.27,-4.18,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Coastal Storm Cut
-2021-12-14 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),91.81,1.54,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Accretion
-2022-01-18 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),87.08,-4.73,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Storm Scour
-2022-02-14 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),88.51,1.43,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Post-Storm Recovery
-2022-03-22 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),90.16,1.65,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Accretion Phase
-2022-04-20 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),91.37,1.21,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Subaerial Berm
-2022-05-18 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),92.8,1.43,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Berm Accretion
-2022-06-21 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),94.67,1.87,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Peak Width
-2022-07-19 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),95.33,0.66,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Mid-Summer Peak
-2022-08-16 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),94.78,-0.55,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Summer Equilibrium
-2022-09-15 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),93.79,-0.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Early Autumn State
-2022-10-04 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),86.64,-7.15,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Major Autumn Storm Cut
-2022-10-24 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),89.17,2.53,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Post-Storm Swell Recovery
-2022-11-28 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),84.88,-4.29,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Autumn Erosion
-2022-12-20 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),86.31,1.43,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Recovery State
-2023-01-17 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),82.35,-3.96,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,January Storm Cut
-2023-02-21 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),83.56,1.21,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Post-Storm Swell Accretion
-2023-03-21 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),85.1,1.54,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Swell Welding
-2023-04-18 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),86.42,1.32,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Berm Building
-2023-05-16 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),88.07,1.65,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Early Summer Accretion
-2023-06-20 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),89.83,1.76,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Peak Width
-2023-07-18 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),90.27,0.44,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Mid-Summer State
-2023-08-15 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),89.94,-0.33,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Summer State
-2023-09-02 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),84.22,-5.72,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,September Storm Scour
-2023-09-22 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),86.75,2.53,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Post-Storm Recovery
-2023-10-17 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),87.63,0.88,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Profile
-2023-11-21 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),83.89,-3.74,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Storm Cut
-2023-12-19 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),85.1,1.21,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Profile
-2024-01-16 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),80.48,-4.62,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Mid-Winter Storm Scour
-2024-02-20 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),81.47,0.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Winter State
-2024-03-19 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),82.9,1.43,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Swell Phase
-2024-04-16 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),84.22,1.32,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Accretion
-2024-05-21 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),85.76,1.54,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Berm Formation
-2024-06-18 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),87.63,1.87,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Maximum Width
-2024-07-16 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),88.07,0.44,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Mid-Summer Equilibrium
-2024-08-20 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),87.52,-0.55,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Summer Berm
-2024-09-17 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),86.64,-0.88,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Transition
-2024-10-15 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),82.24,-4.4,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,October Storm Scour
-2024-11-19 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),79.16,-3.08,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,November Storm Scour
-2024-12-17 14:00:00,truc_vert_france,TV_MAIN,Truc Vert Main Profile (DGA/EPOC),80.48,1.32,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Equilibrated State
-2020-01-14 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,86.01,-3.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Nor'easter / Storm Cut
-2020-02-18 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,87.17,1.16,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Recovery
-2020-03-24 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,88.64,1.47,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Swell Welding
-2020-04-21 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,89.58,0.95,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Accretion
-2020-05-19 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,90.94,1.37,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Berm Growth
-2020-06-23 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,92.83,1.89,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Peak
-2020-07-21 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,93.46,0.63,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer State
-2020-08-25 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,94.72,1.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Summer State
-2020-09-22 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,92.73,-1.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Early Autumn Cut
-2020-10-20 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,93.99,1.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Adjustment
-2020-11-17 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,90.63,-3.36,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Storm Scour
-2020-12-15 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,91.47,0.84,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter State
-2021-01-19 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,87.16,-4.3,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,January Storm Cut
-2021-02-16 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,87.9,0.73,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Post-Storm State
-2021-03-23 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,89.47,1.58,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Accretion
-2021-04-20 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,90.63,1.16,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Berm Building
-2021-05-18 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,91.89,1.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Early Summer Berm
-2021-06-22 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,93.67,1.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Maximum Width
-2021-07-20 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,94.2,0.53,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Peak
-2021-08-17 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,93.78,-0.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Summer State
-2021-09-21 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,93.15,-0.63,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Equinox State
-2021-10-19 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,89.48,-3.68,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Storm Scour
-2021-11-09 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,85.49,-3.99,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Coastal Storm Cut
-2021-12-14 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,86.96,1.47,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Accretion
-2022-01-18 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,82.44,-4.51,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Storm Scour
-2022-02-14 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,83.81,1.37,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Post-Storm Recovery
-2022-03-22 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,85.38,1.58,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Accretion Phase
-2022-04-20 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,86.54,1.16,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Subaerial Berm
-2022-05-18 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,87.9,1.37,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Berm Accretion
-2022-06-21 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,89.69,1.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Peak Width
-2022-07-19 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,90.31,0.63,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Mid-Summer Peak
-2022-08-16 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,89.79,-0.53,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Summer Equilibrium
-2022-09-15 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,88.84,-0.95,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Early Autumn State
-2022-10-04 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,82.02,-6.83,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Major Autumn Storm Cut
-2022-10-24 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,84.44,2.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Post-Storm Swell Recovery
-2022-11-28 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,80.34,-4.09,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Autumn Erosion
-2022-12-20 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,81.7,1.37,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Recovery State
-2023-01-17 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,77.92,-3.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,January Storm Cut
-2023-02-21 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,79.08,1.16,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Post-Storm Swell Accretion
-2023-03-21 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,80.55,1.47,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Swell Welding
-2023-04-18 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,81.81,1.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Berm Building
-2023-05-16 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,83.39,1.58,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Early Summer Accretion
-2023-06-20 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,85.07,1.68,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Peak Width
-2023-07-18 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,85.49,0.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Mid-Summer State
-2023-08-15 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,85.17,-0.32,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Summer State
-2023-09-02 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,79.71,-5.46,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,September Storm Scour
-2023-09-22 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,82.13,2.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Post-Storm Recovery
-2023-10-17 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,82.97,0.84,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Profile
-2023-11-21 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,79.4,-3.57,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Storm Cut
-2023-12-19 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,80.55,1.16,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Profile
-2024-01-16 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,76.14,-4.41,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Mid-Winter Storm Scour
-2024-02-20 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,77.09,0.95,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Winter State
-2024-03-19 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,78.45,1.37,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Swell Phase
-2024-04-16 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,79.71,1.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Spring Accretion
-2024-05-21 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,81.18,1.47,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Berm Formation
-2024-06-18 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,82.97,1.78,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Summer Maximum Width
-2024-07-16 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,83.39,0.42,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Mid-Summer Equilibrium
-2024-08-20 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,82.86,-0.53,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Late Summer Berm
-2024-09-17 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,82.02,-0.84,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Autumn Transition
-2024-10-15 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,77.82,-4.2,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,October Storm Scour
-2024-11-19 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,74.88,-2.94,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,November Storm Scour
-2024-12-17 14:00:00,truc_vert_france,TV_NORTH,Truc Vert North Profile,76.14,1.26,RTK-GPS / Beach Profile Survey,Survey-Grade RTK-GPS / Lidar,IGN69,0.12,Winter Equilibrated State
+survey_date,site,site_name,transect_id,transect_name,shoreline_pos_mhw_m,survey_method,instrument,elevation_datum,uncertainty_m,storm_context,cross_shore_change_m
+2020-01-10 13:38:20,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),109.01,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,0.0
+2020-02-18 13:48:37,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),109.93,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,0.92
+2020-03-11 12:08:07,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),102.58,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-7.35
+2020-05-15 11:42:31,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),105.07,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,2.49
+2020-06-23 12:38:48,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),108.5,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,3.43
+2020-07-21 11:58:46,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),118.07,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,9.57
+2020-08-05 12:28:00,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),128.01,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Isaias Impact & Immediate Recovery,9.94
+2020-09-25 12:33:36,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),106.62,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Teddy Long-Period Swell,-21.39
+2020-10-15 12:56:19,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),104.56,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Teddy Long-Period Swell,-2.06
+2020-11-17 13:08:26,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),114.71,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,10.15
+2020-12-28 14:13:07,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),114.1,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-0.61
+2021-01-14 13:36:40,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),130.44,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,16.34
+2021-02-23 13:27:12,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),112.79,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-17.65
+2021-03-30 12:49:42,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),109.33,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-3.46
+2021-04-28 11:54:30,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),107.31,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-2.02
+2021-05-27 12:30:30,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),118.99,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,11.68
+2021-07-01 12:39:02,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),114.15,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-4.84
+2021-07-13 12:15:26,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),112.86,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-1.29
+2021-08-11 12:15:34,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),125.46,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,12.6
+2021-08-19 12:43:59,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),131.65,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,6.19
+2021-08-23 14:32:20,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),134.57,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,2.92
+2021-08-30 13:19:45,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),133.32,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-1.25
+2021-09-01 14:05:07,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),139.99,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,6.67
+2021-09-07 12:37:44,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),140.01,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,0.02
+2021-09-13 12:25:10,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),136.69,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-3.32
+2021-09-15 12:37:37,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),139.14,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,2.45
+2021-09-28 12:34:41,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),125.29,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-13.85
+2021-10-21 14:09:13,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),120.44,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-4.85
+2021-10-24 14:36:24,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),120.32,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-0.12
+2021-11-12 14:10:46,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),115.75,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-4.57
+2021-11-17 13:18:31,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),118.09,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,2.34
+2021-12-17 13:55:30,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),113.98,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-4.11
+2022-01-13 13:51:15,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),114.23,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,0.25
+2022-02-09 13:31:55,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),116.26,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,2.03
+2022-03-14 12:21:57,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),103.04,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-13.22
+2022-04-12 12:34:25,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),108.37,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,5.33
+2022-05-17 12:02:31,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),105.69,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-2.68
+2022-06-02 12:08:01,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),104.82,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-0.87
+2022-07-20 12:48:56,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),110.86,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,6.04
+2022-08-22 13:16:02,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),109.96,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-0.9
+2022-09-20 12:44:20,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),113.5,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,3.54
+2022-09-27 12:23:28,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),112.27,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-1.23
+2022-10-07 12:32:25,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),107.3,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Ian Post-Storm Erosion & Recovery,-4.97
+2022-11-18 13:46:42,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),108.64,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Ian Post-Storm Erosion & Recovery,1.34
+2023-01-06 13:39:17,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),128.47,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,19.83
+2023-02-16 14:30:14,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),114.02,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-14.45
+2023-03-23 12:05:39,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),108.54,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-5.48
+2023-04-17 12:40:46,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),108.36,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-0.18
+2023-05-16 12:10:43,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),116.76,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,8.4
+2023-06-07 12:02:53,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),117.5,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,0.74
+2023-07-05 12:43:42,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),120.04,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,2.54
+2023-08-15 12:04:11,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),131.75,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,11.71
+2023-08-28 14:58:26,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),124.35,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-7.4
+2023-09-08 11:57:33,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),120.57,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Idalia Swell Impact,-3.78
+2023-09-25 13:14:28,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),120.63,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Idalia Swell Impact,0.06
+2023-10-19 12:44:55,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),129.15,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,8.52
+2023-11-09 13:26:50,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),131.5,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,2.35
+2023-12-15 13:25:50,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),119.85,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-11.65
+2023-12-29 13:00:27,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),109.63,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-10.22
+2024-01-18 13:28:56,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),124.8,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,15.17
+2024-02-27 14:09:24,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),125.19,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,0.39
+2024-03-12 12:24:09,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),123.74,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-1.45
+2024-04-18 13:01:36,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),131.05,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,7.31
+2024-05-28 12:25:36,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),119.4,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-11.65
+2024-06-26 12:19:06,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),132.85,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,13.45
+2024-07-23 12:23:05,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),144.55,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,11.7
+2024-10-30 12:39:27,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),118.4,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-26.15
+2024-12-10 12:50:00,duck_nc,"USACE FRF Duck, NC, USA",FRF_0058,Profile Line 58 (Near Pier),121.46,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,3.06
+2020-01-10 13:38:20,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),103.99,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,0.0
+2020-02-18 13:48:37,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),102.42,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-1.57
+2020-03-11 12:08:07,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),100.49,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-1.93
+2020-04-17 14:01:55,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),97.01,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-3.48
+2020-05-04 14:20:18,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),107.31,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,10.3
+2020-05-15 11:42:31,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),99.05,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-8.26
+2020-06-23 12:38:48,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),91.7,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-7.35
+2020-07-21 11:58:46,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),106.22,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,14.52
+2020-08-05 12:28:00,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),96.8,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Isaias Impact & Immediate Recovery,-9.42
+2020-08-21 12:48:29,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),97.51,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Isaias Impact & Immediate Recovery,0.71
+2020-09-25 12:33:36,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),90.09,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Teddy Long-Period Swell,-7.42
+2020-10-15 12:56:19,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),87.19,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Teddy Long-Period Swell,-2.9
+2020-11-17 13:08:26,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),92.68,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,5.49
+2020-12-28 14:13:07,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),88.82,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-3.86
+2021-01-14 13:36:40,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),87.58,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-1.24
+2021-02-23 13:27:12,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),96.18,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,8.6
+2021-03-30 12:49:42,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),102.79,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,6.61
+2021-04-21 11:57:50,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),103.97,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,1.18
+2021-04-28 11:54:30,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),101.06,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-2.91
+2021-05-27 12:30:30,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),97.49,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-3.57
+2021-07-01 12:39:02,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),107.08,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,9.59
+2021-07-13 12:15:26,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),111.9,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,4.82
+2021-08-11 12:15:34,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),107.73,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-4.17
+2021-08-30 13:19:45,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),104.34,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-3.39
+2021-09-01 14:05:07,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),106.17,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,1.83
+2021-09-07 12:37:44,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),103.58,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-2.59
+2021-09-11 12:49:00,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),98.84,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-4.74
+2021-09-13 12:25:10,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),97.97,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-0.87
+2021-09-15 12:37:37,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),97.64,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-0.33
+2021-09-19 12:23:42,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),96.79,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-0.85
+2021-09-22 13:54:01,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),91.88,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-4.91
+2021-09-26 12:14:24,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),92.78,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,0.9
+2021-09-28 12:34:41,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),92.7,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-0.08
+2021-10-04 14:03:29,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),96.14,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,3.44
+2021-10-06 12:47:34,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),96.73,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,0.59
+2021-10-13 12:59:52,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),91.1,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-5.63
+2021-10-21 14:09:13,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),89.32,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-1.78
+2021-10-24 14:36:24,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),94.91,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,5.59
+2021-11-12 14:10:46,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),97.46,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,2.55
+2021-11-17 13:18:31,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),99.77,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,2.31
+2021-12-03 13:49:53,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),97.15,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-2.62
+2021-12-17 13:55:30,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),97.3,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,0.15
+2022-01-13 13:51:15,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),98.76,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,1.46
+2022-02-09 13:31:55,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),93.21,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-5.55
+2022-03-14 12:21:57,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),87.96,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-5.25
+2022-04-12 12:34:25,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),97.61,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,9.65
+2022-05-17 12:02:31,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),90.09,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-7.52
+2022-06-02 12:08:01,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),86.3,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-3.79
+2022-07-20 12:48:56,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),97.57,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,11.27
+2022-08-22 13:16:02,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),103.64,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,6.07
+2022-09-20 12:44:20,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),93.27,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-10.37
+2022-09-27 12:23:28,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),94.85,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,1.58
+2022-10-07 12:32:25,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),98.31,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Ian Post-Storm Erosion & Recovery,3.46
+2022-11-18 13:46:42,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),90.82,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Ian Post-Storm Erosion & Recovery,-7.49
+2023-01-06 13:39:17,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),94.74,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,3.92
+2023-01-27 17:31:13,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),98.93,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,4.19
+2023-02-16 14:30:14,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),96.41,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-2.52
+2023-03-23 12:05:39,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),80.42,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-15.99
+2023-04-17 12:40:46,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),100.09,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,19.67
+2023-05-16 12:10:43,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),129.61,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,29.52
+2023-06-07 12:02:53,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),114.16,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-15.45
+2023-07-05 12:43:42,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),116.81,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,2.65
+2023-08-15 12:04:11,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),130.84,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,14.03
+2023-08-28 14:58:26,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),118.1,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-12.74
+2023-09-08 11:57:33,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),110.0,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Idalia Swell Impact,-8.1
+2023-09-25 13:14:28,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),103.87,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Idalia Swell Impact,-6.13
+2023-10-19 12:44:55,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),106.73,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,2.86
+2023-11-09 13:26:50,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),109.84,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,3.11
+2023-12-15 13:25:50,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),111.15,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,1.31
+2023-12-29 13:00:27,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),103.63,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-7.52
+2024-01-18 13:28:56,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),105.07,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,1.44
+2024-02-27 14:09:24,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),111.55,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,6.48
+2024-03-12 12:24:09,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),103.23,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-8.32
+2024-04-18 13:01:36,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),122.53,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,19.3
+2024-05-28 12:25:36,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),127.61,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,5.08
+2024-06-26 12:19:06,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),109.72,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-17.89
+2024-07-23 12:23:05,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),108.78,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-0.94
+2024-08-15 12:47:40,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),101.31,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-7.47
+2024-09-30 14:00:26,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),103.05,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,1.74
+2024-10-30 12:39:27,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),100.88,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-2.17
+2024-12-10 12:50:00,duck_nc,"USACE FRF Duck, NC, USA",FRF_0109,Profile Line 109 (North Array),110.98,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,10.1
+2020-01-10 13:38:20,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),113.61,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,0.0
+2020-02-18 13:48:37,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),111.53,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-2.08
+2020-03-11 12:08:07,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),114.71,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,3.18
+2020-04-17 14:01:55,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),111.93,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-2.78
+2020-05-15 11:42:31,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),111.18,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-0.75
+2020-06-23 12:38:48,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),118.17,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,6.99
+2020-07-21 11:58:46,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),118.84,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,0.67
+2020-08-05 12:28:00,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),116.75,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Isaias Impact & Immediate Recovery,-2.09
+2020-09-25 12:33:36,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),107.73,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Teddy Long-Period Swell,-9.02
+2020-10-15 12:56:19,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),118.13,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Teddy Long-Period Swell,10.4
+2020-11-17 13:08:26,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),116.04,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-2.09
+2020-12-28 14:13:07,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),113.81,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-2.23
+2021-01-14 13:36:40,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),117.5,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,3.69
+2021-02-23 13:27:12,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),105.08,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-12.42
+2021-04-28 11:54:30,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),101.49,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-3.59
+2021-05-27 12:30:30,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),109.35,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,7.86
+2021-07-13 12:15:26,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),112.23,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,2.88
+2021-08-11 12:15:34,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),114.21,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,1.98
+2021-08-23 14:32:20,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),111.92,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-2.29
+2021-08-30 13:19:45,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),116.56,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,4.64
+2021-09-13 12:25:10,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),115.25,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-1.31
+2021-09-28 12:34:41,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),111.05,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-4.2
+2021-10-16 12:58:57,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),112.14,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,1.09
+2021-10-21 14:09:13,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),114.72,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,2.58
+2021-10-27 13:09:37,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),111.1,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-3.62
+2021-11-12 14:10:46,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),110.21,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-0.89
+2021-11-17 13:18:31,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),119.47,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,9.26
+2021-12-17 13:55:30,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),116.31,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-3.16
+2022-01-13 13:51:15,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),107.69,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-8.62
+2022-02-09 13:31:55,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),109.12,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,1.43
+2022-03-14 12:21:57,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),118.2,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,9.08
+2022-04-12 12:34:25,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),110.8,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-7.4
+2022-05-17 12:02:31,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),108.98,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-1.82
+2022-06-02 12:08:01,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),107.26,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-1.72
+2022-07-20 12:48:56,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),111.82,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,4.56
+2022-08-22 13:16:02,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),115.3,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,3.48
+2022-09-20 12:44:20,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),118.25,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,2.95
+2022-09-27 12:23:28,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),120.13,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,1.88
+2022-10-07 12:32:25,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),114.43,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Ian Post-Storm Erosion & Recovery,-5.7
+2022-11-18 13:46:42,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),115.26,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Ian Post-Storm Erosion & Recovery,0.83
+2023-01-06 13:39:17,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),114.61,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-0.65
+2023-01-27 17:31:13,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),116.96,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,2.35
+2023-02-16 14:30:14,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),117.68,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,0.72
+2023-03-23 12:05:39,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),110.14,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-7.54
+2023-04-17 12:40:46,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),116.93,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,6.79
+2023-05-16 12:10:43,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),114.52,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-2.41
+2023-06-07 12:02:53,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),121.11,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,6.59
+2023-07-05 12:43:42,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),126.6,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,5.49
+2023-08-15 12:04:11,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),142.57,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,15.97
+2023-08-28 14:58:26,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),131.78,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-10.79
+2023-09-08 11:57:33,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),127.11,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Idalia Swell Impact,-4.67
+2023-09-25 13:14:28,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),126.98,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Hurricane Idalia Swell Impact,-0.13
+2023-10-19 12:44:55,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),127.56,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,0.58
+2023-11-09 13:26:50,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),127.11,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-0.45
+2023-12-15 13:25:50,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),119.2,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-7.91
+2023-12-29 13:00:27,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),116.52,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-2.68
+2024-01-18 13:28:56,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),114.01,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,-2.51
+2024-02-27 14:09:24,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),118.56,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,4.55
+2024-03-12 12:24:09,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),115.89,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-2.67
+2024-04-18 13:01:36,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),112.3,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,-3.59
+2024-05-28 12:25:36,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),119.4,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Spring Swell Welding Phase,7.1
+2024-06-26 12:19:06,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),106.73,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-12.67
+2024-07-23 12:23:05,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),119.26,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,12.53
+2024-08-15 12:47:40,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),111.98,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Summer Subaerial Berm Accretion,-7.28
+2024-09-30 14:00:26,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),110.8,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,-1.18
+2024-10-30 12:39:27,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),113.53,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Regular Monitoring Survey,2.73
+2024-12-10 12:50:00,duck_nc,"USACE FRF Duck, NC, USA",FRF_m091,Profile Line -91 (South Array),117.9,Amphibious Vehicle,CRAB / RTK-GPS,NAVD88,0.15,Winter Extratropical Wave Scour / Recovery,4.37
+2020-01-15 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),68.4,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Summer Equilibrium,0.0
+2020-02-12 11:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),62.1,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Feb East Coast Low (ECL) Storm Scour,-6.3
+2020-03-18 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),64.5,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Post-ECL Swell Recovery,2.4
+2020-05-20 12:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),67.2,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Autumn Berm Building,2.7
+2020-07-28 09:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),59.8,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Winter Major Swell Event,-7.4
+2020-09-16 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),63.4,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Spring Accretion,3.6
+2020-11-18 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),67.9,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Late Spring Swell Welding,4.5
+2021-01-20 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),69.1,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Summer Subaerial Maximum,1.2
+2021-03-24 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),61.5,Walking Survey,RTK-GPS / Total Station,AHD,0.1,March Extreme Rainfall & Coastal Scour,-7.6
+2021-06-16 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),64.8,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Winter Equilibrium Profile,3.3
+2021-08-18 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),63.2,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Winter Swell Erosion,-1.6
+2021-11-17 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),68.0,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Spring Berm Accretion,4.8
+2022-01-19 09:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),69.5,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Mid-Summer Peak Width,1.5
+2022-03-08 12:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),58.2,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Severe March 2022 East Coast Low,-11.3
+2022-04-13 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),61.4,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Post-Storm Swell Accretion,3.2
+2022-07-06 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),57.5,Walking Survey,RTK-GPS / Total Station,AHD,0.1,July 2022 Major Flood & Coastal Scour,-3.9
+2022-09-14 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),62.0,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Early Spring Swell Recovery,4.5
+2022-11-23 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),66.8,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Spring Berm Growth,4.8
+2023-01-18 09:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),68.7,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Summer Subaerial Berm,1.9
+2023-04-19 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),65.4,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Autumn Equilibrium,-3.3
+2023-07-12 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),61.8,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Winter Coastal Storm Cut,-3.6
+2023-10-18 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),66.2,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Spring Accretion Phase,4.4
+2024-01-17 09:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),69.0,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Summer Peak Width,2.8
+2024-04-10 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),60.1,Walking Survey,RTK-GPS / Total Station,AHD,0.1,April 2024 Coastal Low Storm Scour,-8.9
+2024-07-17 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),63.5,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Winter Equilibrated Profile,3.4
+2024-10-16 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF2,Profile PF2 (Narrabeen Central),67.4,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Spring Berm Restoration,3.9
+2020-01-15 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),45.2,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Summer Equilibrium,0.0
+2020-02-12 11:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),40.5,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Feb East Coast Low (ECL) Storm Scour,-4.7
+2020-03-18 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),42.0,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Post-ECL Swell Recovery,1.5
+2020-05-20 12:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),44.8,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Autumn Berm Building,2.8
+2020-07-28 09:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),38.2,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Winter Major Swell Event,-6.6
+2020-09-16 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),41.5,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Spring Accretion,3.3
+2020-11-18 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),45.0,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Late Spring Swell Welding,3.5
+2021-01-20 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),46.2,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Summer Subaerial Maximum,1.2
+2021-03-24 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),39.8,Walking Survey,RTK-GPS / Total Station,AHD,0.1,March Extreme Rainfall & Coastal Scour,-6.4
+2021-06-16 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),42.3,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Winter Equilibrium Profile,2.5
+2021-08-18 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),41.0,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Winter Swell Erosion,-1.3
+2021-11-17 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),45.6,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Spring Berm Accretion,4.6
+2022-01-19 09:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),46.8,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Mid-Summer Peak Width,1.2
+2022-03-08 12:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),36.9,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Severe March 2022 East Coast Low,-9.9
+2022-04-13 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),39.5,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Post-Storm Swell Accretion,2.6
+2022-07-06 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),36.1,Walking Survey,RTK-GPS / Total Station,AHD,0.1,July 2022 Major Flood & Coastal Scour,-3.4
+2022-09-14 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),40.8,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Early Spring Swell Recovery,4.7
+2022-11-23 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),44.5,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Spring Berm Growth,3.7
+2023-01-18 09:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),46.0,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Summer Subaerial Berm,1.5
+2023-04-19 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),43.1,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Autumn Equilibrium,-2.9
+2023-07-12 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),39.9,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Winter Coastal Storm Cut,-3.2
+2023-10-18 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),44.0,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Spring Accretion Phase,4.1
+2024-01-17 09:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),46.3,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Summer Peak Width,2.3
+2024-04-10 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),38.5,Walking Survey,RTK-GPS / Total Station,AHD,0.1,April 2024 Coastal Low Storm Scour,-7.8
+2024-07-17 10:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),41.2,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Winter Equilibrated Profile,2.7
+2024-10-16 10:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),44.9,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Spring Berm Restoration,3.7
+2020-01-22 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,52.3,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Winter Swell Erosion,0.0
+2020-04-15 13:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,56.8,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Spring Swell Welding,4.5
+2020-07-22 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,63.5,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Summer Maximum Width,6.7
+2020-10-21 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,61.2,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Autumn Equilibrated Profile,-2.3
+2021-01-27 14:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,50.8,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Winter North Pacific Storm Cut,-10.4
+2021-04-21 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,55.4,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Spring Berm Building,4.6
+2021-07-21 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,62.9,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Summer Maximum Width,7.5
+2021-10-20 13:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,60.5,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Late Summer Berm Stability,-2.4
+2022-01-19 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,51.7,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Winter High-Energy State,-8.8
+2022-04-20 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,56.1,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Spring Accretion Phase,4.4
+2022-07-20 14:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,63.8,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Summer Maximum Width,7.7
+2022-10-19 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,61.0,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Autumn Equilibrated Profile,-2.8
+2023-01-18 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,46.2,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Historic Jan 2023 Atmospheric River Wave Scour,-14.8
+2023-03-22 13:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,48.9,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Post-AR Swell Recovery,2.7
+2023-07-19 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,59.4,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Summer Berm Restoration,10.5
+2023-10-18 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,58.2,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Autumn Baseline Profile,-1.2
+2024-01-17 14:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,47.8,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Winter Extratropical Storm Erosion,-10.4
+2024-04-17 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,53.5,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Spring Swell Welding,5.7
+2024-07-17 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,61.5,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Summer Subaerial Width,8.0
+2024-10-16 13:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,59.1,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Autumn Equilibrated State,-2.4
+2020-01-22 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,48.1,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Winter Swell Erosion,0.0
+2020-04-15 13:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,52.4,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Spring Swell Welding,4.3
+2020-07-22 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,59.2,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Summer Maximum Width,6.8
+2020-10-21 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,57.0,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Autumn Equilibrated Profile,-2.2
+2021-01-27 14:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,46.5,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Winter North Pacific Storm Cut,-10.5
+2021-04-21 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,51.0,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Spring Berm Building,4.5
+2021-07-21 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,58.6,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Summer Maximum Width,7.6
+2021-10-20 13:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,56.1,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Late Summer Berm Stability,-2.5
+2022-01-19 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,47.3,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Winter High-Energy State,-8.8
+2022-04-20 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,51.8,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Spring Accretion Phase,4.5
+2022-07-20 14:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,59.5,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Summer Maximum Width,7.7
+2022-10-19 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,56.7,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Autumn Equilibrated Profile,-2.8
+2023-01-18 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,42.0,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Historic Jan 2023 Atmospheric River Wave Scour,-14.7
+2023-03-22 13:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,44.5,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Post-AR Swell Recovery,2.5
+2023-07-19 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,55.1,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Summer Berm Restoration,10.6
+2023-10-18 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,53.9,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Autumn Baseline Profile,-1.2
+2024-01-17 14:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,43.4,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Winter Extratropical Storm Erosion,-10.5
+2024-04-17 13:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,49.2,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Spring Swell Welding,5.8
+2024-07-17 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,57.2,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Summer Subaerial Width,8.0
+2024-10-16 13:30:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_SOUTH,Torrey Pines South Profile,54.8,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Autumn Equilibrated State,-2.4
+2020-01-20 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,112.4,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Winter North Atlantic Storm Scour,0.0
+2020-04-20 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,121.5,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Spring Swell Welding,9.1
+2020-07-20 11:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,134.8,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Summer Subaerial Maximum,13.3
+2020-10-19 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,126.0,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Autumn Equilibrated Profile,-8.8
+2021-01-18 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,109.8,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Mid-Winter Storm Erosion,-16.2
+2021-04-19 12:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,119.4,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Spring Berm Accretion,9.6
+2021-07-19 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,132.5,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Summer Peak Width,13.1
+2021-10-18 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,124.8,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Autumn Equilibrium,-7.7
+2022-01-17 11:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,114.2,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Winter Storm Wave Scour,-10.6
+2022-04-18 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,123.0,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Spring Swell Welding Phase,8.8
+2022-07-18 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,136.2,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Summer Maximum Width,13.2
+2022-10-17 12:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,127.5,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Autumn Equilibrated State,-8.7
+2023-01-16 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,111.0,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Winter Extratropical Cut,-16.5
+2023-04-17 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,120.8,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Spring Subaerial Accretion,9.8
+2023-07-17 11:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,133.4,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Summer Peak Width,12.6
+2023-10-16 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,125.1,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Autumn Baseline Profile,-8.3
+2024-01-15 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,108.5,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Major Winter Storm Ciaran/Domingos Impact,-16.6
+2024-04-15 12:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,118.2,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Post-Storm Swell Accretion,9.7
+2024-07-15 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,131.8,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Summer Subaerial Width,13.6
+2024-10-14 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_MAIN,Truc Vert Main Profile,123.9,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Autumn Equilibrium,-7.9
+2020-01-20 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,118.6,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Winter North Atlantic Storm Scour,0.0
+2020-04-20 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,127.8,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Spring Swell Welding,9.2
+2020-07-20 11:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,141.2,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Summer Subaerial Maximum,13.4
+2020-10-19 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,132.4,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Autumn Equilibrated Profile,-8.8
+2021-01-18 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,115.9,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Mid-Winter Storm Erosion,-16.5
+2021-04-19 12:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,125.7,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Spring Berm Accretion,9.8
+2021-07-19 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,139.0,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Summer Peak Width,13.3
+2021-10-18 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,131.2,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Autumn Equilibrium,-7.8
+2022-01-17 11:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,120.5,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Winter Storm Wave Scour,-10.7
+2022-04-18 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,129.4,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Spring Swell Welding Phase,8.9
+2022-07-18 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,142.8,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Summer Maximum Width,13.4
+2022-10-17 12:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,134.0,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Autumn Equilibrated State,-8.8
+2023-01-16 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,117.2,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Winter Extratropical Cut,-16.8
+2023-04-17 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,127.1,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Spring Subaerial Accretion,9.9
+2023-07-17 11:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,139.9,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Summer Peak Width,12.8
+2023-10-16 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,131.5,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Autumn Baseline Profile,-8.4
+2024-01-15 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,114.8,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Major Winter Storm Ciaran/Domingos Impact,-16.7
+2024-04-15 12:30:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,124.6,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Post-Storm Swell Accretion,9.8
+2024-07-15 11:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,138.2,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Summer Subaerial Width,13.6
+2024-10-14 12:00:00,truc_vert_france,"Truc Vert Beach, Gironde, France",TV_NORTH,Truc Vert North Profile,130.3,DGPS Walking Survey,Trimble DGPS System,IGN69,0.15,Autumn Equilibrium,-7.9

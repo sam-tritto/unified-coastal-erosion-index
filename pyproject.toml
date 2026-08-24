@@ -25,6 +25,7 @@ dependencies = [
     "google-genai>=2.19.0",
     "pydantic>=2.10.0",
     "dotenv>=0.9.9",
+    "netcdf4>=1.7.3",
 ]
 
 [build-system]
