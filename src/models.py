@@ -941,14 +941,20 @@ def run_benchmark_model_comparison(
         except Exception:
             pass
 
-    # Provide aliasing for both naming styles
+    # Provide aliasing for both naming styles across traces and model_metas
     for ups_key in ["Unified Index (log-Upsilon)", "Unified Index (Upsilon)"]:
         if ups_key in traces:
             traces["Upsilon (Linear)"] = traces[ups_key]
             traces["Unified Index (Upsilon)"] = traces[ups_key]
             traces["Unified Index (log-Upsilon)"] = traces[ups_key]
+            if ups_key in model_metas:
+                model_metas["Upsilon (Linear)"] = model_metas[ups_key]
+                model_metas["Unified Index (Upsilon)"] = model_metas[ups_key]
+                model_metas["Unified Index (log-Upsilon)"] = model_metas[ups_key]
     if "Upsilon (Linear)" in traces and "Unified Index (Upsilon)" not in traces:
         traces["Unified Index (Upsilon)"] = traces["Upsilon (Linear)"]
+        if "Upsilon (Linear)" in model_metas:
+            model_metas["Unified Index (Upsilon)"] = model_metas["Upsilon (Linear)"]
 
     comparison_df = pd.DataFrame(metrics_list)
     if "Test RMSE (m)" in comparison_df.columns:
