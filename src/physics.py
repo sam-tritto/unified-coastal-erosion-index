@@ -539,6 +539,35 @@ def compute_unified_coastal_vulnerability_index(
 ) -> pd.DataFrame:
     """Compute the Unified Coastal Vulnerability Index (Υ) with dynamic geomorphology and site parameterization.
 
+    Theoretical & Dimensional Formulation
+    -------------------------------------
+    The Unified Coastal Vulnerability Index (Υ) is a semi-empirical, physics-informed composite index
+    designed to synthesize wave power flux, dynamic sediment settling kinetics, foreshore beach slope,
+    empirical wave height scaling, and total water level (TWL) / wind forcing modulations:
+
+        Υ = C_0 * tan(beta) * [ (Hs^n * Tp) / ws(T) ] * TWL_amp * Wind_amp
+
+    Dimensional Breakdown:
+    - Prefactor C_0 = (rho * g^1.5) / (16 * (2*pi)^1.5) has physical dimensions [kg / (m^0.5 * s^3)].
+    - Foreshore slope tan(beta) is dimensionless [-].
+    - Sediment-wave core [ (Hs^n * Tp) / ws(T) ] has dimensions [m^(n-1) * s^2].
+    - At the baseline exponent n = 2.5, the core dimensions are [m^1.5 * s^2], giving Υ net dimensions
+      of [kg / s] (kinetic mass forcing rate per second).
+    - When n is varied or learned via Bayesian MCMC (n in [1.0, 3.0]), Υ serves as a parametric vulnerability
+      index rather than an invariant dimensional constant.
+
+    Wave Exponent Parameterization:
+    - The default hs_exponent = 2.5 represents a physically-motivated empirical baseline spanning the regime
+      between pure wave energy flux (P ~ Hs^2.0) and sediment mobilization/suspension scaling (~ Hs^2.5 to Hs^3.0,
+      e.g. CERC alongshore transport P_ls ~ Hs^2.5). It is treated as an empirical tuning parameter that can be
+      inferred directly from site observations using `build_learnable_exponent_bayesian_model`.
+
+    Decoupled TWL & Wind Normalization:
+    - TWL_amp = 1.0 + max(Surge / s_ref, 0) + max(R_2% / r_ref, 0) provides pure non-dimensional reference scaling
+      (s_ref = 1.0m, r_ref = 2.0m) decoupled from wave height, preserving the pure Hs^n power-law scaling across
+      all hydrodynamic regimes and ensuring exact mathematical alignment with the Bayesian inference model.
+    - Wind_amp = 1.0 + clip(sgn(W_a) * (|W_a| / w_ref)^2, -w_bound, w_bound).
+
     Parameters
     ----------
     hs : float or np.ndarray
@@ -647,16 +676,14 @@ def compute_unified_coastal_vulnerability_index(
     wave_sed_core = ( (np.maximum(hs_arr, 0.01) ** n_exp) * np.maximum(tp_arr, 0.1) ) / ws
     
     # Total Water Level / Surge amplification factor.
-    # Surge and runup are normalised by their respective reference scales, but each term is
-    # additionally divided by (Hs + 0.1) so that extreme surge/runup events during low-wave
-    # conditions do not produce unbounded amplification.  This preserves the decoupled
-    # s_ref / r_ref parameterisation introduced in dd74490 while restoring the physical
-    # non-dimensionalisation that prevents the Υ distribution from becoming heavy-tailed.
-    hs_denom = np.maximum(hs_arr, 0.01) + 0.1
+    # Decoupled non-dimensional surge and wave runup amplification terms normalized by their
+    # respective physical reference scales (s_ref and r_ref). Decoupling from wave height
+    # preserves the pure power-law scaling of Hs^n and ensures mathematical consistency
+    # between forward physics and Bayesian MCMC parameter estimation.
     twl_amplification = (
         1.0
-        + np.maximum(surge_arr / np.maximum(s_ref * hs_denom, 1e-3), 0.0)
-        + np.maximum(r_2 / np.maximum(r_ref * hs_denom, 1e-3), 0.0)
+        + np.maximum(surge_arr / max(s_ref, 1e-3), 0.0)
+        + np.maximum(r_2 / max(r_ref, 1e-3), 0.0)
     )
     
     # Wind amplification factor: quadratic stress scaling with symmetric bounding

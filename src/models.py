@@ -1275,6 +1275,7 @@ def build_learnable_exponent_bayesian_model(
     runup: np.ndarray,
     wind_normal: np.ndarray,
     delta_x_obs: np.ndarray,
+    tan_beta: Optional[Union[float, np.ndarray]] = None,
     shielding_factor: Optional[np.ndarray] = None,
     model_name: str = "learnable_hs_exponent",
     max_lag: int = 48,
@@ -1306,6 +1307,8 @@ def build_learnable_exponent_bayesian_model(
         Shore-normal wind speed (m/s).
     delta_x_obs : np.ndarray
         Observed cross-shore position changes (m).
+    tan_beta : float or np.ndarray, optional
+        Foreshore beach slope (default 0.08).
     shielding_factor : np.ndarray, optional
         Outer sandbar wave power transmission factor.
     model_name : str
@@ -1339,6 +1342,7 @@ def build_learnable_exponent_bayesian_model(
     y_obs = np.asarray(delta_x_obs, dtype=float)
     n_obs = len(y_obs)
 
+    tan_beta_val = 0.08 if tan_beta is None else np.asarray(tan_beta, dtype=float)
     shield_arr = np.asarray(shielding_factor, dtype=float) if shielding_factor is not None else np.ones(n_obs)
     k_indices = np.arange(max_lag, dtype=float)
 
@@ -1348,7 +1352,7 @@ def build_learnable_exponent_bayesian_model(
     w_quad = w_sign * ((np.abs(wind_arr) / max(w_ref, 1.0)) ** 2)
     wind_arr_mod = 1.0 + np.clip(w_quad, -w_bound, w_bound)
     prefactor = (1025.0 * (9.81 ** 1.5)) / (16.0 * ((2.0 * np.pi) ** 1.5))
-    kinematic_base = prefactor * 0.08 * (tp_arr / ws_arr) * twl_arr * wind_arr_mod * shield_arr
+    kinematic_base = prefactor * tan_beta_val * (tp_arr / ws_arr) * twl_arr * wind_arr_mod * shield_arr
 
     meta = {
         "model_name": model_name,

@@ -398,11 +398,11 @@ def test_learnable_exponent_bayesian_model():
     assert len(post_exp) == 100
 
 
-def test_twl_surge_amplification_hs_bounded():
-    """Verify that TWL amplification: (a) always increases Υ with surge, (b) is bounded
-    by Hs so that extreme-surge events do not produce unbounded heavy-tailed Υ values,
-    and (c) shows stronger relative surge impact under small waves than large waves
-    (physically correct Hs-normalised non-dimensionalisation).
+def test_twl_surge_and_runup_amplification():
+    """Verify that decoupled TWL amplification:
+    (a) strictly increases Υ with surge and runup,
+    (b) produces naturally smaller relative surge amplification under large waves (due to runup baseline)
+        than small waves, without distorting the Hs^n power-law scaling.
     """
     tp = np.array([12.0])
     wind = np.array([10.0])
@@ -421,9 +421,7 @@ def test_twl_surge_amplification_hs_bounded():
         ratio = df_with["upsilon"].iloc[0] / df_no["upsilon"].iloc[0]
         assert ratio > 1.0, f"Hs={hs_val}, surge={surge_val}: expected ratio > 1.0, got {ratio:.3f}"
 
-    # --- (b) Under large waves (Hs=5m) 1m surge must not inflate Υ by >50% -------
-    # (The old additive formula allowed >100% inflation; we bound this to keep the
-    #  Υ distribution compact and Bayesian linear models numerically stable.)
+    # --- (b) Under large waves (Hs=5m) 1m surge produces expected non-dimensional amplification -------
     df_no_surge = compute_unified_coastal_vulnerability_index(
         hs=np.array([5.0]), tp=tp, surge=np.array([0.0]),
         wind_speed=wind, wind_dir_deg=wind_dir, s_ref=1.0, r_ref=2.0,
@@ -452,6 +450,43 @@ def test_twl_surge_amplification_hs_bounded():
         f"Surge amplification should be larger under small waves: "
         f"ratio_small={ratio_small:.2f}, ratio_large={ratio_large:.2f}"
     )
+
+
+def test_forward_physics_bayesian_kinematic_consistency():
+    """Verify that compute_unified_coastal_vulnerability_index matches the PyTensor
+    kinematic_base * (Hs^n) algebraic formulation in build_learnable_exponent_bayesian_model.
+    """
+    hs = np.array([1.2, 2.5, 4.0])
+    tp = np.array([8.0, 11.0, 14.0])
+    surge = np.array([0.2, 0.6, 1.1])
+    wind = np.array([5.0, 12.0, 18.0])
+    wind_dir = np.array([60.0, 70.0, 80.0])
+    tan_beta = 0.08
+
+    for n_exp in [1.5, 2.0, 2.5, 3.0]:
+        df = compute_unified_coastal_vulnerability_index(
+            hs=hs,
+            tp=tp,
+            surge=surge,
+            wind_speed=wind,
+            wind_dir_deg=wind_dir,
+            tan_beta=tan_beta,
+            hs_exponent=n_exp,
+        )
+        upsilon_physics = df["upsilon"].values
+
+        # Compute via Bayesian kinematic base formula
+        prefactor = (1025.0 * (9.81 ** 1.5)) / (16.0 * ((2.0 * np.pi) ** 1.5))
+        twl_arr = 1.0 + np.maximum(surge / 1.0, 0.0) + np.maximum(df["runup_r2_m"].values / 2.0, 0.0)
+        w_sign = np.sign(df["wind_normal_ms"].values)
+        w_quad = w_sign * ((np.abs(df["wind_normal_ms"].values) / 15.0) ** 2)
+        wind_arr_mod = 1.0 + np.clip(w_quad, -0.6, 0.6)
+        ws_arr = df["w_s_ms"].values
+
+        kinematic_base = prefactor * tan_beta * (tp / ws_arr) * twl_arr * wind_arr_mod
+        upsilon_reconstructed = kinematic_base * (hs ** n_exp)
+
+        np.testing.assert_allclose(upsilon_physics, upsilon_reconstructed, rtol=1e-5)
 
 
 def test_quadratic_symmetric_wind_scaling():
