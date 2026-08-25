@@ -713,7 +713,15 @@ def run_benchmark_model_comparison(
             "Unified Index (Storm Work)": {"type": "single", "forcing": storm_work_train, "full_forcing": storm_work_full, "use_log_upsilon": True},
         }
 
-        # Add Yates and XBeach baseline competitors if present
+        # Add Signed Equilibrium Upsilon, Yates, and XBeach competitors if present
+        ups_eq_col = "upsilon_diseq_simulated_delta_x_m" if (target_col == "surveyed_delta_x_m" or "upsilon_diseq_simulated_delta_x_m" in df_train.columns) else "upsilon_diseq_simulated_pos_m"
+        if ups_eq_col in df_train.columns:
+            candidates["Signed Equilibrium Upsilon"] = {
+                "type": "single",
+                "forcing": df_train[ups_eq_col].values,
+                "full_forcing": df[ups_eq_col].values,
+            }
+
         yates_col = "yates_simulated_delta_x_m" if (target_col == "surveyed_delta_x_m" or "yates_simulated_delta_x_m" in df_train.columns) else "yates_simulated_pos_m"
         if yates_col in df_train.columns:
             candidates["Yates (2009) Equilibrium"] = {
@@ -1476,10 +1484,12 @@ def evaluate_field_survey_correlation(
     var_base = float(np.var(y_true))
     mse_base = float(np.mean((y_true - np.mean(y_true)) ** 2)) if var_base > 1e-6 else 1.0
 
+    ups_eq_col = "upsilon_diseq_simulated_delta_x_m" if target_col == "surveyed_delta_x_m" else "upsilon_diseq_simulated_pos_m"
     yates_col = "yates_simulated_delta_x_m" if target_col == "surveyed_delta_x_m" else "yates_simulated_pos_m"
     xbeach_col = "xbeach_simulated_delta_x_m" if target_col == "surveyed_delta_x_m" else "xbeach_simulated_pos_m"
 
     predictors = {
+        "Unified Index (Signed Equilibrium dX/dt)": ups_eq_col,
         "Unified Index (Peak Storm Upsilon)": "antecedent_log_peak_upsilon" if "antecedent_log_peak_upsilon" in df_aligned_surveys.columns else "antecedent_peak_upsilon",
         "Unified Index (Cumulative Storm Work)": "antecedent_log_storm_work" if "antecedent_log_storm_work" in df_aligned_surveys.columns else "antecedent_storm_work",
         "Unified Index (Upsilon Memory)": "antecedent_upsilon_memory" if "antecedent_upsilon_memory" in df_aligned_surveys.columns else "antecedent_mean_upsilon",

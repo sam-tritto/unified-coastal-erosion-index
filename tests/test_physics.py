@@ -20,6 +20,9 @@ from src.physics import (
     compute_reef_dissipation_modulator,
     compute_unified_coastal_vulnerability_index,
     compute_signed_coastal_vulnerability_index,
+    compute_upsilon_disequilibrium,
+    compute_signed_equilibrium_rate,
+    simulate_signed_equilibrium_upsilon_evolution,
     compute_dynamic_foreshore_slope,
     compute_dynamic_grain_size,
     COASTAL_SITE_PROFILES,
@@ -850,6 +853,52 @@ def test_reef_dry_exposure_and_non_reef_bypass():
     assert kc_nr == 1.0
     assert kf_nr == 1.0
     assert hs_nr == 4.0
+
+
+def test_upsilon_disequilibrium_and_signed_rate():
+    """Verify Signed Equilibrium Formulation: Upsilon_diseq = Upsilon - Upsilon_eq and dX/dt response."""
+    ups_eq = 2500.0
+
+    # 1. Storm state (Upsilon = 8000 > 2500)
+    storm_ups = 8000.0
+    storm_diseq = compute_upsilon_disequilibrium(storm_ups, upsilon_eq=ups_eq)
+    storm_rate = compute_signed_equilibrium_rate(storm_ups, upsilon_eq=ups_eq, c_erosion=1.2e-5, c_accretion=1.8e-5)
+    assert storm_diseq == 5500.0
+    assert storm_rate < 0.0  # Erosion
+    assert np.isclose(storm_rate, -1.2e-5 * 5500.0)
+
+    # 2. Fair-weather recovery state (Upsilon = 500 < 2500)
+    calm_ups = 500.0
+    calm_diseq = compute_upsilon_disequilibrium(calm_ups, upsilon_eq=ups_eq)
+    calm_rate = compute_signed_equilibrium_rate(calm_ups, upsilon_eq=ups_eq, c_erosion=1.2e-5, c_accretion=1.8e-5)
+    assert calm_diseq == -2000.0
+    assert calm_rate > 0.0  # Accretion / berm recovery
+    assert np.isclose(calm_rate, 1.8e-5 * 2000.0)
+
+    # 3. Exact equilibrium state (Upsilon = 2500)
+    eq_rate = compute_signed_equilibrium_rate(ups_eq, upsilon_eq=ups_eq)
+    assert eq_rate == 0.0
+
+
+def test_simulate_signed_equilibrium_upsilon_evolution():
+    """Verify continuous shoreline morphodynamics driven by Signed Equilibrium Upsilon."""
+    # Sequence of calm fair-weather (Upsilon=400), storm (Upsilon=10000), calm recovery (Upsilon=400)
+    ups_seq = np.array([400.0] * 50 + [10000.0] * 20 + [400.0] * 50)
+    x_pos, x_obs = simulate_signed_equilibrium_upsilon_evolution(
+        upsilon=ups_seq,
+        c_erosion=1.2e-5,
+        c_accretion=1.8e-5,
+        upsilon_eq=2500.0,
+    )
+
+    assert len(x_pos) == len(ups_seq)
+    # Initial phase: positive accretion
+    assert x_pos[49] > x_pos[0]
+    # Storm phase: erosion drop
+    assert x_pos[69] < x_pos[49]
+    # Recovery phase: accretion rebuild
+    assert x_pos[-1] > x_pos[69]
+
 
 
 

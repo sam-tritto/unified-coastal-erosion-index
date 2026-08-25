@@ -54,6 +54,9 @@ from src.physics import (
     compute_stockdon_wave_runup,
     compute_shore_normal_wind,
     compute_jonswap_wind_wave_hindcast,
+    compute_upsilon_disequilibrium,
+    compute_signed_equilibrium_rate,
+    simulate_signed_equilibrium_upsilon_evolution,
     DUCK_SHORE_NORMAL_DEG,
 )
 
@@ -1099,8 +1102,13 @@ def fetch_noaa_annual_dataset(
         site=site_key,
     )
 
-    # 5. Continuous annual morphodynamic evolution (Yates or XBeach)
-    if morph_model == "xbeach":
+    # 5. Continuous annual morphodynamic evolution (Signed Equilibrium Upsilon, Yates, or XBeach)
+    if morph_model in ["signed_equilibrium", "upsilon_equilibrium"]:
+        x_true, x_obs = simulate_signed_equilibrium_upsilon_evolution(
+            upsilon=phys["upsilon"].values,
+            add_noise=True,
+        )
+    elif morph_model == "xbeach":
         x_true, x_obs = simulate_xbeach_inspired_morphodynamics(
             hs=merged["hs_m"].values,
             tp=merged["tp_s"].values,
@@ -1576,7 +1584,17 @@ def align_hydrodynamics_with_field_surveys(
     else:
         ups_memory_full = np.zeros(len(df_hydro))
 
-    # Pre-calculate continuous competing forward model trajectories (Yates & XBeach)
+    # Pre-calculate continuous competing forward model trajectories (Signed Equilibrium Upsilon, Yates & XBeach)
+    if "upsilon" in df_hydro.columns:
+        ups_diseq_full, _ = simulate_signed_equilibrium_upsilon_evolution(
+            upsilon=df_hydro["upsilon"].values,
+            c_erosion=1.2e-5,
+            c_accretion=1.8e-5,
+            upsilon_eq=2500.0,
+        )
+    else:
+        ups_diseq_full = np.zeros(len(df_hydro))
+
     if "hs_m" in df_hydro.columns and "tp_s" in df_hydro.columns:
         hs_vals = df_hydro["hs_m"].values
         tp_vals = df_hydro["tp_s"].values
@@ -1613,6 +1631,8 @@ def align_hydrodynamics_with_field_surveys(
         prev_pos = df_hydro.index.get_indexer([prev_time], method="nearest")[0] if prev_time is not None else max(0, exact_pos - 24)
 
         ups_mem_val = float(ups_memory_full[exact_pos]) if exact_pos < len(ups_memory_full) else float(sub_hydro["upsilon"].mean())
+        ups_diseq_delta = float(ups_diseq_full[exact_pos] - ups_diseq_full[prev_pos]) if exact_pos < len(ups_diseq_full) and prev_pos < len(ups_diseq_full) else 0.0
+        ups_diseq_pos = float(ups_diseq_full[exact_pos]) if exact_pos < len(ups_diseq_full) else 0.0
         yates_delta = float(yates_full[exact_pos] - yates_full[prev_pos]) if exact_pos < len(yates_full) and prev_pos < len(yates_full) else 0.0
         yates_pos = float(yates_full[exact_pos]) if exact_pos < len(yates_full) else 0.0
         xbeach_delta = float(xbeach_full[exact_pos] - xbeach_full[prev_pos]) if exact_pos < len(xbeach_full) and prev_pos < len(xbeach_full) else 0.0
@@ -1671,6 +1691,8 @@ def align_hydrodynamics_with_field_surveys(
             "antecedent_accretion_work": accretion_work,
             "antecedent_log_accretion_work": log_accretion_work,
             "antecedent_mean_upsilon": mean_ups,
+            "antecedent_mean_upsilon_diseq": mean_ups - 2500.0,
+            "antecedent_signed_equilibrium_rate": float(sub_hydro["signed_equilibrium_rate"].mean()) if "signed_equilibrium_rate" in sub_hydro.columns else (mean_ups - 2500.0) * -1.2e-5,
             "antecedent_log_upsilon": log_ups_mean,
             "antecedent_upsilon_memory": ups_mem_val,
             "antecedent_cum_upsilon": cum_ups,
@@ -1679,6 +1701,8 @@ def align_hydrodynamics_with_field_surveys(
             "antecedent_max_surge_m": max_surge,
             "antecedent_mean_dean": mean_dean,
             "antecedent_max_power_Wm": max_power,
+            "upsilon_diseq_simulated_delta_x_m": ups_diseq_delta,
+            "upsilon_diseq_simulated_pos_m": ups_diseq_pos,
             "yates_simulated_delta_x_m": yates_delta,
             "yates_simulated_pos_m": yates_pos,
             "xbeach_simulated_delta_x_m": xbeach_delta,

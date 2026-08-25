@@ -789,6 +789,172 @@ def compute_signed_coastal_vulnerability_index(
     return signed_ups
 
 
+def compute_upsilon_disequilibrium(
+    upsilon: Union[float, np.ndarray],
+    upsilon_eq: Union[float, np.ndarray] = 2500.0,
+) -> Union[float, np.ndarray]:
+    """Compute Upsilon Disequilibrium (Upsilon_diseq = Upsilon - Upsilon_eq).
+
+    Analogous to Yates et al. (2009) equilibrium wave energy disequilibrium (Delta E = E - E_eq),
+    Upsilon Disequilibrium measures the instantaneous departure of kinetic coastal forcing
+    from the baseline geomorphic equilibrium threshold Upsilon_eq:
+
+        Upsilon_diseq = Upsilon - Upsilon_eq
+
+    - Positive (Upsilon_diseq > 0): Destructive storm state where wave-sediment-surge forcing
+      exceeds equilibrium capacity, driving offshore sandbar migration and dune scarping.
+    - Negative (Upsilon_diseq < 0): Constructive fair-weather recovery state where hydrodynamic
+      forcing is subdued, allowing swash berm welding and shoreline accretion.
+
+    Parameters
+    ----------
+    upsilon : float or np.ndarray
+        Instantaneous Unified Coastal Vulnerability Index.
+    upsilon_eq : float or np.ndarray
+        Equilibrium baseline Upsilon threshold (default 2500.0).
+
+    Returns
+    -------
+    upsilon_diseq : float or np.ndarray
+        Dimensionless/kinetic forcing disequilibrium series.
+    """
+    ups_arr = np.asarray(upsilon, dtype=float)
+    eq_arr = np.asarray(upsilon_eq, dtype=float)
+    diseq = ups_arr - eq_arr
+    if np.isscalar(upsilon) and np.isscalar(upsilon_eq):
+        return float(diseq)
+    return diseq
+
+
+def compute_signed_equilibrium_rate(
+    upsilon: Union[float, np.ndarray],
+    upsilon_eq: Union[float, np.ndarray] = 2500.0,
+    c_erosion: float = 1.2e-5,
+    c_accretion: float = 1.8e-5,
+) -> Union[float, np.ndarray]:
+    """Compute instantaneous shoreline cross-shore displacement rate dX/dt using the Signed Equilibrium Formulation.
+
+    Differential Formulation:
+        dX/dt = -C_erosion * max(Upsilon - Upsilon_eq, 0) + C_accretion * max(Upsilon_eq - Upsilon, 0)
+
+    This formulation resolves both asymmetric storm-driven gouging (-dX/dt) and post-storm berm recovery (+dX/dt)
+    without arbitrary regime switching.
+
+    Parameters
+    ----------
+    upsilon : float or np.ndarray
+        Instantaneous Unified Coastal Vulnerability Index.
+    upsilon_eq : float or np.ndarray
+        Equilibrium baseline Upsilon threshold (default 2500.0).
+    c_erosion : float
+        Erosive rate coefficient (default 1.2e-5).
+    c_accretion : float
+        Accretive rate coefficient (default 1.8e-5).
+
+    Returns
+    -------
+    dx_dt : float or np.ndarray
+        Instantaneous shoreline velocity in meters per hour (or per time step).
+    """
+    ups_arr = np.asarray(upsilon, dtype=float)
+    eq_arr = np.asarray(upsilon_eq, dtype=float)
+
+    delta_erosion = np.maximum(ups_arr - eq_arr, 0.0)
+    delta_accretion = np.maximum(eq_arr - ups_arr, 0.0)
+
+    rate = -float(c_erosion) * delta_erosion + float(c_accretion) * delta_accretion
+    if np.isscalar(upsilon) and np.isscalar(upsilon_eq):
+        return float(rate)
+    return rate
+
+
+def simulate_signed_equilibrium_upsilon_evolution(
+    upsilon: np.ndarray,
+    c_erosion: float = 1.2e-5,
+    c_accretion: float = 1.8e-5,
+    upsilon_eq: Optional[float] = 2500.0,
+    a_eq: float = 0.0,
+    b_eq: float = 2500.0,
+    dynamic_eq: bool = False,
+    initial_x: float = 0.0,
+    x_bounds: Tuple[float, float] = (-25.0, 15.0),
+    random_seed: int = 42,
+    add_noise: bool = False,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Simulate continuous shoreline morphodynamics driven by the Signed Equilibrium Upsilon Formulation.
+
+    Governing Differential Equation:
+        dX/dt = -C_erosion * max(Upsilon(t) - Upsilon_eq, 0) + C_accretion * max(Upsilon_eq - Upsilon(t), 0)
+
+    Where equilibrium threshold Upsilon_eq can be static or dynamically coupled to beach state X(t):
+        Upsilon_eq(X) = a_eq * X(t) + b_eq
+
+    Parameters
+    ----------
+    upsilon : np.ndarray
+        Time series of Unified Coastal Vulnerability Index.
+    c_erosion : float
+        Erosive rate scaling constant.
+    c_accretion : float
+        Accretive rate scaling constant.
+    upsilon_eq : float, optional
+        Static baseline equilibrium threshold (used if dynamic_eq=False).
+    a_eq : float
+        Slope of dynamic equilibrium threshold against cross-shore displacement X.
+    b_eq : float
+        Intercept of dynamic equilibrium threshold.
+    dynamic_eq : bool
+        Whether to couple Upsilon_eq dynamically with beach displacement X(t).
+    initial_x : float
+        Initial shoreline position offset (m).
+    x_bounds : tuple of float
+        (min_x, max_x) clipping limits in meters.
+    random_seed : int
+        Seed for survey observation noise.
+    add_noise : bool
+        Whether to add simulated survey measurement noise (sigma = 0.15m).
+
+    Returns
+    -------
+    x_pos : np.ndarray
+        Simulated deterministic shoreline cross-shore displacement trajectory (m).
+    x_obs : np.ndarray
+        Simulated observed shoreline position trajectory (m).
+    """
+    ups_arr = np.asarray(upsilon, dtype=float)
+    n = len(ups_arr)
+    x_pos = np.zeros(n, dtype=float)
+    curr_x = float(initial_x)
+    x_pos[0] = curr_x
+
+    min_x, max_x = x_bounds
+
+    for t in range(1, n):
+        u = ups_arr[t]
+        if dynamic_eq:
+            u_eq = a_eq * curr_x + b_eq
+        else:
+            u_eq = float(upsilon_eq) if upsilon_eq is not None else float(b_eq)
+
+        d_ero = max(u - u_eq, 0.0)
+        d_acc = max(u_eq - u, 0.0)
+
+        rate = -c_erosion * d_ero + c_accretion * d_acc
+        curr_x += rate
+        curr_x = np.clip(curr_x, min_x, max_x)
+        x_pos[t] = curr_x
+
+    if add_noise:
+        rng = np.random.default_rng(random_seed)
+        noise = rng.normal(0.0, 0.15, n)
+        x_obs = x_pos + noise
+    else:
+        x_obs = x_pos.copy()
+
+    return x_pos, x_obs
+
+
+
 def compute_unified_coastal_vulnerability_index(
     hs: Union[float, np.ndarray],
     tp: Union[float, np.ndarray],
@@ -1038,6 +1204,11 @@ def compute_unified_coastal_vulnerability_index(
         accretion_potential=accretion_pot,
         dean_number=dean,
     )
+
+    # Signed Equilibrium Formulation (Upsilon_diseq = Upsilon - Upsilon_eq)
+    upsilon_eq_val = 2500.0
+    upsilon_diseq = compute_upsilon_disequilibrium(upsilon, upsilon_eq=upsilon_eq_val)
+    signed_eq_rate = compute_signed_equilibrium_rate(upsilon, upsilon_eq=upsilon_eq_val)
     
     df_out = pd.DataFrame({
         "hs_m": hs_arr,
@@ -1068,6 +1239,9 @@ def compute_unified_coastal_vulnerability_index(
         "shielding_factor": shielding,
         "accretion_potential": accretion_pot,
         "signed_upsilon": signed_upsilon,
+        "upsilon_eq": np.full_like(hs_arr, upsilon_eq_val),
+        "upsilon_diseq": upsilon_diseq,
+        "signed_equilibrium_rate": signed_eq_rate,
         "hs_exponent": np.full_like(hs_arr, n_exp),
         "tan_beta": tan_beta_arr,
         "d50_m": d50_arr,
