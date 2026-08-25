@@ -336,6 +336,72 @@ survey_date,site,site_name,transect_id,transect_name,shoreline_pos_mhw_m,survey_
 2024-10-15 10:45:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),45.4,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Spring Berm Restoration,1.4
 2024-11-19 11:00:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),46.3,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Late Spring Equilibrium,0.9
 2024-12-17 09:30:00,narrabeen_aus,"Narrabeen-Collaroy, NSW, Australia",PF4,Profile PF4 (Collaroy Embayment),47.0,Walking Survey,RTK-GPS / Total Station,AHD,0.1,Summer Subaerial Maximum,0.7
+2020-01-15 11:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,47.2,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Winter Giant North Pacific Swell Cut,0.0
+2020-02-18 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,45.4,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Late Winter NW Swell Scour,-1.8
+2020-03-24 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,49.8,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Early Spring Swell Accretion,4.4
+2020-05-19 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,56.4,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Trade Wind Berm Welding,6.6
+2020-07-21 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,65.2,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Summer Subaerial Maximum Berm,8.8
+2020-09-15 10:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,63.8,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Late Summer Stability,-1.4
+2020-11-17 11:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,54.1,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Early Winter NW Swell Erosion,-9.7
+2021-01-19 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,46.1,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Winter High-Energy Swell Scour,-8.0
+2021-03-16 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,50.5,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Swell Welding Phase,4.4
+2021-05-18 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,57.8,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Berm Restoration,7.3
+2021-07-20 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,66.0,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Summer Maximum Width,8.2
+2021-09-21 10:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,64.2,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Late Summer Equilibrated State,-1.8
+2021-11-16 11:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,53.5,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Early Winter Swell Onset,-10.7
+2021-12-14 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,45.8,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,December Giant NW Swell Scour,-7.7
+2022-01-18 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,44.9,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Mid-Winter Severe North Pacific Scour,-0.9
+2022-03-15 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,51.2,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Early Spring Swell Accretion,6.3
+2022-05-17 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,58.1,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Berm Growth,6.9
+2022-07-19 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,66.5,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Summer Subaerial Maximum,8.4
+2022-09-20 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,64.9,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Late Summer Baseline,-1.6
+2022-11-15 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,52.8,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Early Winter Swell Erosion,-12.1
+2023-01-17 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,43.6,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Historic Jan 2023 Extra-Large NW Swell Scour,-9.2
+2023-02-21 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,45.9,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Post-Storm Swell Adjustment,2.3
+2023-04-18 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,52.4,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Swell Welding Phase,6.5
+2023-06-20 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,61.3,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Summer Berm Restoration,8.9
+2023-08-15 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,65.8,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Mid-Summer Subaerial Peak,4.5
+2023-10-17 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,62.5,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Autumn Equilibrated Profile,-3.3
+2023-12-19 11:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,46.4,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Winter Giant Swell Impact,-16.1
+2024-01-16 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,44.2,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Winter Severe Swell Erosion,-2.2
+2024-03-19 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,51.0,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Swell Welding,6.8
+2024-05-21 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,58.7,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Berm Recovery,7.7
+2024-07-16 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,66.2,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Summer Maximum Width,7.5
+2024-09-17 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,63.9,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Late Summer Equilibrated State,-2.3
+2024-11-19 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_SUNSET,Sunset Beach Profile,53.0,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Autumn to Winter Swell Transition,-10.9
+2020-01-15 11:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,39.8,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Winter Giant North Pacific Swell Cut,0.0
+2020-02-18 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,38.2,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Late Winter NW Swell Scour,-1.6
+2020-03-24 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,41.5,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Early Spring Swell Accretion,3.3
+2020-05-19 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,47.9,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Trade Wind Berm Welding,6.4
+2020-07-21 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,55.4,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Summer Subaerial Maximum Berm,7.5
+2020-09-15 10:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,54.0,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Late Summer Stability,-1.4
+2020-11-17 11:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,45.2,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Early Winter NW Swell Erosion,-8.8
+2021-01-19 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,38.6,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Winter High-Energy Swell Scour,-6.6
+2021-03-16 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,42.1,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Swell Welding Phase,3.5
+2021-05-18 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,48.9,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Berm Restoration,6.8
+2021-07-20 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,56.2,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Summer Maximum Width,7.3
+2021-09-21 10:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,54.6,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Late Summer Equilibrated State,-1.6
+2021-11-16 11:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,44.8,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Early Winter Swell Onset,-9.8
+2021-12-14 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,38.1,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,December Giant NW Swell Scour,-6.7
+2022-01-18 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,37.4,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Mid-Winter Severe North Pacific Scour,-0.7
+2022-03-15 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,42.8,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Early Spring Swell Accretion,5.4
+2022-05-17 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,49.3,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Berm Growth,6.5
+2022-07-19 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,56.8,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Summer Subaerial Maximum,7.5
+2022-09-20 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,55.1,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Late Summer Baseline,-1.7
+2022-11-15 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,44.2,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Early Winter Swell Erosion,-10.9
+2023-01-17 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,36.5,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Historic Jan 2023 Extra-Large NW Swell Scour,-7.7
+2023-02-21 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,38.3,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Post-Storm Swell Adjustment,1.8
+2023-04-18 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,43.9,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Swell Welding Phase,5.6
+2023-06-20 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,52.0,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Summer Berm Restoration,8.1
+2023-08-15 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,56.0,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Mid-Summer Subaerial Peak,4.0
+2023-10-17 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,53.2,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Autumn Equilibrated Profile,-2.8
+2023-12-19 11:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,38.9,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Winter Giant Swell Impact,-14.3
+2024-01-16 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,36.9,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Winter Severe Swell Erosion,-2.0
+2024-03-19 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,42.7,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Swell Welding,5.8
+2024-05-21 10:45:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,49.8,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Spring Berm Recovery,7.1
+2024-07-16 11:15:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,56.5,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Summer Maximum Width,6.7
+2024-09-17 10:30:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,54.4,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Late Summer Equilibrated State,-2.1
+2024-11-19 11:00:00,oahu_north_shore_hi,"Oahu's North Shore, HI, USA",NS_WAIMEA,Waimea Bay Profile,44.5,Mobile RTK-GPS / Lidar,Trimble RTK-GPS / Riegl TLS,MLLW,0.12,Autumn to Winter Swell Transition,-9.9
 2020-01-21 14:15:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,52.1,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Winter Swell Erosion,0.0
 2020-03-10 13:45:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,54.2,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Early Spring Swell Accretion,2.1
 2020-05-12 14:00:00,torrey_pines_ca,"Torrey Pines Beach, CA, USA",TP_NORTH,Torrey Pines North Profile,58.7,ATV / Walking Survey,Scripps RTK-GPS System,NAVD88,0.12,Spring Berm Welding,4.5

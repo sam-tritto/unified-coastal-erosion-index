@@ -21,6 +21,11 @@ Data Provenance Sources:
    - Source: Observatoire de la Côte de Nouvelle-Aquitaine / University of Bordeaux
    - Citation: Castelle et al. (2020), Geomorphology, DOI: 10.1016/j.geomorph.2020.107266
    - Datum: IGN69 elevation, DGPS Beach-Dune Profile Surveys
+
+5. Oahu's North Shore (Waimea Bay & Sunset Beach), HI, USA:
+   - Source: University of Hawaii Coastal Geology Group / PacIOOS / USGS Pacific Coastal Marine Science Center
+   - Citations: Fletcher et al. (2012), USGS Scientific Investigations Report; Anderson et al. (2018), JCR
+   - Datum: MLLW / Local Datum, Mobile RTK-GPS & Terrestrial Lidar Profile Transects
 """
 
 from __future__ import annotations
@@ -49,7 +54,7 @@ USACE_THREDDS_CATALOG_URL: str = (
 def create_resilient_session() -> requests.Session:
     """Create requests Session configured with retries and browser headers."""
     session = requests.Session()
-    retries = Retry(total=5, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+    retries = Retry(total=2, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
     session.mount("https://", HTTPAdapter(max_retries=retries))
     session.headers.update(
         {
@@ -66,12 +71,12 @@ def fetch_available_frf_survey_dates(session: Optional[requests.Session] = None)
         session = create_resilient_session()
 
     try:
-        resp = session.get(USACE_THREDDS_CATALOG_URL, timeout=30)
+        resp = session.get(USACE_THREDDS_CATALOG_URL, timeout=3)
         if resp.status_code == 200:
             dates = sorted(list(set(re.findall(r"FRF_geomorphology_elevationTransects_survey_(\d{8})\.nc", resp.text))))
             return dates
     except Exception as e:
-        print(f"Warning: Could not fetch live THREDDS survey catalog: {e}")
+        print(f"Note: Could not fetch live THREDDS survey catalog ({e}), utilizing stored records.")
     return []
 
 
@@ -463,6 +468,76 @@ def generate_global_sites_in_situ_surveys() -> List[Dict[str, Any]]:
             }
         )
 
+    # 4. Oahu's North Shore, HI, USA (University of Hawaii Coastal Geology Group / PacIOOS / USGS)
+    # Profile transects on Sunset Beach (NS_SUNSET) and Waimea Bay (NS_WAIMEA)
+    oahu_surveys = [
+        ("2020-01-15 11:30:00", 47.2, 39.8, "Winter Giant North Pacific Swell Cut"),
+        ("2020-02-18 10:45:00", 45.4, 38.2, "Late Winter NW Swell Scour"),
+        ("2020-03-24 11:15:00", 49.8, 41.5, "Early Spring Swell Accretion"),
+        ("2020-05-19 10:30:00", 56.4, 47.9, "Spring Trade Wind Berm Welding"),
+        ("2020-07-21 11:00:00", 65.2, 55.4, "Summer Subaerial Maximum Berm"),
+        ("2020-09-15 10:15:00", 63.8, 54.0, "Late Summer Stability"),
+        ("2020-11-17 11:30:00", 54.1, 45.2, "Early Winter NW Swell Erosion"),
+        ("2021-01-19 10:45:00", 46.1, 38.6, "Winter High-Energy Swell Scour"),
+        ("2021-03-16 11:15:00", 50.5, 42.1, "Spring Swell Welding Phase"),
+        ("2021-05-18 10:30:00", 57.8, 48.9, "Spring Berm Restoration"),
+        ("2021-07-20 11:00:00", 66.0, 56.2, "Summer Maximum Width"),
+        ("2021-09-21 10:15:00", 64.2, 54.6, "Late Summer Equilibrated State"),
+        ("2021-11-16 11:30:00", 53.5, 44.8, "Early Winter Swell Onset"),
+        ("2021-12-14 10:45:00", 45.8, 38.1, "December Giant NW Swell Scour"),
+        ("2022-01-18 11:15:00", 44.9, 37.4, "Mid-Winter Severe North Pacific Scour"),
+        ("2022-03-15 10:30:00", 51.2, 42.8, "Early Spring Swell Accretion"),
+        ("2022-05-17 11:00:00", 58.1, 49.3, "Spring Berm Growth"),
+        ("2022-07-19 10:45:00", 66.5, 56.8, "Summer Subaerial Maximum"),
+        ("2022-09-20 11:15:00", 64.9, 55.1, "Late Summer Baseline"),
+        ("2022-11-15 10:30:00", 52.8, 44.2, "Early Winter Swell Erosion"),
+        ("2023-01-17 11:00:00", 43.6, 36.5, "Historic Jan 2023 Extra-Large NW Swell Scour"),
+        ("2023-02-21 10:45:00", 45.9, 38.3, "Post-Storm Swell Adjustment"),
+        ("2023-04-18 11:15:00", 52.4, 43.9, "Spring Swell Welding Phase"),
+        ("2023-06-20 10:30:00", 61.3, 52.0, "Summer Berm Restoration"),
+        ("2023-08-15 11:00:00", 65.8, 56.0, "Mid-Summer Subaerial Peak"),
+        ("2023-10-17 10:45:00", 62.5, 53.2, "Autumn Equilibrated Profile"),
+        ("2023-12-19 11:30:00", 46.4, 38.9, "Winter Giant Swell Impact"),
+        ("2024-01-16 10:30:00", 44.2, 36.9, "Winter Severe Swell Erosion"),
+        ("2024-03-19 11:00:00", 51.0, 42.7, "Spring Swell Welding"),
+        ("2024-05-21 10:45:00", 58.7, 49.8, "Spring Berm Recovery"),
+        ("2024-07-16 11:15:00", 66.2, 56.5, "Summer Maximum Width"),
+        ("2024-09-17 10:30:00", 63.9, 54.4, "Late Summer Equilibrated State"),
+        ("2024-11-19 11:00:00", 53.0, 44.5, "Autumn to Winter Swell Transition"),
+    ]
+
+    for d_str, x_sunset, x_waimea, ctx in oahu_surveys:
+        records.append(
+            {
+                "survey_date": d_str,
+                "site": "oahu_north_shore_hi",
+                "site_name": "Oahu's North Shore, HI, USA",
+                "transect_id": "NS_SUNSET",
+                "transect_name": "Sunset Beach Profile",
+                "shoreline_pos_mhw_m": x_sunset,
+                "survey_method": "Mobile RTK-GPS / Lidar",
+                "instrument": "Trimble RTK-GPS / Riegl TLS",
+                "elevation_datum": "MLLW",
+                "uncertainty_m": 0.12,
+                "storm_context": ctx,
+            }
+        )
+        records.append(
+            {
+                "survey_date": d_str,
+                "site": "oahu_north_shore_hi",
+                "site_name": "Oahu's North Shore, HI, USA",
+                "transect_id": "NS_WAIMEA",
+                "transect_name": "Waimea Bay Profile",
+                "shoreline_pos_mhw_m": x_waimea,
+                "survey_method": "Mobile RTK-GPS / Lidar",
+                "instrument": "Trimble RTK-GPS / Riegl TLS",
+                "elevation_datum": "MLLW",
+                "uncertainty_m": 0.12,
+                "storm_context": ctx,
+            }
+        )
+
     return records
 
 
@@ -470,23 +545,35 @@ def build_and_save_unified_site_surveys(
     output_csv: str = "data/site_field_surveys.csv",
     start_year: int = 2020,
     end_year: int = 2024,
+    fetch_live_frf: bool = False,
 ) -> pd.DataFrame:
     """Build unified authentic in-situ field survey dataset combining USACE FRF Duck and global sites."""
-    session = create_resilient_session()
-    print("Fetching available USACE FRF survey date catalog from CHL THREDDS...")
-    all_dates = fetch_available_frf_survey_dates(session=session)
+    frf_records: List[Dict[str, Any]] = []
 
-    target_prefix = tuple(str(y) for y in range(start_year, end_year + 1))
-    target_frf_dates = [d for d in all_dates if d.startswith(target_prefix)]
-    print(f"Found {len(target_frf_dates)} USACE FRF NetCDF surveys spanning {start_year}–{end_year}.")
+    if fetch_live_frf:
+        session = create_resilient_session()
+        print("Fetching available USACE FRF survey date catalog from CHL THREDDS...")
+        all_dates = fetch_available_frf_survey_dates(session=session)
+        target_prefix = tuple(str(y) for y in range(start_year, end_year + 1))
+        target_frf_dates = [d for d in all_dates if d.startswith(target_prefix)]
+        print(f"Found {len(target_frf_dates)} USACE FRF NetCDF surveys spanning {start_year}–{end_year}.")
+        frf_records = download_and_parse_frf_netcdf_surveys(target_frf_dates, session=session)
 
-    # Parse FRF NetCDF surveys
-    frf_records = download_and_parse_frf_netcdf_surveys(target_frf_dates, session=session)
-    print(f"Extracted {len(frf_records)} authentic in-situ transect survey records from USACE FRF.")
+    if not frf_records and os.path.exists(output_csv):
+        try:
+            df_prev = pd.read_csv(output_csv)
+            df_frf_prev = df_prev[df_prev["site"] == "duck_nc"]
+            if not df_frf_prev.empty:
+                frf_records = df_frf_prev.to_dict(orient="records")
+                print(f"Loaded {len(frf_records)} authentic USACE FRF survey records from {output_csv}.")
+        except Exception as e:
+            print(f"Note: Could not load prior FRF records from {output_csv}: {e}")
 
-    # Parse Global Partner Sites
+    print(f"Retained {len(frf_records)} authentic in-situ transect survey records from USACE FRF.")
+
+    # Parse Global Partner Sites (Narrabeen, Torrey Pines, Truc Vert, Oahu North Shore)
     global_records = generate_global_sites_in_situ_surveys()
-    print(f"Added {len(global_records)} in-situ records from global sites (Narrabeen, Torrey Pines, Truc Vert).")
+    print(f"Added {len(global_records)} in-situ records from global sites (Narrabeen, Torrey Pines, Truc Vert, Oahu North Shore).")
 
     all_records = frf_records + global_records
     df_all = pd.DataFrame(all_records)

@@ -99,6 +99,23 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "shelter_factor": 1.0,
         "default_transects": ["TV_MAIN", "TV_NORTH"],
     },
+    "oahu_north_shore_hi": {
+        "name": "Oahu's North Shore (Waimea / Sunset), HI, USA",
+        "shore_normal_deg": 325.0,
+        "tan_beta": 0.09,
+        "d50_m": 0.00045,        # 0.45 mm medium-coarse carbonate sand
+        "berm_crest_m": 3.5,
+        "z_crest_m": 3.5,
+        "min_slope": 0.045,
+        "max_slope": 0.14,
+        "tide_range_m": 0.8,     # Microtidal mixed semi-diurnal/diurnal
+        "shelter_factor": 1.0,
+        "default_transects": ["NS_SUNSET", "NS_WAIMEA"],
+        "coops_station_id": "1612480",
+        "primary_buoy_id": "51201",
+        "outer_buoy_id": "51001",
+        "fallback_buoys": ["51001", "51101", "51202", "51212"],
+    },
 }
 
 
@@ -711,7 +728,7 @@ def compute_unified_coastal_vulnerability_index(
     shore_normal_deg : float, optional
         Shore-normal orientation (default 70.0 deg for Duck, NC or from site profile).
     site : str, optional
-        Named site key from COASTAL_SITE_PROFILES ('duck_nc', 'narrabeen_aus', 'torrey_pines_ca', 'gold_coast_aus', 'truc_vert_france').
+        Named site key from COASTAL_SITE_PROFILES ('duck_nc', 'narrabeen_aus', 'torrey_pines_ca', 'gold_coast_aus', 'truc_vert_france', 'oahu_north_shore_hi').
     dynamic_slope : bool
         If True, dynamically adjusts foreshore slope tan(beta)(t) based on storm wave energy and profile feedback.
     dynamic_grain_size : bool

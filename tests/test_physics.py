@@ -545,6 +545,7 @@ def test_coastal_site_profiles_database():
     assert "duck_nc" in COASTAL_SITE_PROFILES
     assert "narrabeen_aus" in COASTAL_SITE_PROFILES
     assert "torrey_pines_ca" in COASTAL_SITE_PROFILES
+    assert "oahu_north_shore_hi" in COASTAL_SITE_PROFILES
 
     # Run Upsilon parameterized by named site
     df_narr = compute_unified_coastal_vulnerability_index(
@@ -558,6 +559,19 @@ def test_coastal_site_profiles_database():
     assert df_narr["tan_beta"].iloc[0] == COASTAL_SITE_PROFILES["narrabeen_aus"]["tan_beta"]
     assert df_narr["d50_m"].iloc[0] == COASTAL_SITE_PROFILES["narrabeen_aus"]["d50_m"]
     assert df_narr["upsilon"].iloc[0] > 0.0
+
+    # Test Oahu North Shore profile lookup
+    df_oahu = compute_unified_coastal_vulnerability_index(
+        hs=np.array([4.0]),
+        tp=np.array([16.0]),
+        surge=np.array([0.2]),
+        wind_speed=np.array([10.0]),
+        wind_dir_deg=np.array([325.0]),
+        site="oahu_north_shore_hi",
+    )
+    assert df_oahu["tan_beta"].iloc[0] == COASTAL_SITE_PROFILES["oahu_north_shore_hi"]["tan_beta"]
+    assert df_oahu["d50_m"].iloc[0] == COASTAL_SITE_PROFILES["oahu_north_shore_hi"]["d50_m"]
+    assert df_oahu["upsilon"].iloc[0] > 0.0
 
 
 def test_dynamic_foreshore_slope_and_grain_size():

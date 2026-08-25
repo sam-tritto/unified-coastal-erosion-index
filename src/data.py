@@ -123,6 +123,17 @@ def compute_harmonic_astronomical_tide(
             {"name": "P1", "amp": 0.058, "speed": 14.9589314, "phase": 103.0},
             {"name": "M4", "amp": 0.015, "speed": 57.9682084, "phase": 180.0},
         ]
+    elif site_key in ["oahu_north_shore_hi", "oahu_north_shore", "north_shore_oahu", "waimea_bay", "oahu"] or station_id in ["1612480", "1612340"]:
+        # Oahu, HI (Mokuoloe / Kaneohe Bay 1612480, Honolulu 1612340)
+        constituents = [
+            {"name": "M2", "amp": 0.174, "speed": 28.9841042, "phase": 52.0},
+            {"name": "S2", "amp": 0.068, "speed": 30.0000000, "phase": 68.0},
+            {"name": "N2", "amp": 0.042, "speed": 28.4397295, "phase": 32.0},
+            {"name": "K1", "amp": 0.162, "speed": 15.0410686, "phase": 248.0},
+            {"name": "O1", "amp": 0.105, "speed": 13.9430356, "phase": 236.0},
+            {"name": "P1", "amp": 0.052, "speed": 14.9589314, "phase": 245.0},
+            {"name": "M4", "amp": 0.008, "speed": 57.9682084, "phase": 110.0},
+        ]
     elif site_key == "truc_vert_france":
         # Arcachon / Truc Vert (Bay of Biscay, France)
         constituents = [
@@ -1042,6 +1053,8 @@ def fetch_noaa_annual_dataset(
         doy = merged.index.dayofyear.values
         if site_key == "torrey_pines_ca":
             seasonal_prior = 17.5 + 4.5 * np.cos(2 * np.pi * (doy - 220) / 365.25)
+        elif site_key == "oahu_north_shore_hi":
+            seasonal_prior = 26.0 + 1.5 * np.cos(2 * np.pi * (doy - 240) / 365.25)
         else:
             seasonal_prior = 17.5 - 9.5 * np.cos(2 * np.pi * (doy - 25) / 365.25)
 
@@ -1174,7 +1187,14 @@ def fetch_site_annual_dataset(
     ar_phi = 0.975
     noise = rng.normal(0, 0.10, n)
     hs_bg = np.zeros(n)
-    base_hs = 0.95 if site_key in ["narrabeen_aus", "gold_coast_aus"] else (1.4 if site_key == "truc_vert_france" else 1.1)
+    if site_key == "oahu_north_shore_hi":
+        base_hs = 1.6
+    elif site_key in ["narrabeen_aus", "gold_coast_aus"]:
+        base_hs = 0.95
+    elif site_key == "truc_vert_france":
+        base_hs = 1.4
+    else:
+        base_hs = 1.1
     hs_bg[0] = base_hs
     for t in range(1, n):
         hs_bg[t] = ar_phi * hs_bg[t - 1] + (1 - ar_phi) * base_hs + noise[t]
@@ -1182,7 +1202,10 @@ def fetch_site_annual_dataset(
 
     # 3. Discrete Storm Events (Poisson process with seasonal modulation)
     day_of_year = np.linspace(0, 365, n)
-    if site_key in ["narrabeen_aus", "gold_coast_aus"]:
+    if site_key == "oahu_north_shore_hi":
+        # Hawaiian North Shore winter giant swell season (Nov-March: doy 305 to 90)
+        storm_prob = 0.005 + 0.014 * (np.exp(-((day_of_year - 15) / 45) ** 2) + np.exp(-((day_of_year - 345) / 45) ** 2))
+    elif site_key in ["narrabeen_aus", "gold_coast_aus"]:
         # Southern Hemisphere winter East Coast Lows & storms (May-Aug)
         storm_prob = 0.003 + 0.008 * np.exp(-((day_of_year - 180) / 45) ** 2)
     elif site_key == "truc_vert_france":
@@ -1222,7 +1245,10 @@ def fetch_site_annual_dataset(
     wave_dir = (rng.normal(shore_normal, 20.0, n)) % 360.0
 
     # 5. Seawater Temperature with seasonal & turbulent synoptic variance
-    if site_key in ["narrabeen_aus", "gold_coast_aus"]:
+    if site_key == "oahu_north_shore_hi":
+        # Tropical North Pacific: warm year-round ~24.5 - 27.5 C (peak Sep doy 250, min Feb doy 50)
+        temp_season = 26.0 + 1.5 * np.cos(2 * np.pi * (day_of_year - 250) / 365.25)
+    elif site_key in ["narrabeen_aus", "gold_coast_aus"]:
         # Southern hemisphere: peak Feb (doy 45), minimum Aug (doy 225)
         temp_mean, temp_amp = (19.0, 4.0) if site_key == "narrabeen_aus" else (22.5, 3.5)
         temp_season = temp_mean + temp_amp * np.cos(2 * np.pi * (day_of_year - 45) / 365.25)
@@ -1363,7 +1389,7 @@ def load_multi_year_dataset(
     Parameters
     ----------
     site : str
-        Global coastal site key ('duck_nc', 'torrey_pines_ca', 'narrabeen_aus', 'truc_vert_france').
+        Global coastal site key ('duck_nc', 'torrey_pines_ca', 'narrabeen_aus', 'truc_vert_france', 'oahu_north_shore_hi').
     start_year : int
         First calendar year of the sequence (e.g. 2020).
     end_year : int
@@ -1420,6 +1446,8 @@ def load_site_field_surveys(
         site_key = "truc_vert_france"
     elif site_key in ["gold_coast", "gold_coast_aus", "surfers_paradise"]:
         site_key = "gold_coast_aus"
+    elif site_key in ["oahu_north_shore_hi", "oahu_north_shore", "north_shore_oahu", "north_shore", "waimea", "waimea_bay", "sunset_beach", "oahu"]:
+        site_key = "oahu_north_shore_hi"
     elif site_key not in COASTAL_SITE_PROFILES:
         site_key = "duck_nc"
 
@@ -1707,7 +1735,7 @@ def load_dataset(
     Parameters
     ----------
     site : str
-        Global site key: 'duck_nc' (USA), 'torrey_pines_ca' (USA), 'narrabeen_aus' (Australia), 'truc_vert_france' (France).
+        Global site key: 'duck_nc' (USA), 'torrey_pines_ca' (USA), 'narrabeen_aus' (Australia), 'truc_vert_france' (France), 'oahu_north_shore_hi' (USA).
     year : int, optional
         Single calendar year to load (e.g. 2022).
     start_year : int, optional
