@@ -113,6 +113,8 @@ class PhysicsQueryParser:
         "calm": {"focus": "calm", "low_vuln": True},
         "fair weather": {"focus": "calm", "low_vuln": True},
         "mild": {"focus": "calm", "low_vuln": True},
+        "reef": {"focus": "reef_dissipation"},
+        "coral reef": {"focus": "reef_dissipation"},
     }
 
     @classmethod

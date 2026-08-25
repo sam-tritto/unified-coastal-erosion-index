@@ -1279,6 +1279,7 @@ def fetch_site_annual_dataset(
         wind_speed=wind_spd,
         wind_dir_deg=wind_dir,
         wave_dir_deg=wave_dir,
+        tide=tide_pred.values,
         water_temp_c=water_temp,
         p_outer_Wm=p_outer,
         site=site_key,
@@ -1347,6 +1348,30 @@ def load_annual_dataset(
                     df_cached["site_name"] = site_cfg.get("name", site_key)
                 if "tan_beta" not in df_cached.columns:
                     df_cached["tan_beta"] = site_cfg.get("tan_beta", 0.08)
+                if "psi_reef" not in df_cached.columns:
+                    from src.physics import compute_reef_dissipation_modulator
+                    is_reef = site_cfg.get("is_reef", False)
+                    z_reef = site_cfg.get("z_reef_m", -1.0)
+                    wr = site_cfg.get("reef_flat_width_m", 0.0)
+                    cf = site_cfg.get("c_f", 0.08)
+                    gammab = site_cfg.get("gamma_b", 0.78)
+                    tide_vals = df_cached["tide_pred_m"].values if "tide_pred_m" in df_cached.columns else None
+                    surge_vals = df_cached["surge_m"].values if "surge_m" in df_cached.columns else None
+                    psi_r, hr, kc, kf, hs_sh = compute_reef_dissipation_modulator(
+                        hs=df_cached["hs_m"].values,
+                        tide=tide_vals,
+                        surge=surge_vals,
+                        z_reef_m=z_reef,
+                        reef_flat_width_m=wr,
+                        c_f=cf,
+                        gamma_b=gammab,
+                        is_reef=is_reef,
+                    )
+                    df_cached["psi_reef"] = psi_r
+                    df_cached["h_reef_m"] = hr
+                    df_cached["k_c_crest"] = kc
+                    df_cached["k_f_friction"] = kf
+                    df_cached["hs_shore_m"] = hs_sh
 
                 label = f"Cached Continuous Annual Observational ({year}, {site_key.upper()}, N={len(df_cached)}) — Morph: {morph_model.upper()}"
                 df_cached.attrs["data_provenance"] = {

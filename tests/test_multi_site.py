@@ -21,11 +21,17 @@ def test_load_all_coastal_sites():
         assert "upsilon" in df.columns
         assert "log_upsilon" in df.columns
         assert "shoreline_pos_obs_m" in df.columns
+        assert "psi_reef" in df.columns
         assert df["site"].iloc[0] == s
 
-        # Verify site-specific slope is respected
+        # Verify site-specific slope and reef dissipation flag
         expected_slope = COASTAL_SITE_PROFILES[s]["tan_beta"]
         assert np.isclose(df["tan_beta"].iloc[0], expected_slope, atol=0.01)
+        if COASTAL_SITE_PROFILES[s].get("is_reef", False):
+            assert np.all(df["psi_reef"] <= 1.0)
+            assert np.any(df["psi_reef"] < 1.0)
+        else:
+            assert np.all(df["psi_reef"] == 1.0)
 
 
 def test_load_multi_year_sequence():

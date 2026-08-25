@@ -37,6 +37,11 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "max_slope": 0.12,
         "tide_range_m": 1.0,     # Microtidal
         "shelter_factor": 1.0,
+        "is_reef": False,
+        "reef_flat_width_m": 0.0,
+        "z_reef_m": -1.0,
+        "c_f": 0.08,
+        "gamma_b": 0.78,
         "default_transects": ["FRF_0058", "FRF_0109"],
         "coops_station_id": "8651370",
         "primary_buoy_id": "44056",
@@ -54,6 +59,11 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "max_slope": 0.13,
         "tide_range_m": 1.2,     # Micro-mesotidal
         "shelter_factor": 0.85,
+        "is_reef": False,
+        "reef_flat_width_m": 0.0,
+        "z_reef_m": -1.0,
+        "c_f": 0.08,
+        "gamma_b": 0.78,
         "default_transects": ["PF2", "PF4"],
     },
     "torrey_pines_ca": {
@@ -67,6 +77,11 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "max_slope": 0.07,
         "tide_range_m": 1.5,     # Mixed semi-diurnal
         "shelter_factor": 1.0,
+        "is_reef": False,
+        "reef_flat_width_m": 0.0,
+        "z_reef_m": -1.0,
+        "c_f": 0.08,
+        "gamma_b": 0.78,
         "default_transects": ["TP_NORTH", "TP_SOUTH"],
         "coops_station_id": "9410230",
         "primary_buoy_id": "46254",
@@ -84,6 +99,11 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "max_slope": 0.08,
         "tide_range_m": 1.4,
         "shelter_factor": 1.0,
+        "is_reef": False,
+        "reef_flat_width_m": 0.0,
+        "z_reef_m": -1.0,
+        "c_f": 0.08,
+        "gamma_b": 0.78,
         "default_transects": ["GC_NORTH", "GC_SOUTH"],
     },
     "truc_vert_france": {
@@ -97,6 +117,11 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "max_slope": 0.10,
         "tide_range_m": 4.5,     # Macrotidal
         "shelter_factor": 1.0,
+        "is_reef": False,
+        "reef_flat_width_m": 0.0,
+        "z_reef_m": -1.0,
+        "c_f": 0.08,
+        "gamma_b": 0.78,
         "default_transects": ["TV_MAIN", "TV_NORTH"],
     },
     "oahu_north_shore_hi": {
@@ -110,11 +135,38 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "max_slope": 0.14,
         "tide_range_m": 0.8,     # Microtidal mixed semi-diurnal/diurnal
         "shelter_factor": 1.0,
+        "is_reef": True,
+        "reef_flat_width_m": 150.0, # 150m reef flat width
+        "z_reef_m": -1.0,        # Reef crest elevation relative to MSL (-1.0m)
+        "c_f": 0.08,             # Coral friction coefficient
+        "gamma_b": 0.78,         # Depth-limited theoretical breaker index
         "default_transects": ["NS_SUNSET", "NS_WAIMEA"],
         "coops_station_id": "1612480",
         "primary_buoy_id": "51201",
         "outer_buoy_id": "51001",
         "fallback_buoys": ["51001", "51101", "51202", "51212"],
+    },
+    "waikiki_hi": {
+        "name": "Waikiki Beach (Canoes / Queens), Oahu, HI, USA",
+        "shore_normal_deg": 210.0,
+        "tan_beta": 0.06,
+        "d50_m": 0.00030,        # 0.30 mm fine-medium carbonate sand
+        "berm_crest_m": 2.2,
+        "z_crest_m": 2.2,
+        "min_slope": 0.035,
+        "max_slope": 0.09,
+        "tide_range_m": 0.7,     # Microtidal
+        "shelter_factor": 0.80,
+        "is_reef": True,
+        "reef_flat_width_m": 250.0, # 250m wide shallow coral reef flat
+        "z_reef_m": -0.8,        # Reef crest elevation relative to MSL (-0.8m)
+        "c_f": 0.10,             # High rugosity coral bed friction
+        "gamma_b": 0.78,
+        "default_transects": ["WK_CANOES", "WK_QUEENS"],
+        "coops_station_id": "1612340",
+        "primary_buoy_id": "51202",
+        "outer_buoy_id": "51201",
+        "fallback_buoys": ["51201", "51001"],
     },
 }
 
@@ -555,6 +607,103 @@ def compute_longshore_transport_divergence(
     return phi
 
 
+def compute_reef_dissipation_modulator(
+    hs: Union[float, np.ndarray],
+    tide: Optional[Union[float, np.ndarray]] = None,
+    surge: Optional[Union[float, np.ndarray]] = None,
+    z_reef_m: float = -1.0,
+    reef_flat_width_m: float = 150.0,
+    c_f: float = 0.08,
+    gamma_b: float = 0.78,
+    is_reef: bool = True,
+) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray], Union[float, np.ndarray], Union[float, np.ndarray], Union[float, np.ndarray]]:
+    """Compute the Reef Dissipation Modulator (Psi_reef) for reef-fronted coastal archetypes.
+
+    Coral reefs act as physical low-pass filters, attenuating deep-water wave energy before it reaches
+    the shoreline through a two-step dissipation process:
+    1. Crest Clipping (Depth-Limited Breaking):
+       h_r(t) = max(0, Tide(t) + S(t) - Z_reef)
+       K_c = min(1.0, (gamma_b * h_r(t)) / H_0)
+    2. Flat Friction (Coral Drag Decay across Reef Flat):
+       K_f = exp(- (c_f * W_r) / h_r(t))
+
+    Composite Modulator & Shoreline Wave Scaling:
+       Psi_reef = K_c * K_f in [0, 1]
+       H_shore = H_0 * Psi_reef
+
+    Parameters
+    ----------
+    hs : float or np.ndarray
+        Deep-water significant wave height H_0 (m).
+    tide : float or np.ndarray, optional
+        Astronomical tide elevation relative to MSL (m). Defaults to 0.0m if omitted.
+    surge : float or np.ndarray, optional
+        Storm surge residual elevation relative to MSL (m). Defaults to 0.0m if omitted.
+    z_reef_m : float
+        Elevation of the reef crest relative to MSL (m). E.g. -1.0m for crest 1m below MSL.
+    reef_flat_width_m : float
+        Reef flat width W_r in meters (default 150m). If 0, no flat friction occurs.
+    c_f : float
+        Coral bed friction coefficient (default 0.08).
+    gamma_b : float
+        Theoretical depth-limited breaker index (default 0.78).
+    is_reef : bool
+        Whether the site possesses a fronting coral reef barrier. If False, returns unattenuated (Psi_reef = 1.0).
+
+    Returns
+    -------
+    psi_reef : float or np.ndarray
+        Reef transmission / dissipation modulator in [0, 1].
+    h_r : float or np.ndarray
+        Instantaneous water depth over the reef crest / flat (m).
+    k_c : float or np.ndarray
+        Crest depth-limited breaking transmission coefficient in [0, 1].
+    k_f : float or np.ndarray
+        Reef-flat bottom friction attenuation coefficient in [0, 1].
+    hs_shore : float or np.ndarray
+        Transmitted shoreline wave height H_shore = H_0 * Psi_reef (m).
+    """
+    hs_arr = np.maximum(np.asarray(hs, dtype=float), 0.0)
+    is_scalar = np.isscalar(hs)
+
+    if not is_reef or reef_flat_width_m < 0.0:
+        psi_reef = np.ones_like(hs_arr)
+        h_r = np.zeros_like(hs_arr)
+        k_c = np.ones_like(hs_arr)
+        k_f = np.ones_like(hs_arr)
+        hs_shore = hs_arr.copy()
+        if is_scalar:
+            return float(psi_reef), float(h_r), float(k_c), float(k_f), float(hs_shore)
+        return psi_reef, h_r, k_c, k_f, hs_shore
+
+    tide_arr = np.asarray(tide, dtype=float) if tide is not None else np.zeros_like(hs_arr)
+    surge_arr = np.asarray(surge, dtype=float) if surge is not None else np.zeros_like(hs_arr)
+
+    # 1. Instantaneous Reef Depth hr(t) = max(0, Tide(t) + S(t) - Zreef)
+    water_level = tide_arr + surge_arr
+    h_r = np.maximum(0.0, water_level - float(z_reef_m))
+
+    # 2. Crest Clipping (Depth-Limited Breaking): Kc = min(1.0, (gamma_b * hr) / H0)
+    # If hr <= 0, no water over reef -> Kc = 0.0
+    safe_hs = np.maximum(hs_arr, 1e-4)
+    k_c = np.where(h_r <= 1e-5, 0.0, np.minimum(1.0, (float(gamma_b) * h_r) / safe_hs))
+
+    # 3. Flat Friction (The Coral Drag): Kf = exp(- (c_f * Wr) / hr)
+    # If Wr == 0, Kf = 1.0. If hr <= 0, Kf = 0.0.
+    if float(reef_flat_width_m) <= 0.0:
+        k_f = np.where(h_r <= 1e-5, 0.0, 1.0)
+    else:
+        k_f = np.where(h_r <= 1e-5, 0.0, np.exp(- (float(c_f) * float(reef_flat_width_m)) / np.maximum(h_r, 1e-4)))
+
+    # Composite Modulator: Psi_reef = Kc * Kf
+    psi_reef = np.clip(k_c * k_f, 0.0, 1.0)
+    hs_shore = hs_arr * psi_reef
+
+    if is_scalar:
+        return float(psi_reef), float(h_r), float(k_c), float(k_f), float(hs_shore)
+    return psi_reef, h_r, k_c, k_f, hs_shore
+
+
 def compute_constructive_accretion_potential(
     hs: Union[float, np.ndarray],
     tp: Union[float, np.ndarray],
@@ -647,9 +796,15 @@ def compute_unified_coastal_vulnerability_index(
     wind_speed: Union[float, np.ndarray],
     wind_dir_deg: Union[float, np.ndarray],
     wave_dir_deg: Optional[Union[float, np.ndarray]] = None,
+    tide: Optional[Union[float, np.ndarray]] = None,
     tide_range_m: Optional[Union[float, np.ndarray]] = None,
     water_temp_c: Optional[Union[float, np.ndarray]] = None,
     p_outer_Wm: Optional[Union[float, np.ndarray]] = None,
+    is_reef: Optional[bool] = None,
+    z_reef_m: Optional[float] = None,
+    reef_flat_width_m: Optional[float] = None,
+    c_f: Optional[float] = None,
+    gamma_b: Optional[float] = None,
     hs_exponent: float = 2.5,
     s_ref: float = 1.0,
     r_ref: float = 2.0,
@@ -672,17 +827,21 @@ def compute_unified_coastal_vulnerability_index(
     -------------------------------------
     The Unified Coastal Vulnerability Index (Υ) is a semi-empirical, physics-informed composite index
     designed to synthesize wave power flux, dynamic sediment settling kinetics, foreshore beach slope,
-    empirical wave height scaling, total water level (TWL), tidal energy dilution, and directional radiation stress:
+    empirical wave height scaling, total water level (TWL), tidal energy dilution, directional radiation stress,
+    and reef-fronted dissipation:
 
-        Υ = C_0 * tan(beta) * [ (Hs^n * Tp) / ws(T) ] * TWL_amp * Psi_tide * Psi_dir * Wind_amp
+        Υ = C_0 * tan(beta) * [ (H_shore^n * Tp) / ws(T) ] * TWL_amp * Psi_tide * Psi_dir * Wind_amp
+
+    Where:
+        H_shore = H_0 * Psi_reef
 
     Dimensional Breakdown:
     - Prefactor C_0 = (rho * g^1.5) / (16 * (2*pi)^1.5) has physical dimensions [kg / (m^0.5 * s^3)].
     - Foreshore slope tan(beta) is dimensionless [-].
-    - Sediment-wave core [ (Hs^n * Tp) / ws(T) ] has dimensions [m^(n-1) * s^2].
+    - Sediment-wave core [ (H_shore^n * Tp) / ws(T) ] has dimensions [m^(n-1) * s^2].
     - At the baseline exponent n = 2.5, the core dimensions are [m^1.5 * s^2], giving Υ net dimensions
       of [kg / s] (kinetic mass forcing rate per second).
-    - Continuous modulators (TWL_amp, Psi_tide, Psi_dir, Wind_amp) are dimensionless scaling factors [-].
+    - Continuous modulators (TWL_amp, Psi_tide, Psi_dir, Psi_reef, Wind_amp) are dimensionless scaling factors [-].
 
     Continuous Dimensionless Scaling Factors:
     1. Tidal Smearing Factor: Psi_tide = 1 / (1 + TR / (2 * Hs))
@@ -692,8 +851,10 @@ def compute_unified_coastal_vulnerability_index(
        Matches shore-normal radiation stress S_xx ~ E * cos^2(theta_rel) that drives cross-shore gouging.
     3. Alongshore Rotational Divergence: Phi_longshore = sin(2 * (theta_wave - theta_shore))
        Captures alongshore transport gradients and beach rotation on embayed coasts (Narrabeen).
-    4. Decoupled TWL Amplification: TWL_amp = 1.0 + max(S / s_ref, 0) + max(R_2% / r_ref, 0)
-    5. Wind Amplification: Wind_amp = 1.0 + clip(sgn(W_a) * (|W_a| / w_ref)^2, -w_bound, w_bound)
+    4. Reef Dissipation Modulator: Psi_reef = K_c * K_f = min(1, gamma_b * h_r / H_0) * exp(-c_f * W_r / h_r)
+       Dynamically models coral reefs as physical low-pass filters via crest clipping and flat friction (Oahu / Waikiki).
+    5. Decoupled TWL Amplification: TWL_amp = 1.0 + max(S / s_ref, 0) + max(R_2% / r_ref, 0)
+    6. Wind Amplification: Wind_amp = 1.0 + clip(sgn(W_a) * (|W_a| / w_ref)^2, -w_bound, w_bound)
 
     Parameters
     ----------
@@ -709,12 +870,24 @@ def compute_unified_coastal_vulnerability_index(
         Wind direction in degrees True.
     wave_dir_deg : float or np.ndarray, optional
         Wave approach direction in degrees True. Defaults to shore-normal orientation.
+    tide : float or np.ndarray, optional
+        Astronomical tide water level relative to MSL (m). Used for instantaneous reef depth h_r(t).
     tide_range_m : float or np.ndarray, optional
         Tidal range (m). If omitted, inferred from site profile or set to 0.0 (microtidal limit).
     water_temp_c : float or np.ndarray, optional
         Observed seawater temperature in Celsius.
     p_outer_Wm : float or np.ndarray, optional
         Outer array wave power (W/m) to calculate sandbar dissipation ratio.
+    is_reef : bool, optional
+        Whether the coast has a fronting coral reef barrier (default from site profile).
+    z_reef_m : float, optional
+        Elevation of reef crest relative to MSL (m).
+    reef_flat_width_m : float, optional
+        Width of reef flat in meters (default from site profile).
+    c_f : float, optional
+        Coral bed friction coefficient (default 0.08).
+    gamma_b : float, optional
+        Theoretical depth-limited breaker index (default 0.78).
     hs_exponent : float
         Nonlinear wave height scaling exponent n in Hs^n (default 2.5, configurable/learnable n in [1.0, 3.0]).
     s_ref, r_ref : float
@@ -728,7 +901,7 @@ def compute_unified_coastal_vulnerability_index(
     shore_normal_deg : float, optional
         Shore-normal orientation (default 70.0 deg for Duck, NC or from site profile).
     site : str, optional
-        Named site key from COASTAL_SITE_PROFILES ('duck_nc', 'narrabeen_aus', 'torrey_pines_ca', 'gold_coast_aus', 'truc_vert_france', 'oahu_north_shore_hi').
+        Named site key from COASTAL_SITE_PROFILES ('duck_nc', 'narrabeen_aus', 'torrey_pines_ca', 'gold_coast_aus', 'truc_vert_france', 'oahu_north_shore_hi', 'waikiki_hi').
     dynamic_slope : bool
         If True, dynamically adjusts foreshore slope tan(beta)(t) based on storm wave energy and profile feedback.
     dynamic_grain_size : bool
@@ -745,7 +918,7 @@ def compute_unified_coastal_vulnerability_index(
     Returns
     -------
     df_out : pd.DataFrame
-        DataFrame with hydrodynamics, dynamic settling kinetics, wave dissipation, runup, slope, grain size, modulators, and Υ.
+        DataFrame with hydrodynamics, dynamic settling kinetics, wave dissipation, reef attenuation, runup, slope, grain size, modulators, and Υ.
     """
     hs_arr = np.asarray(hs, dtype=float)
     tp_arr = np.asarray(tp, dtype=float)
@@ -762,6 +935,12 @@ def compute_unified_coastal_vulnerability_index(
     base_tan_beta = tan_beta if tan_beta is not None else site_cfg.get("tan_beta", 0.08)
     base_d50 = d50_m if d50_m is not None else site_cfg.get("d50_m", 0.00035)
     base_tr = tide_range_m if tide_range_m is not None else site_cfg.get("tide_range_m", 0.0)
+
+    site_is_reef = is_reef if is_reef is not None else site_cfg.get("is_reef", False)
+    site_z_reef = z_reef_m if z_reef_m is not None else site_cfg.get("z_reef_m", -1.0)
+    site_wr = reef_flat_width_m if reef_flat_width_m is not None else site_cfg.get("reef_flat_width_m", (150.0 if site_is_reef else 0.0))
+    site_cf = c_f if c_f is not None else site_cfg.get("c_f", 0.08)
+    site_gammab = gamma_b if gamma_b is not None else site_cfg.get("gamma_b", 0.78)
 
     tr_arr = np.broadcast_to(np.asarray(base_tr, dtype=float), hs_arr.shape) if not np.isscalar(base_tr) else np.full_like(hs_arr, float(base_tr))
 
@@ -793,51 +972,64 @@ def compute_unified_coastal_vulnerability_index(
     # 4. Projected shore-normal wind forcing
     w_a = compute_shore_normal_wind(wind_speed, wind_dir_deg, eff_shore_normal)
     
-    # 5. Wave dynamics, power, runup, and breaker regimes
+    # 5. Reef Dissipation Modulator (Psi_reef) for reef-fronted coastlines
+    psi_reef, h_reef, k_c, k_f, hs_shore = compute_reef_dissipation_modulator(
+        hs=hs_arr,
+        tide=tide,
+        surge=surge_arr,
+        z_reef_m=site_z_reef,
+        reef_flat_width_m=site_wr,
+        c_f=site_cf,
+        gamma_b=site_gammab,
+        is_reef=site_is_reef,
+    )
+    hs_eff = hs_shore if site_is_reef else hs_arr
+
+    # 6. Wave dynamics, power, runup, and breaker regimes using transmitted shoreline wave height
     l_0 = compute_deepwater_wavelength(tp_arr, g=g, tau=tau)
-    r_2 = compute_stockdon_wave_runup(hs_arr, tp_arr, tan_beta=tan_beta_arr, g=g, tau=tau)
-    xi = compute_iribarren_number(hs_arr, tp_arr, tan_beta=tan_beta_arr, g=g, tau=tau)
+    r_2 = compute_stockdon_wave_runup(hs_eff, tp_arr, tan_beta=tan_beta_arr, g=g, tau=tau)
+    xi = compute_iribarren_number(hs_eff, tp_arr, tan_beta=tan_beta_arr, g=g, tau=tau)
     regimes = classify_breaker_regime(xi)
-    p_flux = compute_wave_energy_flux(hs_arr, tp_arr, rho=rho, g=g, tau=tau)
-    dean = compute_dean_number(hs_arr, tp_arr, ws=ws)
-    accretion_pot = compute_constructive_accretion_potential(hs_arr, tp_arr, g=g, tau=tau)
+    p_flux = compute_wave_energy_flux(hs_eff, tp_arr, rho=rho, g=g, tau=tau)
+    dean = compute_dean_number(hs_eff, tp_arr, ws=ws)
+    accretion_pot = compute_constructive_accretion_potential(hs_eff, tp_arr, g=g, tau=tau)
     
-    # 6. Cross-array wave dissipation & sandbar shielding
+    # 7. Cross-array wave dissipation & sandbar shielding
     if p_outer_Wm is not None:
         delta_p, shielding = compute_cross_array_dissipation_ratio(p_outer_Wm, p_flux)
     else:
         delta_p = np.zeros_like(hs_arr)
         shielding = np.ones_like(hs_arr)
     
-    # 7. Continuous Dimensionless Physical Modulators
+    # 8. Continuous Dimensionless Physical Modulators
     psi_tide = compute_tidal_smearing_factor(tr_arr, hs_arr)
     psi_dir = compute_directional_wave_factor(w_dir_arr, eff_shore_normal, m=2.0)
     phi_longshore = compute_longshore_transport_divergence(w_dir_arr, eff_shore_normal)
 
-    # 8. Prefactor & Wave-Sediment Kinetic Core: C_0 * (Hs^n * Tp) / ws(T)
+    # 9. Prefactor & Wave-Sediment Kinetic Core: C_0 * (H_shore^n * Tp) / ws(T)
     prefactor = (rho * (g ** 1.5)) / (16.0 * (tau ** 1.5))
-    wave_sed_core = ( (np.maximum(hs_arr, 0.01) ** n_exp) * np.maximum(tp_arr, 0.1) ) / ws
+    wave_sed_core = ( (np.maximum(hs_eff, 0.01) ** n_exp) * np.maximum(tp_arr, 0.1) ) / ws
     
-    # 9. Decoupled Non-Dimensional TWL Amplification Factor
+    # 10. Decoupled Non-Dimensional TWL Amplification Factor
     twl_amplification = (
         1.0
         + np.maximum(surge_arr / max(s_ref, 1e-3), 0.0)
         + np.maximum(r_2 / max(r_ref, 1e-3), 0.0)
     )
     
-    # 10. Projected Wind Stress Amplification Factor
+    # 11. Projected Wind Stress Amplification Factor
     w_sign = np.sign(w_a)
     w_quad = w_sign * ((np.abs(w_a) / max(w_ref, 1.0)) ** 2)
     wind_amplification = 1.0 + np.clip(w_quad, -w_bound, w_bound)
     
-    # 11. Unified Coastal Vulnerability Index (Upsilon_unified)
+    # 12. Unified Coastal Vulnerability Index (Upsilon_unified)
     upsilon = prefactor * tan_beta_arr * wave_sed_core * twl_amplification * psi_tide * psi_dir * wind_amplification
     
     # Shielded Upsilon (accounting for outer sandbar energy dissipation)
     upsilon_shielded = upsilon * shielding
     
     # Raw closed-form synthesis for comparison
-    upsilon_raw = prefactor * tan_beta_arr * ((np.maximum(hs_arr, 0.01) ** n_exp) * tp_arr * np.maximum(surge_arr, 0.01) / ws) * np.maximum(w_a, 0.01)
+    upsilon_raw = prefactor * tan_beta_arr * ((np.maximum(hs_eff, 0.01) ** n_exp) * tp_arr * np.maximum(surge_arr, 0.01) / ws) * np.maximum(w_a, 0.01)
     log_upsilon = np.log10(np.maximum(upsilon, 1e-4))
     
     # Signed Bipolar Accretion & Vulnerability Index (+ = Accretion, - = Erosion)
@@ -861,6 +1053,11 @@ def compute_unified_coastal_vulnerability_index(
         "psi_tide": psi_tide,
         "psi_dir": psi_dir,
         "phi_longshore": phi_longshore,
+        "psi_reef": psi_reef,
+        "h_reef_m": h_reef,
+        "k_c_crest": k_c,
+        "k_f_friction": k_f,
+        "hs_shore_m": hs_shore,
         "w_s_ms": ws,
         "l_0_m": l_0,
         "xi_iribarren": xi,

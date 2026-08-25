@@ -2,7 +2,7 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![PyMC 5.0+](https://img.shields.io/badge/PyMC-v5.0+-red.svg)](https://www.pymc.io/)
-[![Tests](https://img.shields.io/badge/pytest-58%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/pytest-61%20passed-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A physics-informed foundation framework for multi-modal coastal hydrodynamics synchronization, Bayesian morphodynamic forecasting with PyMC, continuous global dimensionless scaling, and physics-anchored latent embeddings.
@@ -19,12 +19,20 @@ $$\mathbf{p}_{\text{site}} = \big[\tan\beta,\; D_{50},\; TR,\; \theta_{\text{sho
 
 ### The Unified Master Formulation
 
-$$\Upsilon_{\text{unified}} = \underbrace{\left(\frac{\rho g^{3/2}}{16 (2\pi)^{3/2}}\right) \cdot \tan\beta \cdot \frac{H_s^n T_p}{w_s(D_{50}, T)}}_{\text{Kinematic Wave-Sediment Core}} \cdot \underbrace{\left[ 1 + \frac{\max(S, 0)}{s_{\text{ref}}} + \frac{\max(R_{2\%}, 0)}{r_{\text{ref}}} \right]}_{\text{Decoupled TWL Elevation}} \cdot \underbrace{\Psi_{\text{tide}}}_{\text{Tidal Dilution}} \cdot \underbrace{\Psi_{\text{dir}}}_{\text{Wave Direction}} \cdot \underbrace{\Psi_{\text{wind}}}_{\text{Wind Stress}}$$
+$$\Upsilon_{\text{unified}} = \underbrace{\left(\frac{\rho g^{3/2}}{16 (2\pi)^{3/2}}\right) \cdot \tan\beta \cdot \frac{H_{\text{shore}}^n T_p}{w_s(D_{50}, T)}}_{\text{Kinematic Wave-Sediment Core}} \cdot \underbrace{\left[ 1 + \frac{\max(S, 0)}{s_{\text{ref}}} + \frac{\max(R_{2\%}, 0)}{r_{\text{ref}}} \right]}_{\text{Decoupled TWL Elevation}} \cdot \underbrace{\Psi_{\text{tide}}}_{\text{Tidal Dilution}} \cdot \underbrace{\Psi_{\text{dir}}}_{\text{Wave Direction}} \cdot \underbrace{\Psi_{\text{wind}}}_{\text{Wind Stress}}$$
+
+where deepwater incident wave height $H_0$ is modulated across reef-fronted systems via $H_{\text{shore}} = H_0 \cdot \Psi_{\text{reef}}$.
 
 ```mermaid
 flowchart LR
+    subgraph Deepwater ["Deepwater Hydrodynamics"]
+        H0["Deepwater Waves: H0, Tp"]
+        ReefMod["Reef Dissipation Modulator: Ψ_reef = Kc · Kf"]
+        H0 --> ReefMod --> Hshore["Shoreline Waves: H_shore = H0 · Ψ_reef"]
+    end
+
     subgraph Core ["Kinematic Wave-Sediment Core"]
-        A["Hydrodynamics: Hs^n · Tp"] --> C["Wave-Sediment Prefactor"]
+        Hshore --> C["Wave-Sediment Prefactor"]
         B["Morphodynamics: tanβ / ws(D50, T)"] --> C
     end
 
@@ -42,24 +50,31 @@ flowchart LR
 
 ### Continuous Dimensionless Scaling Factors
 
-1. **Tidal Dissipation & Energy Smearing Factor ($\Psi_{\text{tide}}$):**
+1. **Reef Dissipation & Low-Pass Filter Modulator ($\Psi_{\text{reef}}$):**
+   $$\Psi_{\text{reef}} = K_c \cdot K_f = \min\left(1.0,\, \frac{\gamma_b \cdot h_r(t)}{H_0}\right) \cdot \exp\left(-\frac{c_f \cdot W_r}{h_r(t)}\right)$$
+   * **Instantaneous Reef Depth ($h_r(t)$):** $h_r(t) = \max\left(0,\, \text{Tide}(t) + S(t) - Z_{\text{reef}}\right)$. When the tide falls below the reef crest ($h_r = 0$), wave energy transmission is fully blocked ($\Psi_{\text{reef}} = 0.0$).
+   * **Crest Clipping ($K_c$):** Depth-limited breaking at the reef crest with theoretical breaker index $\gamma_b \approx 0.78$ ($K_c = \min(1, \gamma_b h_r / H_0)$).
+   * **Reef Flat Friction ($K_f$):** Turbulent bore energy decay across rough coral flats of width $W_r$ with coral friction coefficient $c_f \approx 0.08$.
+   * Non-reef sandy coasts bypass attenuation ($\Psi_{\text{reef}} = 1.0, H_{\text{shore}} = H_0$).
+
+2. **Tidal Dissipation & Energy Smearing Factor ($\Psi_{\text{tide}}$):**
    $$\Psi_{\text{tide}} = \frac{1}{1 + \frac{TR}{2 H_s}}$$
    * *Microtidal Limit ($TR \to 0$):* $\Psi_{\text{tide}} \to 1.0$ (concentrated berm attack, e.g. Duck, NC with $TR = 1.0\text{ m}, H_s = 4.0\text{ m} \implies \Psi_{\text{tide}} = 0.89$).
    * *Macrotidal Limit ($TR \gg H_s$):* $\Psi_{\text{tide}} \ll 1.0$ (energy diluted across wide intertidal sweep $W = TR / \tan\beta$, e.g. Truc Vert with $TR = 4.5\text{ m}, H_s = 3.0\text{ m} \implies \Psi_{\text{tide}} = 0.57$).
 
-2. **Rectified Shore-Normal Wave Alignment ($\Psi_{\text{dir}}$):**
+3. **Rectified Shore-Normal Wave Alignment ($\Psi_{\text{dir}}$):**
    $$\Psi_{\text{dir}} = \max\left(0,\, \cos(\theta_{\text{wave}} - \theta_{\text{shore}})\right)^2$$
    * Matches the shore-normal radiation stress component $S_{xx} \propto E \cos^2\theta_{\text{rel}}$ governing cross-shore setup and sediment gouging.
    * Oblique waves ($|\theta_{\text{rel}}| = 45^\circ$) scale to $0.50$; offshore/shadowed waves ($|\theta_{\text{rel}}| \ge 90^\circ$) are rectified to $0.0$, preventing non-physical accretion.
 
-3. **Alongshore Rotational Transport Divergence ($\Phi_{\text{longshore}}$):**
+4. **Alongshore Rotational Transport Divergence ($\Phi_{\text{longshore}}$):**
    $$\Phi_{\text{longshore}} = \sin\left(2(\theta_{\text{wave}} - \theta_{\text{shore}})\right)$$
    * Captures alongshore transport gradients and beach rotation on embayed coasts (e.g., Narrabeen East Coast Low storms).
 
-4. **Dynamic Viscosity & Settling Kinetics ($w_s(D_{50}, T)$):**
+5. **Dynamic Viscosity & Settling Kinetics ($w_s(D_{50}, T)$):**
    * Settling velocity dynamically calculates kinematic seawater viscosity $\nu(T)$ and dynamic sediment fall velocity (*Soulsby 1997*).
 
-5. **Outer-Array Sandbar Wave Dissipation & Shielding:**
+6. **Outer-Array Sandbar Wave Dissipation & Shielding:**
    * Multi-array energy attenuation ratio $\Delta P_{\text{dissip}} = \frac{P_{26\text{m}} - P_{8\text{m}}}{P_{26\text{m}} + 10^{-4}}$ tracking nearshore bar dissipation.
 
 ---
@@ -72,6 +87,7 @@ flowchart LR
 | **Macrotidal High-Energy** | **Truc Vert** (France) | $0.03$ | $0.22\text{ mm}$ | $4.5\text{ m}$ | $275.0^\circ$ | Energy Smearing ($\Psi_{\text{tide}} \approx 0.57$) | 100m+ intertidal dissipation, tide-diluted impact |
 | **Swell-Dominated Pacific** | **Torrey Pines, CA** (USA) | $0.04$ | $0.20\text{ mm}$ | $1.5\text{ m}$ | $265.0^\circ$ | Long-period Swell ($R_{2\%}$), $S \to 0$ | $T_p > 16\text{s}$ infragravity swash dominates TWL |
 | **Embayed / Rotational** | **Narrabeen** (Australia) | $0.09$ | $0.30\text{ mm}$ | $1.2\text{ m}$ | $85.0^\circ$ | Directional Splitting ($\Psi_{\text{dir}} \text{ vs. } \Phi_{\text{longshore}}$) | Oblique ECL storms drive alongshore rotation |
+| **Reef-Fronted Island** | **Oahu North Shore / Waikiki** (USA) | $0.09$ | $0.45\text{ mm}$ | $0.8\text{ m}$ | $325.0^\circ$ | Coral Reef Filter ($\Psi_{\text{reef}} = K_c \cdot K_f$) | Depth-limited crest clipping & flat friction |
 
 ---
 

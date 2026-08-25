@@ -17,6 +17,7 @@ from src.physics import (
     compute_tidal_smearing_factor,
     compute_directional_wave_factor,
     compute_longshore_transport_divergence,
+    compute_reef_dissipation_modulator,
     compute_unified_coastal_vulnerability_index,
     compute_signed_coastal_vulnerability_index,
     compute_dynamic_foreshore_slope,
@@ -762,6 +763,94 @@ def test_unified_index_global_continuous_scaling():
     )
     np.testing.assert_allclose(df_narr["psi_dir"].iloc[0], 0.50, rtol=1e-3)
     np.testing.assert_allclose(df_narr["phi_longshore"].iloc[0], 1.0, rtol=1e-3)
+
+    # 5. Oahu North Shore: Reef-Fronted Coast (Depth-limited breaking & flat friction)
+    df_oahu = compute_unified_coastal_vulnerability_index(
+        hs=np.array([5.0]),
+        tp=np.array([16.0]),
+        surge=np.array([0.1]),
+        tide=np.array([0.4]),
+        wind_speed=np.array([8.0]),
+        wind_dir_deg=np.array([325.0]),
+        wave_dir_deg=np.array([325.0]),
+        site="oahu_north_shore_hi",
+    )
+    assert df_oahu["psi_reef"].iloc[0] < 1.0
+    assert df_oahu["hs_shore_m"].iloc[0] < 5.0
+    assert df_oahu["h_reef_m"].iloc[0] == 1.5  # 0.4 + 0.1 - (-1.0) = 1.5m
+    assert df_oahu["k_c_crest"].iloc[0] == pytest.approx(0.78 * 1.5 / 5.0, rel=1e-3)
+
+
+def test_reef_dissipation_modulator_physics():
+    """Verify exact mathematical formulations of depth-limited breaking Kc and flat friction Kf."""
+    # Scenario: 4.0m deepwater swell hitting reef with 1.0m water depth (Zreef = -1.0m, tide=0, surge=0)
+    # Wr = 150m, cf = 0.08, gamma_b = 0.78
+    psi_reef, h_r, k_c, k_f, hs_shore = compute_reef_dissipation_modulator(
+        hs=4.0,
+        tide=0.0,
+        surge=0.0,
+        z_reef_m=-1.0,
+        reef_flat_width_m=150.0,
+        c_f=0.08,
+        gamma_b=0.78,
+        is_reef=True,
+    )
+    # 1. Reef depth hr = max(0, 0 + 0 - (-1.0)) = 1.0m
+    assert h_r == pytest.approx(1.0, rel=1e-4)
+
+    # 2. Crest clipping: Kc = min(1.0, 0.78 * 1.0 / 4.0) = 0.195
+    assert k_c == pytest.approx(0.195, rel=1e-4)
+
+    # 3. Flat friction: Kf = exp(-0.08 * 150.0 / 1.0) = exp(-12.0)
+    expected_kf = np.exp(-12.0)
+    assert k_f == pytest.approx(expected_kf, rel=1e-4)
+
+    # 4. Total modulator Psi_reef = Kc * Kf
+    expected_psi = 0.195 * expected_kf
+    assert psi_reef == pytest.approx(expected_psi, rel=1e-4)
+    assert hs_shore == pytest.approx(4.0 * expected_psi, rel=1e-4)
+
+
+def test_reef_dissipation_tide_sensitivity():
+    """Verify that higher water levels reduce friction and increase wave transmission across the reef."""
+    hs_in = 3.0
+    # Low tide: tide = -0.5m -> hr = 0.5m
+    psi_low, hr_low, kc_low, kf_low, hs_low = compute_reef_dissipation_modulator(
+        hs=hs_in, tide=-0.5, surge=0.0, z_reef_m=-1.0, reef_flat_width_m=100.0, c_f=0.05,
+    )
+    # High tide: tide = +1.0m -> hr = 2.0m
+    psi_high, hr_high, kc_high, kf_high, hs_high = compute_reef_dissipation_modulator(
+        hs=hs_in, tide=1.0, surge=0.0, z_reef_m=-1.0, reef_flat_width_m=100.0, c_f=0.05,
+    )
+
+    assert hr_high > hr_low
+    assert kc_high > kc_low
+    assert kf_high > kf_low
+    assert psi_high > psi_low
+    assert hs_high > hs_low
+
+
+def test_reef_dry_exposure_and_non_reef_bypass():
+    """Verify that dry reef blocks 100% of wave energy and non-reef coasts pass 100% through."""
+    # 1. Dry reef: water level below reef crest (tide = -1.5m, Zreef = -1.0m -> hr = 0)
+    psi_dry, hr_dry, kc_dry, kf_dry, hs_dry = compute_reef_dissipation_modulator(
+        hs=4.0, tide=-1.5, surge=0.0, z_reef_m=-1.0, reef_flat_width_m=150.0, is_reef=True,
+    )
+    assert hr_dry == 0.0
+    assert kc_dry == 0.0
+    assert kf_dry == 0.0
+    assert psi_dry == 0.0
+    assert hs_dry == 0.0
+
+    # 2. Non-reef bypass: is_reef = False
+    psi_nr, hr_nr, kc_nr, kf_nr, hs_nr = compute_reef_dissipation_modulator(
+        hs=4.0, tide=0.5, surge=0.2, z_reef_m=-1.0, is_reef=False,
+    )
+    assert psi_nr == 1.0
+    assert kc_nr == 1.0
+    assert kf_nr == 1.0
+    assert hs_nr == 4.0
+
 
 
 
