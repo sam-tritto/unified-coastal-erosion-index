@@ -14,6 +14,9 @@ from src.physics import (
     compute_wave_energy_flux,
     compute_dean_number,
     compute_shore_normal_wind,
+    compute_tidal_smearing_factor,
+    compute_directional_wave_factor,
+    compute_longshore_transport_divergence,
     compute_unified_coastal_vulnerability_index,
     compute_signed_coastal_vulnerability_index,
     compute_dynamic_foreshore_slope,
@@ -620,6 +623,132 @@ def test_signed_accretion_channel():
     )
     assert isinstance(scalar_signed, float)
     assert scalar_signed > 0.0
+
+
+def test_tidal_smearing_factor():
+    """Verify tidal energy dissipation & dilution factor Psi_tide = 1 / (1 + TR / (2 * Hs))."""
+    # 1. Microtidal (Duck, NC: TR = 1.0m, Hs = 4.0m) -> Psi_tide = 1 / (1 + 1/8) = 0.8889
+    psi_duck = compute_tidal_smearing_factor(tide_range_m=1.0, hs=4.0)
+    np.testing.assert_allclose(psi_duck, 1.0 / (1.0 + 1.0 / 8.0), rtol=1e-4)
+    assert psi_duck > 0.85  # Concentrated berm attack
+
+    # 2. Macrotidal (Truc Vert: TR = 4.5m, Hs = 3.0m) -> Psi_tide = 1 / (1 + 4.5/6) = 0.5714
+    psi_truc = compute_tidal_smearing_factor(tide_range_m=4.5, hs=3.0)
+    np.testing.assert_allclose(psi_truc, 1.0 / (1.0 + 4.5 / 6.0), rtol=1e-4)
+    assert psi_truc < 0.60  # Energy diluted across intertidal sweep
+
+    # 3. Microtidal limit (TR -> 0)
+    psi_micro_limit = compute_tidal_smearing_factor(tide_range_m=0.0, hs=3.0)
+    np.testing.assert_allclose(psi_micro_limit, 1.0, rtol=1e-5)
+
+    # 4. Array inputs
+    tr_arr = np.array([0.0, 1.0, 4.5])
+    hs_arr = np.array([2.0, 4.0, 3.0])
+    psi_arr = compute_tidal_smearing_factor(tide_range_m=tr_arr, hs=hs_arr)
+    assert len(psi_arr) == 3
+    assert psi_arr[0] > psi_arr[1] > psi_arr[2]
+
+
+def test_directional_wave_factor_and_rectification():
+    """Verify rectified shore-normal directional wave factor Psi_dir = max(0, cos(theta_rel))^2."""
+    shore_normal = 70.0  # Duck, NC
+
+    # 1. Direct shore-normal incidence (theta_wave = 70 deg) -> Psi_dir = 1.0
+    psi_normal = compute_directional_wave_factor(wave_dir_deg=70.0, shore_normal_deg=shore_normal, m=2.0)
+    np.testing.assert_allclose(psi_normal, 1.0, rtol=1e-5)
+
+    # 2. Oblique wave incidence (45 deg angle) -> cos(45)^2 = 0.50 (matching radiation stress S_xx)
+    psi_oblique = compute_directional_wave_factor(wave_dir_deg=115.0, shore_normal_deg=shore_normal, m=2.0)
+    np.testing.assert_allclose(psi_oblique, 0.50, rtol=1e-4)
+
+    # 3. Shadowed / offshore wave incidence (120 deg angle) -> rectified to 0.0 (no negative erosion/accretion)
+    psi_shadowed = compute_directional_wave_factor(wave_dir_deg=190.0, shore_normal_deg=shore_normal, m=2.0)
+    np.testing.assert_allclose(psi_shadowed, 0.0, atol=1e-5)
+
+    # 4. Array broadcast
+    angles = np.array([70.0, 115.0, 190.0, 25.0])
+    psi_vec = compute_directional_wave_factor(wave_dir_deg=angles, shore_normal_deg=shore_normal, m=2.0)
+    assert len(psi_vec) == 4
+    np.testing.assert_allclose(psi_vec[0], 1.0, rtol=1e-4)
+    np.testing.assert_allclose(psi_vec[1], 0.5, rtol=1e-4)
+    np.testing.assert_allclose(psi_vec[2], 0.0, atol=1e-5)
+    np.testing.assert_allclose(psi_vec[3], 0.5, rtol=1e-4)
+
+
+def test_longshore_transport_divergence():
+    """Verify alongshore transport / rotational potential Phi_longshore = sin(2 * theta_rel)."""
+    shore_normal = 85.0  # Narrabeen, Australia
+
+    # 1. Shore-normal incidence -> Phi_longshore = 0
+    phi_normal = compute_longshore_transport_divergence(85.0, shore_normal_deg=shore_normal)
+    np.testing.assert_allclose(phi_normal, 0.0, atol=1e-5)
+
+    # 2. +45 deg oblique ECL storm -> Phi_longshore = sin(90) = +1.0
+    phi_pos = compute_longshore_transport_divergence(130.0, shore_normal_deg=shore_normal)
+    np.testing.assert_allclose(phi_pos, 1.0, rtol=1e-4)
+
+    # 3. -45 deg oblique storm -> Phi_longshore = sin(-90) = -1.0
+    phi_neg = compute_longshore_transport_divergence(40.0, shore_normal_deg=shore_normal)
+    np.testing.assert_allclose(phi_neg, -1.0, rtol=1e-4)
+
+
+def test_unified_index_global_continuous_scaling():
+    """Verify that Upsilon self-scales across global archetypes (Duck, Torrey Pines, Truc Vert, Narrabeen)
+    as a continuous dimensionless manifold.
+    """
+    # 1. Duck: Microtidal storm barrier (Surge dominant, concentrated tidal impact)
+    df_duck = compute_unified_coastal_vulnerability_index(
+        hs=np.array([4.0]),
+        tp=np.array([10.0]),
+        surge=np.array([1.5]),
+        wind_speed=np.array([15.0]),
+        wind_dir_deg=np.array([70.0]),
+        wave_dir_deg=np.array([70.0]),
+        site="duck_nc",
+    )
+    assert df_duck["psi_tide"].iloc[0] > 0.85
+    assert df_duck["psi_dir"].iloc[0] == 1.0
+    assert df_duck["upsilon"].iloc[0] > 0.0
+
+    # 2. Truc Vert: Macrotidal high-energy (Tidal smearing dilutes energy)
+    df_truc = compute_unified_coastal_vulnerability_index(
+        hs=np.array([3.0]),
+        tp=np.array([12.0]),
+        surge=np.array([0.3]),
+        wind_speed=np.array([10.0]),
+        wind_dir_deg=np.array([275.0]),
+        wave_dir_deg=np.array([275.0]),
+        site="truc_vert_france",
+    )
+    assert df_truc["psi_tide"].iloc[0] < 0.60
+    assert df_truc["upsilon"].iloc[0] > 0.0
+
+    # 3. Torrey Pines: Pacific long-period swell (Runup dominant, surge ~ 0)
+    df_tp = compute_unified_coastal_vulnerability_index(
+        hs=np.array([2.5]),
+        tp=np.array([16.0]),
+        surge=np.array([0.05]),
+        wind_speed=np.array([3.0]),
+        wind_dir_deg=np.array([265.0]),
+        wave_dir_deg=np.array([265.0]),
+        site="torrey_pines_ca",
+    )
+    assert df_tp["runup_r2_m"].iloc[0] > 1.5
+    assert df_tp["total_water_level_m"].iloc[0] > 1.5
+
+    # 4. Narrabeen: Embayed rotational coast (Oblique waves split into cross-shore vs alongshore)
+    df_narr = compute_unified_coastal_vulnerability_index(
+        hs=np.array([3.0]),
+        tp=np.array([11.0]),
+        surge=np.array([0.4]),
+        wind_speed=np.array([12.0]),
+        wind_dir_deg=np.array([130.0]),
+        wave_dir_deg=np.array([130.0]),  # +45 deg oblique East Coast Low
+        site="narrabeen_aus",
+    )
+    np.testing.assert_allclose(df_narr["psi_dir"].iloc[0], 0.50, rtol=1e-3)
+    np.testing.assert_allclose(df_narr["phi_longshore"].iloc[0], 1.0, rtol=1e-3)
+
 
 
 

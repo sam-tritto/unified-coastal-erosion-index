@@ -32,9 +32,11 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "tan_beta": 0.08,
         "d50_m": 0.00035,        # 0.35 mm medium quartz sand
         "berm_crest_m": 2.5,
+        "z_crest_m": 2.5,
         "min_slope": 0.035,
         "max_slope": 0.12,
         "tide_range_m": 1.0,     # Microtidal
+        "shelter_factor": 1.0,
         "default_transects": ["FRF_0058", "FRF_0109"],
         "coops_station_id": "8651370",
         "primary_buoy_id": "44056",
@@ -47,9 +49,11 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "tan_beta": 0.09,
         "d50_m": 0.00030,        # 0.30 mm medium marine sand
         "berm_crest_m": 3.0,
+        "z_crest_m": 3.0,
         "min_slope": 0.040,
         "max_slope": 0.13,
-        "tide_range_m": 1.5,
+        "tide_range_m": 1.2,     # Micro-mesotidal
+        "shelter_factor": 0.85,
         "default_transects": ["PF2", "PF4"],
     },
     "torrey_pines_ca": {
@@ -58,9 +62,11 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "tan_beta": 0.04,
         "d50_m": 0.00020,        # 0.20 mm fine sand
         "berm_crest_m": 2.0,
+        "z_crest_m": 2.0,
         "min_slope": 0.025,
         "max_slope": 0.07,
-        "tide_range_m": 1.8,
+        "tide_range_m": 1.5,     # Mixed semi-diurnal
+        "shelter_factor": 1.0,
         "default_transects": ["TP_NORTH", "TP_SOUTH"],
         "coops_station_id": "9410230",
         "primary_buoy_id": "46254",
@@ -73,9 +79,11 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "tan_beta": 0.05,
         "d50_m": 0.00022,        # 0.22 mm fine quartz sand
         "berm_crest_m": 2.2,
+        "z_crest_m": 2.2,
         "min_slope": 0.030,
         "max_slope": 0.08,
         "tide_range_m": 1.4,
+        "shelter_factor": 1.0,
         "default_transects": ["GC_NORTH", "GC_SOUTH"],
     },
     "truc_vert_france": {
@@ -84,9 +92,11 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "tan_beta": 0.06,
         "d50_m": 0.00038,        # 0.38 mm medium-coarse sand
         "berm_crest_m": 3.5,
+        "z_crest_m": 3.5,
         "min_slope": 0.035,
         "max_slope": 0.10,
-        "tide_range_m": 3.5,     # Mesotidal
+        "tide_range_m": 4.5,     # Macrotidal
+        "shelter_factor": 1.0,
         "default_transects": ["TV_MAIN", "TV_NORTH"],
     },
 }
@@ -428,6 +438,106 @@ def compute_cross_array_dissipation_ratio(
     return delta_p, shielding
 
 
+def compute_tidal_smearing_factor(
+    tide_range_m: Union[float, np.ndarray],
+    hs: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    """Compute tidal dissipation and intertidal energy smearing factor Psi_tide.
+
+    Psi_tide = 1 / (1 + TR / (2 * Hs))
+
+    When tidal range TR is large (macrotidal), breaking wave energy is smeared across
+    a wide intertidal sweep (W = TR / tan(beta)), diluting resident wave work at the dune toe.
+    When TR approaches 0 (microtidal limit), Psi_tide -> 1.0 (concentrated berm attack).
+
+    Parameters
+    ----------
+    tide_range_m : float or np.ndarray
+        Mean spring or diurnal tidal range (m).
+    hs : float or np.ndarray
+        Significant wave height (m).
+
+    Returns
+    -------
+    psi_tide : float or np.ndarray
+        Dimensionless tidal smearing factor in (0, 1].
+    """
+    tr_arr = np.maximum(np.asarray(tide_range_m, dtype=float), 0.0)
+    hs_arr = np.maximum(np.asarray(hs, dtype=float), 0.05)
+    psi = 1.0 / (1.0 + (tr_arr / (2.0 * hs_arr)))
+    if np.isscalar(tide_range_m) and np.isscalar(hs):
+        return float(psi)
+    return psi
+
+
+def compute_directional_wave_factor(
+    wave_dir_deg: Union[float, np.ndarray],
+    shore_normal_deg: float,
+    m: float = 2.0,
+) -> Union[float, np.ndarray]:
+    """Compute the rectified shore-normal directional wave factor Psi_dir.
+
+    Psi_dir = max(0, cos(theta_wave - theta_shore))^m
+
+    Shore-normal incidence (theta_rel = 0) yields Psi_dir = 1.0.
+    Oblique waves (e.g. |theta_rel| = 45 deg, m=2) scale to 0.50, matching the shore-normal
+    radiation stress S_xx ~ E * cos^2(theta) that drives cross-shore setup and sediment transport.
+    Offshore / shadowed waves (|theta_rel| >= 90 deg) are rectified to 0.0 to prevent non-physical accretion.
+
+    Parameters
+    ----------
+    wave_dir_deg : float or np.ndarray
+        Wave approach direction (degrees True, coming from).
+    shore_normal_deg : float
+        Shore-normal orientation azimuth (degrees True, pointing offshore).
+    m : float
+        Directional exponent (default 2.0 for radiation stress S_xx).
+
+    Returns
+    -------
+    psi_dir : float or np.ndarray
+        Dimensionless directional alignment factor in [0, 1].
+    """
+    dir_arr = np.asarray(wave_dir_deg, dtype=float)
+    angle_rad = np.radians(dir_arr - float(shore_normal_deg))
+    cos_proj = np.maximum(0.0, np.cos(angle_rad))
+    psi = cos_proj ** float(m)
+    if np.isscalar(wave_dir_deg):
+        return float(psi)
+    return psi
+
+
+def compute_longshore_transport_divergence(
+    wave_dir_deg: Union[float, np.ndarray],
+    shore_normal_deg: float,
+) -> Union[float, np.ndarray]:
+    """Compute alongshore transport / rotational potential Phi_longshore.
+
+    Phi_longshore = sin(2 * (theta_wave - theta_shore))
+
+    On embayed or rotational beaches (e.g., Narrabeen), cross-shore 1D erosion is coupled
+    with alongshore sediment transport gradients Q_ls ~ Hs^2.5 * sin(2 * theta_rel).
+
+    Parameters
+    ----------
+    wave_dir_deg : float or np.ndarray
+        Wave approach direction (degrees True).
+    shore_normal_deg : float
+        Shore-normal azimuth (degrees True).
+
+    Returns
+    -------
+    phi_longshore : float or np.ndarray
+        Alongshore transport divergence / rotational factor in [-1, 1].
+    """
+    dir_arr = np.asarray(wave_dir_deg, dtype=float)
+    angle_rad = np.radians(dir_arr - float(shore_normal_deg))
+    phi = np.sin(2.0 * angle_rad)
+    if np.isscalar(wave_dir_deg):
+        return float(phi)
+    return phi
+
+
 def compute_constructive_accretion_potential(
     hs: Union[float, np.ndarray],
     tp: Union[float, np.ndarray],
@@ -519,6 +629,8 @@ def compute_unified_coastal_vulnerability_index(
     surge: Union[float, np.ndarray],
     wind_speed: Union[float, np.ndarray],
     wind_dir_deg: Union[float, np.ndarray],
+    wave_dir_deg: Optional[Union[float, np.ndarray]] = None,
+    tide_range_m: Optional[Union[float, np.ndarray]] = None,
     water_temp_c: Optional[Union[float, np.ndarray]] = None,
     p_outer_Wm: Optional[Union[float, np.ndarray]] = None,
     hs_exponent: float = 2.5,
@@ -537,15 +649,15 @@ def compute_unified_coastal_vulnerability_index(
     g: float = G_CONST,
     tau: float = TAU_CONST,
 ) -> pd.DataFrame:
-    """Compute the Unified Coastal Vulnerability Index (Υ) with dynamic geomorphology and site parameterization.
+    """Compute the Unified Coastal Vulnerability Index (Υ) with continuous dimensionless modulators and site parameterization.
 
     Theoretical & Dimensional Formulation
     -------------------------------------
     The Unified Coastal Vulnerability Index (Υ) is a semi-empirical, physics-informed composite index
     designed to synthesize wave power flux, dynamic sediment settling kinetics, foreshore beach slope,
-    empirical wave height scaling, and total water level (TWL) / wind forcing modulations:
+    empirical wave height scaling, total water level (TWL), tidal energy dilution, and directional radiation stress:
 
-        Υ = C_0 * tan(beta) * [ (Hs^n * Tp) / ws(T) ] * TWL_amp * Wind_amp
+        Υ = C_0 * tan(beta) * [ (Hs^n * Tp) / ws(T) ] * TWL_amp * Psi_tide * Psi_dir * Wind_amp
 
     Dimensional Breakdown:
     - Prefactor C_0 = (rho * g^1.5) / (16 * (2*pi)^1.5) has physical dimensions [kg / (m^0.5 * s^3)].
@@ -553,20 +665,18 @@ def compute_unified_coastal_vulnerability_index(
     - Sediment-wave core [ (Hs^n * Tp) / ws(T) ] has dimensions [m^(n-1) * s^2].
     - At the baseline exponent n = 2.5, the core dimensions are [m^1.5 * s^2], giving Υ net dimensions
       of [kg / s] (kinetic mass forcing rate per second).
-    - When n is varied or learned via Bayesian MCMC (n in [1.0, 3.0]), Υ serves as a parametric vulnerability
-      index rather than an invariant dimensional constant.
+    - Continuous modulators (TWL_amp, Psi_tide, Psi_dir, Wind_amp) are dimensionless scaling factors [-].
 
-    Wave Exponent Parameterization:
-    - The default hs_exponent = 2.5 represents a physically-motivated empirical baseline spanning the regime
-      between pure wave energy flux (P ~ Hs^2.0) and sediment mobilization/suspension scaling (~ Hs^2.5 to Hs^3.0,
-      e.g. CERC alongshore transport P_ls ~ Hs^2.5). It is treated as an empirical tuning parameter that can be
-      inferred directly from site observations using `build_learnable_exponent_bayesian_model`.
-
-    Decoupled TWL & Wind Normalization:
-    - TWL_amp = 1.0 + max(Surge / s_ref, 0) + max(R_2% / r_ref, 0) provides pure non-dimensional reference scaling
-      (s_ref = 1.0m, r_ref = 2.0m) decoupled from wave height, preserving the pure Hs^n power-law scaling across
-      all hydrodynamic regimes and ensuring exact mathematical alignment with the Bayesian inference model.
-    - Wind_amp = 1.0 + clip(sgn(W_a) * (|W_a| / w_ref)^2, -w_bound, w_bound).
+    Continuous Dimensionless Scaling Factors:
+    1. Tidal Smearing Factor: Psi_tide = 1 / (1 + TR / (2 * Hs))
+       Dilutes wave work across a broad intertidal sweep on macrotidal beaches (Truc Vert) while
+       concentrating berm attack on microtidal coasts (Duck, NC).
+    2. Rectified Shore-Normal Directional Alignment: Psi_dir = max(0, cos(theta_wave - theta_shore))^2
+       Matches shore-normal radiation stress S_xx ~ E * cos^2(theta_rel) that drives cross-shore gouging.
+    3. Alongshore Rotational Divergence: Phi_longshore = sin(2 * (theta_wave - theta_shore))
+       Captures alongshore transport gradients and beach rotation on embayed coasts (Narrabeen).
+    4. Decoupled TWL Amplification: TWL_amp = 1.0 + max(S / s_ref, 0) + max(R_2% / r_ref, 0)
+    5. Wind Amplification: Wind_amp = 1.0 + clip(sgn(W_a) * (|W_a| / w_ref)^2, -w_bound, w_bound)
 
     Parameters
     ----------
@@ -580,6 +690,10 @@ def compute_unified_coastal_vulnerability_index(
         Wind speed |U| in m/s.
     wind_dir_deg : float or np.ndarray
         Wind direction in degrees True.
+    wave_dir_deg : float or np.ndarray, optional
+        Wave approach direction in degrees True. Defaults to shore-normal orientation.
+    tide_range_m : float or np.ndarray, optional
+        Tidal range (m). If omitted, inferred from site profile or set to 0.0 (microtidal limit).
     water_temp_c : float or np.ndarray, optional
         Observed seawater temperature in Celsius.
     p_outer_Wm : float or np.ndarray, optional
@@ -614,7 +728,7 @@ def compute_unified_coastal_vulnerability_index(
     Returns
     -------
     df_out : pd.DataFrame
-        DataFrame with hydrodynamics, dynamic settling kinetics, wave dissipation, runup, slope, grain size, and Υ.
+        DataFrame with hydrodynamics, dynamic settling kinetics, wave dissipation, runup, slope, grain size, modulators, and Υ.
     """
     hs_arr = np.asarray(hs, dtype=float)
     tp_arr = np.asarray(tp, dtype=float)
@@ -630,6 +744,15 @@ def compute_unified_coastal_vulnerability_index(
     eff_shore_normal = shore_normal_deg if shore_normal_deg is not None else site_cfg.get("shore_normal_deg", DUCK_SHORE_NORMAL_DEG)
     base_tan_beta = tan_beta if tan_beta is not None else site_cfg.get("tan_beta", 0.08)
     base_d50 = d50_m if d50_m is not None else site_cfg.get("d50_m", 0.00035)
+    base_tr = tide_range_m if tide_range_m is not None else site_cfg.get("tide_range_m", 0.0)
+
+    tr_arr = np.broadcast_to(np.asarray(base_tr, dtype=float), hs_arr.shape) if not np.isscalar(base_tr) else np.full_like(hs_arr, float(base_tr))
+
+    if wave_dir_deg is not None:
+        w_dir_arr = np.broadcast_to(np.asarray(wave_dir_deg, dtype=float), hs_arr.shape) if not np.isscalar(wave_dir_deg) else np.full_like(hs_arr, float(wave_dir_deg))
+    else:
+        # Default to shore-normal wave incidence (Psi_dir = 1.0, Phi_ls = 0.0) when wave direction is unspecified
+        w_dir_arr = np.full_like(hs_arr, float(eff_shore_normal))
 
     # 2. Dynamic geomorphological evolution
     if dynamic_slope and np.isscalar(base_tan_beta):
@@ -669,30 +792,29 @@ def compute_unified_coastal_vulnerability_index(
         delta_p = np.zeros_like(hs_arr)
         shielding = np.ones_like(hs_arr)
     
-    # 7. Prefactor: (rho * g^1.5) / (16 * tau^1.5)
+    # 7. Continuous Dimensionless Physical Modulators
+    psi_tide = compute_tidal_smearing_factor(tr_arr, hs_arr)
+    psi_dir = compute_directional_wave_factor(w_dir_arr, eff_shore_normal, m=2.0)
+    phi_longshore = compute_longshore_transport_divergence(w_dir_arr, eff_shore_normal)
+
+    # 8. Prefactor & Wave-Sediment Kinetic Core: C_0 * (Hs^n * Tp) / ws(T)
     prefactor = (rho * (g ** 1.5)) / (16.0 * (tau ** 1.5))
-    
-    # Wave energy & sediment kinetic core with parameterized exponent n: (Hs^n * Tp) / ws(T)
     wave_sed_core = ( (np.maximum(hs_arr, 0.01) ** n_exp) * np.maximum(tp_arr, 0.1) ) / ws
     
-    # Total Water Level / Surge amplification factor.
-    # Decoupled non-dimensional surge and wave runup amplification terms normalized by their
-    # respective physical reference scales (s_ref and r_ref). Decoupling from wave height
-    # preserves the pure power-law scaling of Hs^n and ensures mathematical consistency
-    # between forward physics and Bayesian MCMC parameter estimation.
+    # 9. Decoupled Non-Dimensional TWL Amplification Factor
     twl_amplification = (
         1.0
         + np.maximum(surge_arr / max(s_ref, 1e-3), 0.0)
         + np.maximum(r_2 / max(r_ref, 1e-3), 0.0)
     )
     
-    # Wind amplification factor: quadratic stress scaling with symmetric bounding
+    # 10. Projected Wind Stress Amplification Factor
     w_sign = np.sign(w_a)
     w_quad = w_sign * ((np.abs(w_a) / max(w_ref, 1.0)) ** 2)
     wind_amplification = 1.0 + np.clip(w_quad, -w_bound, w_bound)
     
-    # Robust Unified Coastal Vulnerability Index
-    upsilon = prefactor * tan_beta_arr * wave_sed_core * twl_amplification * wind_amplification
+    # 11. Unified Coastal Vulnerability Index (Upsilon_unified)
+    upsilon = prefactor * tan_beta_arr * wave_sed_core * twl_amplification * psi_tide * psi_dir * wind_amplification
     
     # Shielded Upsilon (accounting for outer sandbar energy dissipation)
     upsilon_shielded = upsilon * shielding
@@ -717,6 +839,11 @@ def compute_unified_coastal_vulnerability_index(
         "wind_speed_ms": wind_speed,
         "wind_dir_deg": wind_dir_deg,
         "wind_normal_ms": w_a,
+        "wave_dir_deg": w_dir_arr,
+        "tide_range_m": tr_arr,
+        "psi_tide": psi_tide,
+        "psi_dir": psi_dir,
+        "phi_longshore": phi_longshore,
         "w_s_ms": ws,
         "l_0_m": l_0,
         "xi_iribarren": xi,

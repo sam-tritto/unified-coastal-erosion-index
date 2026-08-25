@@ -707,11 +707,13 @@ def generate_frf_duck_hurricane_ian_dataset(
         surge=surge,
         wind_speed=wind_speed,
         wind_dir_deg=wind_dir,
+        wave_dir_deg=wave_dir,
         water_temp_c=water_temp,
         p_outer_Wm=p_outer_est,
         d50_m=d50_m,
         tan_beta=tan_beta,
         shore_normal_deg=DUCK_SHORE_NORMAL_DEG,
+        site="duck_nc",
     )
     
     x_true, x_obs = simulate_equilibrium_shoreline_evolution(
@@ -800,6 +802,7 @@ def _fetch_and_merge_single_window(
         return None
 
     p_outer = merged["p_outer_Wm"] if "p_outer_Wm" in merged.columns else None
+    wave_dir_val = merged["wave_dir_deg"].values if "wave_dir_deg" in merged.columns else None
 
     phys = compute_unified_coastal_vulnerability_index(
         hs=merged["hs_m"],
@@ -807,8 +810,10 @@ def _fetch_and_merge_single_window(
         surge=merged["surge_m"],
         wind_speed=merged["wind_speed_ms"],
         wind_dir_deg=merged["wind_dir_deg"],
+        wave_dir_deg=wave_dir_val,
         water_temp_c=merged["water_temp_c"].values,
         p_outer_Wm=p_outer.values if p_outer is not None else None,
+        site="duck_nc",
     )
 
     # Morphodynamic simulation (independent of Upsilon)
@@ -1068,12 +1073,14 @@ def fetch_noaa_annual_dataset(
 
     # 4. Derive physical indices
     p_outer = merged["p_outer_Wm"] if "p_outer_Wm" in merged.columns else None
+    wave_dir_val = merged["wave_dir_deg"].values if "wave_dir_deg" in merged.columns else None
     phys = compute_unified_coastal_vulnerability_index(
         hs=merged["hs_m"],
         tp=merged["tp_s"],
         surge=merged["surge_m"],
         wind_speed=merged["wind_speed_ms"],
         wind_dir_deg=merged["wind_dir_deg"],
+        wave_dir_deg=wave_dir_val,
         water_temp_c=merged["water_temp_c"].values if "water_temp_c" in merged.columns else None,
         p_outer_Wm=p_outer.values if p_outer is not None else None,
         site=site_key,
@@ -1209,9 +1216,10 @@ def fetch_site_annual_dataset(
     surge = np.clip(0.04 + 0.06 * rng.normal(0, 1, n) + storm_surge_addition, -0.6, 2.0)
     water_level = tide_pred.values + surge
 
-    # 4. Wind speed & direction
+    # 4. Wind speed, wind direction & wave approach direction
     wind_spd = np.clip(5.0 + 1.2 * hs + storm_wind_addition + rng.normal(0, 0.8, n), 0.5, 35.0)
     wind_dir = (rng.normal(shore_normal, 45.0, n) + rng.choice([0, 180], size=n, p=[0.6, 0.4])) % 360.0
+    wave_dir = (rng.normal(shore_normal, 20.0, n)) % 360.0
 
     # 5. Seawater Temperature with seasonal & turbulent synoptic variance
     if site_key in ["narrabeen_aus", "gold_coast_aus"]:
@@ -1244,6 +1252,7 @@ def fetch_site_annual_dataset(
         surge=surge,
         wind_speed=wind_spd,
         wind_dir_deg=wind_dir,
+        wave_dir_deg=wave_dir,
         water_temp_c=water_temp,
         p_outer_Wm=p_outer,
         site=site_key,
