@@ -1556,14 +1556,44 @@ def align_hydrodynamics_with_field_surveys(
         xbeach_delta = float(xbeach_full[exact_pos] - xbeach_full[prev_pos]) if exact_pos < len(xbeach_full) and prev_pos < len(xbeach_full) else 0.0
         xbeach_pos = float(xbeach_full[exact_pos]) if exact_pos < len(xbeach_full) else 0.0
 
+        # Comprehensive inter-survey hydrodynamic statistics
         mean_ups = float(sub_hydro["upsilon"].mean()) if "upsilon" in sub_hydro.columns else 0.0
         peak_ups = float(sub_hydro["upsilon"].max()) if "upsilon" in sub_hydro.columns else 0.0
+        cum_ups = float(sub_hydro["upsilon"].sum()) if "upsilon" in sub_hydro.columns else 0.0
         log_ups_mean = float(sub_hydro["log_upsilon"].mean()) if "log_upsilon" in sub_hydro.columns else np.log10(max(mean_ups, 1e-4))
+        log_peak_ups = np.log10(max(peak_ups, 1e-4))
+
         max_hs = float(sub_hydro["hs_m"].max()) if "hs_m" in sub_hydro.columns else 0.0
         mean_hs = float(sub_hydro["hs_m"].mean()) if "hs_m" in sub_hydro.columns else 0.0
         max_surge = float(sub_hydro["surge_m"].max()) if "surge_m" in sub_hydro.columns else 0.0
         mean_dean = float(sub_hydro["dean_number"].mean()) if "dean_number" in sub_hydro.columns else 0.0
         max_power = float(sub_hydro["p_flux_Wm"].max()) if "p_flux_Wm" in sub_hydro.columns else 0.0
+
+        # Thresholded storm energy work (Omega > 2.0 or storm Hs > 1.5m / high Upsilon)
+        if "dean_number" in sub_hydro.columns and "hs_m" in sub_hydro.columns:
+            storm_mask = (sub_hydro["dean_number"] > 2.0) | (sub_hydro["hs_m"] > 1.5)
+        elif "upsilon" in sub_hydro.columns:
+            storm_mask = sub_hydro["upsilon"] > 2000.0
+        else:
+            storm_mask = np.zeros(len(sub_hydro), dtype=bool)
+
+        if "upsilon" in sub_hydro.columns:
+            storm_work = float(np.sum(sub_hydro.loc[storm_mask, "upsilon"])) if storm_mask.any() else 0.0
+        else:
+            storm_work = 0.0
+        log_storm_work = float(np.log10(max(storm_work, 1.0)))
+
+        # Calm period accretion potential
+        calm_mask = ~storm_mask
+        if "accretion_potential" in sub_hydro.columns:
+            acc_series = sub_hydro["accretion_potential"]
+            accretion_work = float(np.sum(acc_series.loc[calm_mask])) if calm_mask.any() else float(np.sum(acc_series))
+        elif "tp_s" in sub_hydro.columns and "hs_m" in sub_hydro.columns:
+            acc_series = sub_hydro["tp_s"] / np.maximum(sub_hydro["hs_m"], 0.1)
+            accretion_work = float(np.sum(acc_series.loc[calm_mask])) if calm_mask.any() else float(np.sum(acc_series))
+        else:
+            accretion_work = 0.0
+        log_accretion_work = float(np.log10(max(accretion_work, 1.0)))
 
         rec = {
             "survey_date": surv_t,
@@ -1572,10 +1602,16 @@ def align_hydrodynamics_with_field_surveys(
             "surveyed_pos_mhw_m": float(row["shoreline_pos_mhw_m"]),
             "surveyed_delta_x_m": float(row["cross_shore_change_m"]),
             "cumulative_displacement_m": float(row["shoreline_pos_mhw_m"] - df_surv.iloc[0]["shoreline_pos_mhw_m"]),
-            "antecedent_mean_upsilon": mean_ups,
             "antecedent_peak_upsilon": peak_ups,
+            "antecedent_log_peak_upsilon": log_peak_ups,
+            "antecedent_storm_work": storm_work,
+            "antecedent_log_storm_work": log_storm_work,
+            "antecedent_accretion_work": accretion_work,
+            "antecedent_log_accretion_work": log_accretion_work,
+            "antecedent_mean_upsilon": mean_ups,
             "antecedent_log_upsilon": log_ups_mean,
             "antecedent_upsilon_memory": ups_mem_val,
+            "antecedent_cum_upsilon": cum_ups,
             "antecedent_max_hs_m": max_hs,
             "antecedent_mean_hs_m": mean_hs,
             "antecedent_max_surge_m": max_surge,

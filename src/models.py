@@ -661,8 +661,8 @@ def run_benchmark_model_comparison(
 
     if is_survey_data:
         # Survey-epoch dataset mapping
-        ups_raw_train = df_train["antecedent_upsilon_memory"].values if "antecedent_upsilon_memory" in df_train.columns else df_train["antecedent_mean_upsilon"].values
-        ups_raw_full = df["antecedent_upsilon_memory"].values if "antecedent_upsilon_memory" in df.columns else df["antecedent_mean_upsilon"].values
+        ups_raw_train = df_train["antecedent_mean_upsilon"].values if "antecedent_mean_upsilon" in df_train.columns else df_train["antecedent_upsilon_memory"].values
+        ups_raw_full = df["antecedent_mean_upsilon"].values if "antecedent_mean_upsilon" in df.columns else df["antecedent_upsilon_memory"].values
         if use_log_upsilon:
             ups_train = df_train["antecedent_log_upsilon"].values if "antecedent_log_upsilon" in df_train.columns else np.log10(np.maximum(ups_raw_train, 1e-4))
             ups_full = df["antecedent_log_upsilon"].values if "antecedent_log_upsilon" in df.columns else np.log10(np.maximum(ups_raw_full, 1e-4))
@@ -671,6 +671,31 @@ def run_benchmark_model_comparison(
             ups_train = ups_raw_train
             ups_full = ups_raw_full
             ups_label = "Unified Index (Upsilon)"
+
+        # Inter-survey peak storm forcing
+        ups_peak_train = (
+            df_train["antecedent_log_peak_upsilon"].values
+            if (use_log_upsilon and "antecedent_log_peak_upsilon" in df_train.columns)
+            else (df_train["antecedent_peak_upsilon"].values if "antecedent_peak_upsilon" in df_train.columns else ups_train)
+        )
+        ups_peak_full = (
+            df["antecedent_log_peak_upsilon"].values
+            if (use_log_upsilon and "antecedent_log_peak_upsilon" in df.columns)
+            else (df["antecedent_peak_upsilon"].values if "antecedent_peak_upsilon" in df.columns else ups_full)
+        )
+        peak_label = "Unified Index (Peak-Upsilon)" if not use_log_upsilon else "Unified Index (log-Peak-Upsilon)"
+
+        # Inter-survey thresholded storm work
+        storm_work_train = (
+            df_train["antecedent_log_storm_work"].values
+            if "antecedent_log_storm_work" in df_train.columns
+            else (df_train["antecedent_storm_work"].values if "antecedent_storm_work" in df_train.columns else ups_train)
+        )
+        storm_work_full = (
+            df["antecedent_log_storm_work"].values
+            if "antecedent_log_storm_work" in df.columns
+            else (df["antecedent_storm_work"].values if "antecedent_storm_work" in df.columns else ups_full)
+        )
 
         hs_train = df_train["antecedent_mean_hs_m"].values if "antecedent_mean_hs_m" in df_train.columns else df_train["antecedent_max_hs_m"].values
         hs_full = df["antecedent_mean_hs_m"].values if "antecedent_mean_hs_m" in df.columns else df["antecedent_max_hs_m"].values
@@ -684,6 +709,8 @@ def run_benchmark_model_comparison(
             "Wave Power P (Linear)": {"type": "single", "forcing": p_train, "full_forcing": p_full},
             "Dean Number (Linear)": {"type": "single", "forcing": omega_train, "full_forcing": omega_full},
             ups_label: {"type": "single", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon},
+            peak_label: {"type": "single", "forcing": ups_peak_train, "full_forcing": ups_peak_full, "use_log_upsilon": use_log_upsilon},
+            "Unified Index (Storm Work)": {"type": "single", "forcing": storm_work_train, "full_forcing": storm_work_full, "use_log_upsilon": True},
         }
 
         # Add Yates and XBeach baseline competitors if present
@@ -704,9 +731,18 @@ def run_benchmark_model_comparison(
             }
 
         if include_nonlinear:
-            candidates["Upsilon (Non-Linear)"] = {"type": "nonlinear", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon}
+            candidates["Upsilon (Non-Linear)"] = {"type": "nonlinear", "forcing": ups_peak_train, "full_forcing": ups_peak_full, "use_log_upsilon": use_log_upsilon}
 
-        if include_multivariate and "antecedent_max_surge_m" in df_train.columns:
+        if include_multivariate and "antecedent_accretion_work" in df_train.columns:
+            acc_train = df_train["antecedent_log_accretion_work"].values if "antecedent_log_accretion_work" in df_train.columns else df_train["antecedent_accretion_work"].values
+            candidates["Dual-Regime (Storm + Accretion)"] = {
+                "type": "multivariate",
+                "forcings": {
+                    "storm_work": storm_work_train,
+                    "accretion": acc_train,
+                },
+            }
+        elif include_multivariate and "antecedent_max_surge_m" in df_train.columns:
             candidates["Multivariate (Hs+S+Omega)"] = {
                 "type": "multivariate",
                 "forcings": {
@@ -719,8 +755,8 @@ def run_benchmark_model_comparison(
         if include_hybrid and "antecedent_max_surge_m" in df_train.columns:
             candidates["Hybrid (Upsilon Anchor + Multi Residuals)"] = {
                 "type": "hybrid",
-                "upsilon": ups_train,
-                "full_upsilon": ups_full,
+                "upsilon": ups_peak_train,
+                "full_upsilon": ups_peak_full,
                 "use_log_upsilon": use_log_upsilon,
                 "forcings": {
                     "hs": hs_train,
@@ -1444,6 +1480,8 @@ def evaluate_field_survey_correlation(
     xbeach_col = "xbeach_simulated_delta_x_m" if target_col == "surveyed_delta_x_m" else "xbeach_simulated_pos_m"
 
     predictors = {
+        "Unified Index (Peak Storm Upsilon)": "antecedent_log_peak_upsilon" if "antecedent_log_peak_upsilon" in df_aligned_surveys.columns else "antecedent_peak_upsilon",
+        "Unified Index (Cumulative Storm Work)": "antecedent_log_storm_work" if "antecedent_log_storm_work" in df_aligned_surveys.columns else "antecedent_storm_work",
         "Unified Index (Upsilon Memory)": "antecedent_upsilon_memory" if "antecedent_upsilon_memory" in df_aligned_surveys.columns else "antecedent_mean_upsilon",
         "Unified Index (log-Upsilon Memory)": "antecedent_log_upsilon" if "antecedent_log_upsilon" in df_aligned_surveys.columns else "antecedent_upsilon_memory",
         "Yates (2009) Equilibrium Model": yates_col,

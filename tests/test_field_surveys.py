@@ -59,10 +59,17 @@ def test_align_hydrodynamics_with_field_surveys():
     assert len(df_aligned) == len(df_surveys)
     assert "antecedent_mean_upsilon" in df_aligned.columns
     assert "antecedent_upsilon_memory" in df_aligned.columns
+    assert "antecedent_peak_upsilon" in df_aligned.columns
+    assert "antecedent_log_peak_upsilon" in df_aligned.columns
+    assert "antecedent_storm_work" in df_aligned.columns
+    assert "antecedent_log_storm_work" in df_aligned.columns
+    assert "antecedent_accretion_work" in df_aligned.columns
     assert "antecedent_max_hs_m" in df_aligned.columns
     assert "surveyed_pos_mhw_m" in df_aligned.columns
     assert "surveyed_delta_x_m" in df_aligned.columns
     assert not df_aligned["antecedent_mean_upsilon"].isnull().any()
+    assert not df_aligned["antecedent_peak_upsilon"].isnull().any()
+    assert not df_aligned["antecedent_storm_work"].isnull().any()
     assert df_aligned.attrs["data_provenance"]["is_synthetic_morphodynamics"] is False
 
 
@@ -80,8 +87,10 @@ def test_field_survey_correlation_evaluation():
     assert "R2 Score" in df_skill.columns
     assert "RMSE (m)" in df_skill.columns
 
-    # Verify that Upsilon is present in the skill ranking
+    # Verify that Peak and Cumulative Upsilon are present in the skill ranking
     predictors = df_skill["Predictor"].tolist()
+    assert any("Peak Storm Upsilon" in p for p in predictors)
+    assert any("Cumulative Storm Work" in p for p in predictors)
     assert any("Upsilon" in p for p in predictors)
 
 
