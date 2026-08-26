@@ -22,3 +22,5 @@ data/cache/
 *.csv.gz
 
 .env
+unified_coastal_vulnerability_index.pdf
+unified_coastal_vulnerability_index.html

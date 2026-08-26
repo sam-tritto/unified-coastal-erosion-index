@@ -682,7 +682,10 @@ def synthesize_target_physics_vector(
 
     hs_exp = float(target_params.get("hs_exponent", 2.5))
     try:
-        from src.physics import compute_unified_coastal_vulnerability_index
+        try:
+            from src.physics import compute_unified_coastal_vulnerability_index
+        except ImportError:
+            from physics import compute_unified_coastal_vulnerability_index  # type: ignore
         synth_df = compute_unified_coastal_vulnerability_index(
             hs=np.array([baseline["hs_m"]]),
             tp=np.array([baseline["tp_s"]]),

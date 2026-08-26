@@ -48,20 +48,36 @@ import pandas as pd
 import requests
 from typing import Optional, Tuple, Dict, Any, List
 
-from src.physics import (
-    compute_unified_coastal_vulnerability_index,
-    compute_settling_velocity_soulsby,
-    compute_stockdon_wave_runup,
-    compute_shore_normal_wind,
-    compute_jonswap_wind_wave_hindcast,
-    compute_expanding_window_equilibrium,
-    compute_upsilon_disequilibrium,
-    compute_signed_equilibrium_rate,
-    simulate_signed_equilibrium_upsilon_evolution,
-    compute_coupled_2d_embayment_displacement,
-    simulate_coupled_2d_embayment_evolution,
-    DUCK_SHORE_NORMAL_DEG,
-)
+try:
+    from src.physics import (
+        compute_unified_coastal_vulnerability_index,
+        compute_settling_velocity_soulsby,
+        compute_stockdon_wave_runup,
+        compute_shore_normal_wind,
+        compute_jonswap_wind_wave_hindcast,
+        compute_expanding_window_equilibrium,
+        compute_upsilon_disequilibrium,
+        compute_signed_equilibrium_rate,
+        simulate_signed_equilibrium_upsilon_evolution,
+        compute_coupled_2d_embayment_displacement,
+        simulate_coupled_2d_embayment_evolution,
+        DUCK_SHORE_NORMAL_DEG,
+    )
+except ImportError:
+    from physics import (  # type: ignore
+        compute_unified_coastal_vulnerability_index,
+        compute_settling_velocity_soulsby,
+        compute_stockdon_wave_runup,
+        compute_shore_normal_wind,
+        compute_jonswap_wind_wave_hindcast,
+        compute_expanding_window_equilibrium,
+        compute_upsilon_disequilibrium,
+        compute_signed_equilibrium_rate,
+        simulate_signed_equilibrium_upsilon_evolution,
+        compute_coupled_2d_embayment_displacement,
+        simulate_coupled_2d_embayment_evolution,
+        DUCK_SHORE_NORMAL_DEG,
+    )
 
 # Multi-storm event definitions for 2022 at Duck, NC
 STORM_EVENTS_2022: List[Dict[str, str]] = [
