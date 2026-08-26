@@ -10,6 +10,9 @@ from src.embeddings import (
     compute_latent_embeddings,
     compute_regime_centroids,
     synthesize_target_physics_vector,
+    classify_agentic_latent_phases,
+    prune_subcritical_noise_for_agent,
+    extract_recovery_timeframes,
 )
 from src.physics_rag import (
     PhysicsQuerySpec,
@@ -43,7 +46,12 @@ def sample_coastal_df() -> pd.DataFrame:
     dean = hs / (w_s * tp)
     p_flux = (1025.0 * (g ** 2) / (16.0 * 2 * np.pi)) * (hs ** 2) * tp
     ups = (1025.0 * (g ** 1.5) / (16.0 * (2 * np.pi) ** 1.5)) * tan_beta * ((hs ** 2.5) * tp / w_s) * (1.0 + np.maximum(surge / hs, 0.0))
-    dx = np.where(ups > np.median(ups), -np.random.uniform(0.1, 1.2, n), np.random.uniform(0.05, 0.5, n))
+    u_crit = np.full(n, 500.0)
+    u_excess = np.maximum(0.0, ups - u_crit)
+    u_eq = np.full(n, 2500.0)
+    u_diseq = ups - u_eq
+    signed_rate = -1.2e-5 * np.maximum(ups - u_eq, 0.0) + 1.8e-5 * np.maximum(u_eq - ups, 0.0)
+    dx = np.where(ups > u_eq, -np.random.uniform(0.1, 1.2, n), np.random.uniform(0.05, 0.5, n))
     
     return pd.DataFrame({
         "timestamp": dates,
@@ -59,6 +67,11 @@ def sample_coastal_df() -> pd.DataFrame:
         "dean_number": dean,
         "p_flux_Wm": p_flux,
         "upsilon": ups,
+        "upsilon_crit": u_crit,
+        "upsilon_excess": u_excess,
+        "upsilon_eq": u_eq,
+        "upsilon_diseq": u_diseq,
+        "signed_equilibrium_rate": signed_rate,
         "log_upsilon": np.log10(np.maximum(ups, 1e-4)),
         "delta_p_dissip": np.random.uniform(0.2, 0.8, n),
         "accretion_potential": np.random.uniform(10.0, 100.0, n),
@@ -244,6 +257,71 @@ def test_evaluate_retrieval_query_precision_and_purity(sample_coastal_df):
     assert metrics_surge["n_correct"] == 5
 
 
+def test_suggestion_8_threshold_anchor_noise_pruning(sample_coastal_df):
+    """Verify Suggestion 8: Threshold Anchor (Upsilon_crit) prunes subcritical noise to reduce context-window bloat."""
+    phases = classify_agentic_latent_phases(sample_coastal_df, upsilon_crit=500.0)
+    assert "latent_phase" in phases.columns
+    assert "is_background_noise" in phases.columns
+    assert "is_active_forcing" in phases.columns
+    
+    # Prune subcritical noise
+    filtered_df, filtered_emb, stats = prune_subcritical_noise_for_agent(sample_coastal_df, upsilon_crit=500.0)
+    assert len(filtered_df) == stats["retained_active_timesteps"]
+    assert stats["raw_timesteps"] == len(sample_coastal_df)
+    assert stats["pruned_noise_timesteps"] >= 0
+    assert stats["context_compression_ratio_pct"] >= 0.0
+    assert (filtered_df["upsilon"] >= 500.0).all()
+
+
+def test_suggestion_8_state_space_recovery_navigation(sample_coastal_df):
+    """Verify Suggestion 8: State-Space Navigation retrieves recovery phases (+dX) via Signed Disequilibrium."""
+    rag = PhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust")
+    
+    # Check centroid for recovery
+    assert "State_PostStormRecovery" in rag.centroids
+    
+    # Query for post-storm beach recovery phases
+    res = rag.query(
+        "Find post-storm beach recovery phases and recovery timeframes",
+        top_k=5,
+        use_llm_parser=False,
+        use_llm_synthesis=False,
+    )
+    assert isinstance(res, PhysicsRAGResult)
+    assert len(res.matches_df) > 0
+    # Verified: all retrieved states have negative disequilibrium (constructive recovery) or positive dx
+    assert (res.matches_df["upsilon_diseq"] < 0).all() or (res.matches_df["delta_x_m"] >= 0).all()
+    assert "recovery" in res.explanation.lower() or "berm" in res.explanation.lower()
+
+
+def test_suggestion_8_extract_recovery_timeframes(sample_coastal_df):
+    """Verify Suggestion 8: extract_recovery_timeframes calculates duration, rates, and cumulative accretion."""
+    episodes = extract_recovery_timeframes(sample_coastal_df, min_recovery_steps=2)
+    assert isinstance(episodes, list)
+    if len(episodes) > 0:
+        ep = episodes[0]
+        assert "duration_hours" in ep
+        assert "duration_days" in ep
+        assert "simulated_accretion_m" in ep
+        assert "mean_recovery_rate_m_day" in ep
+        assert ep["mean_upsilon_diseq"] < 0
+
+
+def test_suggestion_8_rag_query_with_noise_filtering(sample_coastal_df):
+    """Verify Suggestion 8: Natural language query with background noise pruning."""
+    rag = PhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust")
+    
+    res = rag.query(
+        "Show active storm erosion above critical threshold ignoring background noise",
+        top_k=5,
+        use_llm_parser=False,
+        use_llm_synthesis=False,
+    )
+    assert len(res.matches_df) > 0
+    assert (res.matches_df["upsilon"] >= 500.0).all()
+    assert "subcritical" in res.explanation.lower() or "pruned" in res.explanation.lower()
+
+
 def test_evaluate_rag_benchmark_suite(sample_coastal_df):
     """Test full multi-k RAG benchmark evaluation suite."""
     rag = PhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust")
@@ -254,7 +332,7 @@ def test_evaluate_rag_benchmark_suite(sample_coastal_df):
     )
 
     assert not df_results.empty
-    assert len(df_results) == 10
+    assert len(df_results) == 12  # 10 baseline + 2 Suggestion 8 queries
     assert "Query" in df_results.columns
     assert "Category" in df_results.columns
     assert "P@1" in df_results.columns

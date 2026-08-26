@@ -106,6 +106,10 @@ flowchart LR
 9. **Outer-Array Sandbar Wave Dissipation & Shielding:**
    * Multi-array energy attenuation ratio $\Delta P_{\text{dissip}} = \frac{P_{26\text{m}} - P_{8\text{m}}}{P_{26\text{m}} + 10^{-4}}$ tracking nearshore bar dissipation.
 
+10. **Agentic Latent Space Mapping & Context Optimization (Suggestion 8):**
+   * **The Threshold Anchor ($\Upsilon_{\text{crit}}$):** Operates as a discrete binary classification boundary. When $\Upsilon < \Upsilon_{\text{crit}}$, time steps are categorized as `"Background Noise"` (subcritical hydrodynamic forcing below incipient sand motion), allowing LLM conversational agents and RAG vector retrievers to safely prune non-impactful steps, drastically reducing LLM context-window bloat and token consumption.
+   * **State-Space Recovery Navigation ($\Upsilon_{\text{diseq}} = \Upsilon - \Upsilon_{\text{eq}}$):** Enables LLM agents navigating latent vector spaces to isolate constructive swash recovery phases ($\Upsilon_{\text{diseq}} < 0$, $+\Delta X$) rather than only severe storm gouging events ($-\Delta X$), quantitatively answering natural language inquiries regarding post-storm beach recovery durations and berm accretion timeframes.
+
 ---
 
 ## 2. Global Multi-Site Archetypes

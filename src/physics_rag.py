@@ -22,6 +22,9 @@ try:
         compute_latent_embeddings,
         compute_regime_centroids,
         synthesize_target_physics_vector,
+        classify_agentic_latent_phases,
+        prune_subcritical_noise_for_agent,
+        extract_recovery_timeframes,
     )
 except ImportError:
     from embeddings import (  # type: ignore
@@ -29,6 +32,9 @@ except ImportError:
         compute_latent_embeddings,
         compute_regime_centroids,
         synthesize_target_physics_vector,
+        classify_agentic_latent_phases,
+        prune_subcritical_noise_for_agent,
+        extract_recovery_timeframes,
     )
 
 
@@ -47,6 +53,18 @@ class PhysicsQuerySpec(BaseModel):
     morphology: Optional[Literal["Erosive", "Accretive", "Equilibrium"]] = Field(
         default=None,
         description="Morphodynamic response (Erosive: shoreline recession, Accretive: berm buildup)."
+    )
+    phase: Optional[Literal["Erosion", "Recovery", "Noise", "Equilibrium"]] = Field(
+        default=None,
+        description="Suggestion 8: Discrete agentic state phase (Erosion: Upsilon > Upsilon_eq, Recovery: Upsilon < Upsilon_eq with +dX, Noise: Upsilon < Upsilon_crit)."
+    )
+    filter_background_noise: Optional[bool] = Field(
+        default=None,
+        description="Suggestion 8: If True, prune subcritical background noise (Upsilon < Upsilon_crit) to prevent LLM context-window bloat."
+    )
+    query_recovery_timeframe: Optional[bool] = Field(
+        default=None,
+        description="Suggestion 8: If True, extract post-storm recovery duration, timeframe metrics, and swash accretion rates."
     )
     hs_min: Optional[float] = Field(default=None, description="Minimum significant wave height in meters (Hs >= min).")
     hs_max: Optional[float] = Field(default=None, description="Maximum significant wave height in meters (Hs <= max).")
@@ -70,9 +88,9 @@ class PhysicsQuerySpec(BaseModel):
     )
     target_state: Optional[str] = Field(
         default=None,
-        description="Canonical reference state name (State_ExtremeStormPeak, State_CalmFairWeather, State_LongPeriodSwell, Breaker_Spilling, etc.)"
+        description="Canonical reference state name (State_ExtremeStormPeak, State_CalmFairWeather, State_PostStormRecovery, State_LongPeriodSwell, Breaker_Spilling, etc.)"
     )
-    focus: Optional[str] = Field(default=None, description="Focal phenomenon (e.g. 'surge', 'swell', 'wind', 'calm', 'storm').")
+    focus: Optional[str] = Field(default=None, description="Focal phenomenon (e.g. 'surge', 'swell', 'wind', 'calm', 'storm', 'recovery').")
 
 
 class PhysicsQueryParser:
@@ -88,15 +106,18 @@ class PhysicsQueryParser:
     }
 
     MORPHO_KEYWORDS = {
-        "erosion": {"morphology": "Erosive", "delta_x_max": 0.0},
-        "erosive": {"morphology": "Erosive", "delta_x_max": 0.0},
-        "beach cut": {"morphology": "Erosive", "delta_x_max": -0.1},
-        "scarping": {"morphology": "Erosive", "delta_x_max": -0.1},
-        "accretion": {"morphology": "Accretive", "delta_x_min": 0.0},
-        "accretive": {"morphology": "Accretive", "delta_x_min": 0.0},
-        "recovery": {"morphology": "Accretive", "delta_x_min": 0.0},
-        "berm building": {"morphology": "Accretive", "delta_x_min": 0.0},
-        "berm": {"morphology": "Accretive", "delta_x_min": 0.0},
+        "erosion": {"morphology": "Erosive", "phase": "Erosion", "delta_x_max": 0.0},
+        "erosive": {"morphology": "Erosive", "phase": "Erosion", "delta_x_max": 0.0},
+        "beach cut": {"morphology": "Erosive", "phase": "Erosion", "delta_x_max": -0.1},
+        "scarping": {"morphology": "Erosive", "phase": "Erosion", "delta_x_max": -0.1},
+        "accretion": {"morphology": "Accretive", "phase": "Recovery", "delta_x_min": 0.0},
+        "accretive": {"morphology": "Accretive", "phase": "Recovery", "delta_x_min": 0.0},
+        "recovery": {"morphology": "Accretive", "phase": "Recovery", "delta_x_min": 0.0, "query_recovery_timeframe": True},
+        "recovery phase": {"morphology": "Accretive", "phase": "Recovery", "delta_x_min": 0.0, "query_recovery_timeframe": True},
+        "recovery timeframe": {"morphology": "Accretive", "phase": "Recovery", "delta_x_min": 0.0, "query_recovery_timeframe": True},
+        "berm building": {"morphology": "Accretive", "phase": "Recovery", "delta_x_min": 0.0},
+        "berm accretion": {"morphology": "Accretive", "phase": "Recovery", "delta_x_min": 0.0},
+        "berm": {"morphology": "Accretive", "phase": "Recovery", "delta_x_min": 0.0},
     }
 
     EVENT_KEYWORDS = {
@@ -125,6 +146,9 @@ class PhysicsQueryParser:
             "raw_query": query_text,
             "breaker_regime": None,
             "morphology": None,
+            "phase": None,
+            "filter_background_noise": None,
+            "query_recovery_timeframe": None,
             "high_vuln": False,
             "low_vuln": False,
             "focus": None,
@@ -147,11 +171,30 @@ class PhysicsQueryParser:
         for kw, specs in cls.MORPHO_KEYWORDS.items():
             if re.search(rf"\b{kw}\b", text):
                 parsed["morphology"] = specs["morphology"]
+                if "phase" in specs:
+                    parsed["phase"] = specs["phase"]
+                if "query_recovery_timeframe" in specs:
+                    parsed["query_recovery_timeframe"] = specs["query_recovery_timeframe"]
                 if "delta_x_max" in specs:
                     parsed["filters"]["delta_x_max"] = specs["delta_x_max"]
                 if "delta_x_min" in specs:
                     parsed["filters"]["delta_x_min"] = specs["delta_x_min"]
                 break
+
+        # Suggestion 8: Threshold anchor & Noise filtering keywords
+        if any(w in text for w in ["ignore noise", "filter noise", "above critical", "prune noise", "active forcing", "above critical threshold"]):
+            parsed["filter_background_noise"] = True
+            parsed["filters"]["filter_background_noise"] = True
+
+        if any(w in text for w in ["background noise", "subcritical noise", "subcritical", "below threshold", "below critical"]):
+            parsed["phase"] = "Noise"
+            parsed["target_state"] = "State_SubcriticalNoise"
+
+        if any(w in text for w in ["recovery timeframe", "recovery duration", "how long to recover", "recovery phase", "post-storm recovery", "beach recovery"]):
+            parsed["phase"] = "Recovery"
+            parsed["morphology"] = "Accretive"
+            parsed["target_state"] = "State_PostStormRecovery"
+            parsed["query_recovery_timeframe"] = True
 
         # Check event / state keywords
         for kw, specs in cls.EVENT_KEYWORDS.items():
@@ -220,8 +263,12 @@ class PhysicsQueryParser:
             parsed["target_synthetic_values"] = synth_vals
 
         # Infer target reference state
-        if parsed["high_vuln"] or "peak" in text or "storm" in text or "ian" in text:
+        if parsed.get("target_state"):
+            pass
+        elif parsed["high_vuln"] or "peak" in text or "storm" in text or "ian" in text:
             parsed["target_state"] = "State_ExtremeStormPeak"
+        elif parsed.get("phase") == "Recovery" or "recovery" in text:
+            parsed["target_state"] = "State_PostStormRecovery"
         elif parsed["low_vuln"] or "calm" in text or "fair" in text:
             parsed["target_state"] = "State_CalmFairWeather"
         elif parsed["focus"] == "swell" or "swell" in text:
@@ -236,14 +283,16 @@ class GeminiPhysicsQueryParser:
     """Uses Gemini Flash (or configured model) with structured output to parse natural language queries into PhysicsQuerySpec."""
 
     SYSTEM_PROMPT = """You are an expert coastal oceanographer and hydrodynamic search specialist.
-Your task is to parse a user's natural language query about coastal conditions (waves, surge, morphology, breaker regimes, storms like Hurricane Ian, berm accretion, wind forcing) into a strictly typed JSON schema according to PhysicsQuerySpec.
+Your task is to parse a user's natural language query about coastal conditions (waves, surge, morphology, breaker regimes, storms like Hurricane Ian, berm accretion, recovery timeframes, background noise filtering) into a strictly typed JSON schema according to PhysicsQuerySpec.
 
 Guidelines:
 - If the query mentions 'spilling' or 'dissipative', set breaker_regime="Spilling" and xi_max=0.5.
 - If the query mentions 'plunging' or 'curling', set breaker_regime="Plunging", xi_min=0.5, xi_max=3.3.
 - If the query mentions 'surging', 'collapsing', or 'reflective', set breaker_regime="Surging" and xi_min=3.3.
-- If the query mentions 'erosion', 'beach cut', 'scarping', set morphology="Erosive", delta_x_max=0.0.
-- If the query mentions 'accretion', 'recovery', 'berm building', set morphology="Accretive", delta_x_min=0.0.
+- If the query mentions 'erosion', 'beach cut', 'scarping', set morphology="Erosive", phase="Erosion", delta_x_max=0.0.
+- If the query mentions 'accretion', 'recovery', 'berm building', set morphology="Accretive", phase="Recovery", delta_x_min=0.0, target_state="State_PostStormRecovery".
+- If the query asks about 'recovery timeframe', 'recovery duration', or 'how long the beach takes to recover', set query_recovery_timeframe=True, phase="Recovery", morphology="Accretive", target_state="State_PostStormRecovery".
+- If the query asks to 'ignore background noise', 'filter noise', 'active storm only', or 'above critical threshold', set filter_background_noise=True.
 - If the query mentions 'Hurricane Ian', set target_state="State_ExtremeStormPeak", min_upsilon_percentile=75.0, date_start="2022-09-27", date_end="2022-10-02".
 - If the query mentions 'storm peak', 'extreme storm', 'major storm', set min_upsilon_percentile=75.0, target_state="State_ExtremeStormPeak".
 - If the query mentions 'calm', 'fair weather', 'mild', set max_upsilon_percentile=25.0, target_state="State_CalmFairWeather".
@@ -305,6 +354,9 @@ Guidelines:
             intent_summary=f"Rule-parsed query for '{query_text}'",
             breaker_regime=parsed_dict.get("breaker_regime"),
             morphology=parsed_dict.get("morphology"),
+            phase=parsed_dict.get("phase"),
+            filter_background_noise=parsed_dict.get("filter_background_noise"),
+            query_recovery_timeframe=parsed_dict.get("query_recovery_timeframe"),
             target_state=parsed_dict.get("target_state"),
             focus=parsed_dict.get("focus"),
             hs_min=filters.get("hs_min"),
@@ -358,7 +410,7 @@ def explain_with_gemini(
         display_cols = [
             c for c in [
                 "timestamp", "hs_m", "tp_s", "surge_m", "wind_normal_ms",
-                "xi_iribarren", "breaker_regime", "upsilon", "delta_x_m", "similarity"
+                "xi_iribarren", "breaker_regime", "upsilon", "upsilon_diseq", "delta_x_m", "similarity"
             ] if c in top_df.columns
         ]
         table_str = top_df[display_cols].to_string(index=False)
@@ -367,7 +419,7 @@ def explain_with_gemini(
 Synthesize a concise, 2-to-3 paragraph physical diagnostic narrative for the query: "{query_text}" based strictly on the retrieved observations below.
 
 Query Intent: {spec.intent_summary or spec.raw_query}
-Target Regime: {spec.breaker_regime or 'General Hydrodynamics'}
+Target Regime / Phase: {spec.phase or spec.breaker_regime or 'General Hydrodynamics'}
 
 Retrieved Observation Data:
 {table_str}
@@ -378,12 +430,14 @@ Summary Statistics:
 - Mean Surge Residual (S): {top_df['surge_m'].mean() if 'surge_m' in top_df.columns else 0:.2f} m
 - Mean Iribarren Number (ξ): {top_df['xi_iribarren'].mean() if 'xi_iribarren' in top_df.columns else 0:.2f}
 - Mean Unified Index (Υ): {top_df['upsilon'].mean() if 'upsilon' in top_df.columns else 0:.1e}
+- Mean Signed Disequilibrium (Υ_diseq): {top_df['upsilon_diseq'].mean() if 'upsilon_diseq' in top_df.columns else 0:.1e}
 - Mean Shoreline Displacement (ΔX): {top_df['delta_x_m'].mean() if 'delta_x_m' in top_df.columns else 0:.2f} m
 
 Instructions:
 1. Explain the wave dissipation kinetics and surf similarity / breaker regime (Iribarren number ξ).
-2. Connect wave power flux and total water level (surge + runup) to morphodynamic response (beach cut vs. accretion).
-3. Cite the quantitative numbers directly from the data. Do NOT speculate or hallucinate outside the retrieved records. Keep tone rigorous, objective, and professional.
+2. Connect wave power flux and total water level (surge + runup) to morphodynamic response (beach cut vs. constructive berm accretion).
+3. If this query concerns recovery phases or recovery timeframes, analyze the Signed Disequilibrium (Υ_diseq < 0) driving constructive swash accretion and estimate recovery timeframes.
+4. Cite the quantitative numbers directly from the data. Do NOT speculate or hallucinate outside the retrieved records. Keep tone rigorous, objective, and professional.
 """
         response = client.models.generate_content(
             model=model_name,
@@ -412,6 +466,7 @@ class PhysicsRAGResult:
         llm_explanation: Optional[str] = None,
         query_vector: Optional[np.ndarray] = None,
         metrics: Optional[Dict[str, Any]] = None,
+        recovery_episodes: Optional[List[Dict[str, Any]]] = None,
     ):
         self.query = query
         self.matches_df = matches_df
@@ -421,6 +476,7 @@ class PhysicsRAGResult:
         self.llm_explanation = llm_explanation
         self.query_vector = query_vector
         self.metrics = metrics or {}
+        self.recovery_episodes = recovery_episodes or []
 
     def __repr__(self) -> str:
         return f"<PhysicsRAGResult for query='{self.query}', n_matches={len(self.matches_df)}>"
@@ -441,7 +497,7 @@ class PhysicsRAGResult:
         display_cols = [
             c for c in [
                 "timestamp", "hs_m", "tp_s", "surge_m", "wind_normal_ms",
-                "xi_iribarren", "breaker_regime", "upsilon", "delta_x_m", "similarity"
+                "xi_iribarren", "breaker_regime", "upsilon", "upsilon_diseq", "delta_x_m", "similarity"
             ] if c in self.matches_df.columns
         ]
 
@@ -451,7 +507,7 @@ class PhysicsRAGResult:
 
 
 class PhysicsRAG:
-    """Physics-Inspired Retrieval-Augmented Generation Engine for Coastal Systems."""
+    """Physics-Inspired Retrieval-Augmented Generation Engine for Coastal Systems (Suggestion 8)."""
 
     def __init__(
         self,
@@ -540,7 +596,7 @@ class PhysicsRAG:
         )
 
     def _build_query_vector(self, spec: PhysicsQuerySpec) -> np.ndarray:
-        """Construct reference latent query vector from structured intent."""
+        """Construct reference latent query vector from structured intent (Suggestion 8)."""
         # 1. Synthesize explicit vector from target values if user specified explicit numbers
         if spec.target_synthetic_values:
             try:
@@ -557,18 +613,56 @@ class PhysicsRAG:
         if spec.target_state and spec.target_state in self.centroids:
             return self.centroids[spec.target_state]
 
-        # 3. Check if breaker regime centroid is requested
+        # 3. Suggestion 8: Check phase centroid if available
+        if spec.phase == "Recovery" and "State_PostStormRecovery" in self.centroids:
+            return self.centroids["State_PostStormRecovery"]
+        if spec.phase == "Erosion" and "State_StormErosion" in self.centroids:
+            return self.centroids["State_StormErosion"]
+        if spec.phase == "Noise" and "State_SubcriticalNoise" in self.centroids:
+            return self.centroids["State_SubcriticalNoise"]
+
+        # 4. Check if breaker regime centroid is requested
         if spec.breaker_regime:
             key = f"Breaker_{spec.breaker_regime}"
             if key in self.centroids:
                 return self.centroids[key]
 
-        # 4. Default to mean dataset embedding
+        # 5. Default to mean dataset embedding
         return np.mean(self.embeddings, axis=0)
 
     def _apply_hard_and_soft_filters(self, spec: PhysicsQuerySpec) -> np.ndarray:
-        """Generate boolean mask for candidates satisfying physical constraints."""
+        """Generate boolean mask for candidates satisfying physical constraints (Suggestion 8)."""
         mask = np.ones(len(self.df), dtype=bool)
+
+        # Suggestion 8: Threshold Anchor (Upsilon_crit) Background Noise Pruning
+        if spec.filter_background_noise:
+            if "upsilon_excess" in self.df.columns:
+                mask = mask & (self.df["upsilon_excess"].values > 0)
+            elif "upsilon_crit" in self.df.columns and "upsilon" in self.df.columns:
+                mask = mask & (self.df["upsilon"].values >= self.df["upsilon_crit"].values)
+            elif "upsilon" in self.df.columns:
+                mask = mask & (self.df["upsilon"].values >= 500.0)
+
+        # Suggestion 8: State-Space Phase Navigation (Recovery vs Erosion vs Noise)
+        if spec.phase == "Recovery":
+            if "upsilon_diseq" in self.df.columns:
+                mask = mask & (self.df["upsilon_diseq"].values < 0)
+            elif "signed_equilibrium_rate" in self.df.columns:
+                mask = mask & (self.df["signed_equilibrium_rate"].values > 0)
+            elif "delta_x_m" in self.df.columns:
+                mask = mask & (self.df["delta_x_m"].values >= 0)
+        elif spec.phase == "Erosion":
+            if "upsilon_diseq" in self.df.columns:
+                mask = mask & (self.df["upsilon_diseq"].values > 0)
+            elif "signed_equilibrium_rate" in self.df.columns:
+                mask = mask & (self.df["signed_equilibrium_rate"].values < 0)
+            elif "delta_x_m" in self.df.columns:
+                mask = mask & (self.df["delta_x_m"].values < 0)
+        elif spec.phase == "Noise":
+            if "upsilon_crit" in self.df.columns and "upsilon" in self.df.columns:
+                mask = mask & (self.df["upsilon"].values < self.df["upsilon_crit"].values)
+            elif "upsilon" in self.df.columns:
+                mask = mask & (self.df["upsilon"].values < 500.0)
 
         # Breaker regime exact match
         if spec.breaker_regime and "breaker_regime" in self.df.columns:
@@ -635,12 +729,35 @@ class PhysicsRAG:
 
         return mask
 
+    def extract_recovery_episodes(
+        self,
+        c_accretion: float = 1.8e-5,
+        min_recovery_steps: int = 4,
+    ) -> List[Dict[str, Any]]:
+        """Extract and summarize all post-storm recovery episodes from the dataset (Suggestion 8)."""
+        return extract_recovery_timeframes(
+            self.df,
+            c_accretion=c_accretion,
+            min_recovery_steps=min_recovery_steps,
+        )
+
+    def prune_noise_for_llm(
+        self,
+        upsilon_crit: Optional[float] = None,
+    ) -> Tuple[pd.DataFrame, np.ndarray, Dict[str, Any]]:
+        """Prune subcritical background noise (Upsilon < Upsilon_crit) for agentic context optimization."""
+        return prune_subcritical_noise_for_agent(
+            df=self.df,
+            embeddings=self.embeddings,
+            upsilon_crit=upsilon_crit,
+        )
+
     def _generate_explanation(
         self,
         spec: PhysicsQuerySpec,
         top_df: pd.DataFrame,
     ) -> str:
-        """Synthesize deterministic physical explainability narrative for query results."""
+        """Synthesize deterministic physical explainability narrative for query results (Suggestion 8)."""
         if top_df.empty:
             return "No matching coastal state instances found for the specified physical parameters."
 
@@ -649,12 +766,19 @@ class PhysicsRAG:
         avg_tp = top_df["tp_s"].mean() if "tp_s" in top_df.columns else 0.0
         avg_xi = top_df["xi_iribarren"].mean() if "xi_iribarren" in top_df.columns else 0.0
         avg_upsilon = top_df["upsilon"].mean() if "upsilon" in top_df.columns else 0.0
+        avg_diseq = top_df["upsilon_diseq"].mean() if "upsilon_diseq" in top_df.columns else 0.0
         avg_surge = top_df["surge_m"].mean() if "surge_m" in top_df.columns else 0.0
         avg_dx = top_df["delta_x_m"].mean() if "delta_x_m" in top_df.columns else 0.0
 
         parts = []
 
-        if regime == "Spilling":
+        if spec.query_recovery_timeframe or spec.phase == "Recovery":
+            parts.append(
+                f"Retrieved {len(top_df)} post-storm constructive recovery states characterized by negative Signed Disequilibrium "
+                f"(mean Υ_diseq={avg_diseq:.1e}, Υ={avg_upsilon:.1e} < Υ_eq). Hydrodynamic forcing is dominated by swash berm welding "
+                f"(mean Hs={avg_hs:.2f}m, Tp={avg_tp:.1f}s) driving positive shoreline advance (mean ΔX = +{avg_dx:.2f}m)."
+            )
+        elif regime == "Spilling":
             parts.append(
                 f"Identified {len(top_df)} spilling breaker instances characterized by dissipative hydrodynamic states "
                 f"(surf similarity parameter ξ < 0.5, mean ξ={avg_xi:.2f}). These reflect steep waves "
@@ -678,18 +802,24 @@ class PhysicsRAG:
                 f"Mean hydrodynamic conditions: Hs={avg_hs:.2f}m, Tp={avg_tp:.1f}s, Surge={avg_surge:.2f}m, ξ={avg_xi:.2f}."
             )
 
-        if avg_dx < -0.05:
+        if spec.filter_background_noise:
             parts.append(
-                f"Morphodynamic response is net erosive with average shoreline displacement ΔX = {avg_dx:.2f}m, "
-                f"coupled with elevated Unified Coastal Vulnerability Index Υ = {avg_upsilon:.1e}."
+                "Subcritical background noise (Υ < Υ_crit) was actively pruned via threshold anchor gating to eliminate context-window bloat."
             )
-        elif avg_dx > 0.05:
-            parts.append(
-                f"Morphodynamic response shows net berm accretion / recovery with average shoreline displacement ΔX = +{avg_dx:.2f}m, "
-                f"and low baseline vulnerability Υ = {avg_upsilon:.1e}."
-            )
-        else:
-            parts.append(f"Mean Unified Vulnerability Index Υ = {avg_upsilon:.1e}.")
+
+        if not (spec.query_recovery_timeframe or spec.phase == "Recovery"):
+            if avg_dx < -0.05:
+                parts.append(
+                    f"Morphodynamic response is net erosive with average shoreline displacement ΔX = {avg_dx:.2f}m, "
+                    f"coupled with elevated Unified Coastal Vulnerability Index Υ = {avg_upsilon:.1e}."
+                )
+            elif avg_dx > 0.05:
+                parts.append(
+                    f"Morphodynamic response shows net berm accretion / recovery with average shoreline displacement ΔX = +{avg_dx:.2f}m, "
+                    f"and low baseline vulnerability Υ = {avg_upsilon:.1e}."
+                )
+            else:
+                parts.append(f"Mean Unified Vulnerability Index Υ = {avg_upsilon:.1e}.")
 
         return " ".join(parts)
 
@@ -701,14 +831,15 @@ class PhysicsRAG:
         use_llm_parser: bool = True,
         use_llm_synthesis: bool = True,
     ) -> PhysicsRAGResult:
-        """Execute a natural language query against coastal dataset & latent embeddings.
+        """Execute a natural language query against coastal dataset & latent embeddings (Suggestion 8).
 
         Parameters
         ----------
         query_text : str
             Natural language query (e.g. 'Show spilling breakers during storm',
             'Find waves over 4m with long period swell and surge > 0.8m',
-            'Show calm fair-weather conditions with beach accretion').
+            'Find post-storm beach recovery phases and recovery timeframes',
+            'Show active storm erosion above critical threshold ignoring background noise').
         top_k : int
             Maximum number of instances to return.
         min_similarity : float
@@ -721,7 +852,7 @@ class PhysicsRAG:
         Returns
         -------
         PhysicsRAGResult
-            Object containing matching DataFrame, similarities, explanation, and criteria.
+            Object containing matching DataFrame, similarities, explanation, criteria, and recovery analytics.
         """
         # 1. Parse natural language into structured physical intent
         if use_llm_parser:
@@ -739,7 +870,7 @@ class PhysicsRAG:
         # 3. Compute vector similarities across latent embedding space
         sims = cosine_similarity(query_vec.reshape(1, -1), self.embeddings)[0]
 
-        # 4. Filter candidates
+        # 4. Filter candidates (including threshold anchor noise pruning & phase navigation)
         filter_mask = self._apply_hard_and_soft_filters(spec)
         candidate_indices = np.where(filter_mask)[0]
 
@@ -761,7 +892,15 @@ class PhysicsRAG:
         top_df = self.df.iloc[selected_indices].copy()
         top_df["similarity"] = selected_sims
 
-        # 7. Generate physical explanations
+        # 7. Extract recovery analytics if requested
+        recov_episodes = []
+        if spec.query_recovery_timeframe or spec.phase == "Recovery":
+            try:
+                recov_episodes = extract_recovery_timeframes(self.df)
+            except Exception:
+                pass
+
+        # 8. Generate physical explanations
         deterministic_expl = self._generate_explanation(spec, top_df)
         llm_expl = None
         if use_llm_synthesis:
@@ -781,6 +920,7 @@ class PhysicsRAG:
             parsed_criteria=spec,
             llm_explanation=llm_expl,
             query_vector=query_vec,
+            recovery_episodes=recov_episodes,
         )
 
     def evaluate_query(
@@ -903,7 +1043,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "query": "Find berm accretion and fair weather recovery",
         "category": "Morphodynamics",
         "target_regime": None,
-        "condition_fn": lambda row, df: float(row.get("delta_x_m", row.get("shoreline_pos_obs_m", 0.0))) > float(df["delta_x_m"].median() if "delta_x_m" in df.columns else 0.0),
+        "condition_fn": lambda row, df: float(row.get("delta_x_m", row.get("signed_equilibrium_rate", 0.0))) >= float(df["delta_x_m"].median() if "delta_x_m" in df.columns else 0.0) or float(row.get("upsilon_diseq", 0.0)) < 0.0,
         "description": "Accretive morphodynamic state with positive shoreline recovery ΔX > 0",
     },
     {
@@ -926,6 +1066,20 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_regime": None,
         "condition_fn": lambda row, df: float(row.get("upsilon", 0.0)) >= float(np.percentile(df["upsilon"].values, 70.0)),
         "description": "Top tier Unified Coastal Vulnerability Index Υ (>= 70th percentile)",
+    },
+    {
+        "query": "Find post-storm beach recovery phases and recovery timeframes",
+        "category": "Suggestion 8 (Recovery Navigation)",
+        "target_regime": None,
+        "condition_fn": lambda row, df: float(row.get("upsilon_diseq", 0.0)) < 0.0 or float(row.get("delta_x_m", 0.0)) >= 0.0 or float(row.get("signed_equilibrium_rate", 0.0)) > 0.0,
+        "description": "Constructive swash recovery phase navigating state-space via Signed Disequilibrium",
+    },
+    {
+        "query": "Show active storm erosion above critical threshold ignoring background noise",
+        "category": "Suggestion 8 (Threshold Anchor)",
+        "target_regime": None,
+        "condition_fn": lambda row, df: float(row.get("upsilon_excess", row.get("upsilon", 0.0))) > 0.0 or float(row.get("upsilon", 0.0)) >= float(row.get("upsilon_crit", 500.0)),
+        "description": "Active storm erosion above Upsilon_crit, pruning subcritical background noise",
     },
 ]
 

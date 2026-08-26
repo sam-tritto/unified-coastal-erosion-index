@@ -210,6 +210,249 @@ def classify_morphodynamic_regimes(
     return FlexibleRegimeResult(s, omega_ratio)
 
 
+def classify_agentic_latent_phases(
+    df: pd.DataFrame,
+    upsilon_crit: Optional[float] = None,
+    upsilon_eq: Optional[float] = None,
+) -> pd.DataFrame:
+    """Classify coastal states into discrete agentic morphodynamic phases (Suggestion 8).
+    
+    Provides discrete boundaries for LLM vector database navigation and context optimization:
+    1. 'Background Noise': Upsilon < Upsilon_crit (subcritical forcing safely pruned to reduce context bloat)
+    2. 'Storm Erosion Phase': Upsilon > Upsilon_eq (active storm wave work gouging beach, -dX)
+    3. 'Post-Storm Recovery Phase': Upsilon_crit <= Upsilon <= Upsilon_eq (constructive swash berm welding, +dX)
+    4. 'Intermediate Equilibrium': Upsilon ~ Upsilon_eq (quasi-steady dynamic equilibrium)
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset with 'upsilon', and optionally 'upsilon_crit', 'upsilon_eq', 'upsilon_diseq', 'delta_x_m'.
+    upsilon_crit : float, optional
+        Critical shear threshold baseline (default 500.0 if not found in df).
+    upsilon_eq : float, optional
+        Equilibrium carrying capacity baseline (default 2500.0 if not found in df).
+
+    Returns
+    -------
+    phase_df : pd.DataFrame
+        DataFrame with columns:
+        - 'latent_phase': Categorical string label
+        - 'is_background_noise': bool (Upsilon < Upsilon_crit)
+        - 'is_active_forcing': bool (Upsilon >= Upsilon_crit)
+        - 'is_recovery_phase': bool (Constructive accretion phase +dX)
+        - 'is_erosion_phase': bool (Destructive erosion phase -dX)
+    """
+    n = len(df)
+    ups = df["upsilon"].values if "upsilon" in df.columns else np.zeros(n)
+    
+    if "upsilon_crit" in df.columns:
+        u_crit = df["upsilon_crit"].values
+    else:
+        crit_val = float(upsilon_crit if upsilon_crit is not None else 500.0)
+        u_crit = np.full(n, crit_val)
+        
+    if "upsilon_eq" in df.columns:
+        u_eq = df["upsilon_eq"].values
+    else:
+        eq_val = float(upsilon_eq if upsilon_eq is not None else 2500.0)
+        u_eq = np.full(n, eq_val)
+        
+    if "upsilon_diseq" in df.columns:
+        diseq = df["upsilon_diseq"].values
+    else:
+        diseq = ups - u_eq
+
+    labels = []
+    is_noise = []
+    is_active = []
+    is_recov = []
+    is_ero = []
+
+    for i in range(n):
+        u_i = ups[i]
+        c_i = u_crit[i]
+        e_i = u_eq[i]
+        d_i = diseq[i]
+        
+        if u_i < c_i:
+            labels.append("Background Noise")
+            is_noise.append(True)
+            is_active.append(False)
+            is_recov.append(False)
+            is_ero.append(False)
+        elif u_i > e_i or d_i > 0:
+            labels.append("Storm Erosion Phase")
+            is_noise.append(False)
+            is_active.append(True)
+            is_recov.append(False)
+            is_ero.append(True)
+        elif d_i < 0 or u_i <= e_i:
+            labels.append("Post-Storm Recovery Phase")
+            is_noise.append(False)
+            is_active.append(True)
+            is_recov.append(True)
+            is_ero.append(False)
+        else:
+            labels.append("Intermediate Equilibrium")
+            is_noise.append(False)
+            is_active.append(True)
+            is_recov.append(False)
+            is_ero.append(False)
+
+    return pd.DataFrame({
+        "latent_phase": labels,
+        "is_background_noise": is_noise,
+        "is_active_forcing": is_active,
+        "is_recovery_phase": is_recov,
+        "is_erosion_phase": is_ero,
+    }, index=df.index)
+
+
+def prune_subcritical_noise_for_agent(
+    df: pd.DataFrame,
+    embeddings: Optional[np.ndarray] = None,
+    upsilon_crit: Optional[float] = None,
+) -> Tuple[pd.DataFrame, Optional[np.ndarray], Dict[str, Any]]:
+    """Prune subcritical background noise (Upsilon < Upsilon_crit) to optimize LLM context window (Suggestion 8).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Coastal dataset with 'upsilon' column.
+    embeddings : np.ndarray, optional
+        Corresponding latent vectors (N x D).
+    upsilon_crit : float, optional
+        Threshold boundary (default 500.0 or from df['upsilon_crit']).
+
+    Returns
+    -------
+    filtered_df : pd.DataFrame
+        Dataset containing only active hydrodynamic forcing steps (Upsilon >= Upsilon_crit).
+    filtered_embeddings : np.ndarray or None
+        Latent vectors corresponding to filtered_df.
+    compression_stats : dict
+        Metrics on token/context window reduction (raw_timesteps, retained_timesteps, pruned_ratio_pct).
+    """
+    n_raw = len(df)
+    phases = classify_agentic_latent_phases(df, upsilon_crit=upsilon_crit)
+    active_mask = phases["is_active_forcing"].values
+
+    filtered_df = df[active_mask].copy()
+    filtered_emb = embeddings[active_mask] if embeddings is not None else None
+    
+    n_retained = int(np.sum(active_mask))
+    n_pruned = n_raw - n_retained
+    compression_pct = float(n_pruned / max(n_raw, 1)) * 100.0
+
+    stats = {
+        "raw_timesteps": n_raw,
+        "retained_active_timesteps": n_retained,
+        "pruned_noise_timesteps": n_pruned,
+        "context_compression_ratio_pct": compression_pct,
+        "retained_pct": 100.0 - compression_pct,
+    }
+    return filtered_df, filtered_emb, stats
+
+
+def extract_recovery_timeframes(
+    df: pd.DataFrame,
+    c_accretion: float = 1.8e-5,
+    min_recovery_steps: int = 4,
+) -> List[Dict[str, Any]]:
+    """Extract and analyze contiguous post-storm recovery phases from Signed Disequilibrium (Suggestion 8).
+
+    Identifies time intervals where Upsilon < Upsilon_eq (Signed Disequilibrium < 0) following
+    an erosive storm event, calculating total shoreline accretion and recovery timeframes.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset containing timestamps, upsilon, and upsilon_eq / upsilon_diseq / delta_x_m.
+    c_accretion : float
+        Accretion rate coefficient (m / (Upsilon_units * step)).
+    min_recovery_steps : int
+        Minimum consecutive steps to qualify as a distinct recovery window.
+
+    Returns
+    -------
+    episodes : list[dict]
+        List of recovery episode summaries with durations, rates, and cumulative displacement.
+    """
+    n = len(df)
+    if n == 0:
+        return []
+
+    ups = df["upsilon"].values if "upsilon" in df.columns else np.zeros(n)
+    u_eq = df["upsilon_eq"].values if "upsilon_eq" in df.columns else np.full(n, 2500.0)
+    diseq = df["upsilon_diseq"].values if "upsilon_diseq" in df.columns else (ups - u_eq)
+    
+    ts = pd.to_datetime(df["timestamp"]) if "timestamp" in df.columns else pd.date_range("2022-01-01", periods=n, freq="1h")
+    
+    dx = df["delta_x_m"].values if "delta_x_m" in df.columns else None
+
+    episodes = []
+    in_recovery = False
+    start_idx = 0
+
+    for i in range(n):
+        is_rec = (diseq[i] < 0)
+        if is_rec and not in_recovery:
+            in_recovery = True
+            start_idx = i
+        elif not is_rec and in_recovery:
+            in_recovery = False
+            length = i - start_idx
+            if length >= min_recovery_steps:
+                seg_diseq = diseq[start_idx:i]
+                recov_rate = c_accretion * np.maximum(-seg_diseq, 0.0)
+                sim_acc = float(np.sum(recov_rate))
+                
+                t_start = ts.iloc[start_idx]
+                t_end = ts.iloc[i - 1]
+                duration_hrs = float((t_end - t_start).total_seconds() / 3600.0) if hasattr(t_end - t_start, "total_seconds") else float(length)
+                duration_days = duration_hrs / 24.0
+
+                obs_acc = float(dx[i - 1] - dx[start_idx]) if dx is not None else sim_acc
+
+                episodes.append({
+                    "start_time": str(t_start),
+                    "end_time": str(t_end),
+                    "duration_hours": duration_hrs,
+                    "duration_days": duration_days,
+                    "n_timesteps": length,
+                    "mean_upsilon_diseq": float(np.mean(seg_diseq)),
+                    "min_upsilon_diseq": float(np.min(seg_diseq)),
+                    "simulated_accretion_m": sim_acc,
+                    "observed_accretion_m": obs_acc,
+                    "mean_recovery_rate_m_day": float(sim_acc / max(duration_days, 0.1)),
+                })
+
+    # If currently in recovery at the end of dataset
+    if in_recovery and (n - start_idx) >= min_recovery_steps:
+        seg_diseq = diseq[start_idx:n]
+        recov_rate = c_accretion * np.maximum(-seg_diseq, 0.0)
+        sim_acc = float(np.sum(recov_rate))
+        t_start = ts.iloc[start_idx]
+        t_end = ts.iloc[n - 1]
+        duration_hrs = float((t_end - t_start).total_seconds() / 3600.0) if hasattr(t_end - t_start, "total_seconds") else float(n - start_idx)
+        duration_days = duration_hrs / 24.0
+        obs_acc = float(dx[n - 1] - dx[start_idx]) if dx is not None else sim_acc
+        episodes.append({
+            "start_time": str(t_start),
+            "end_time": str(t_end),
+            "duration_hours": duration_hrs,
+            "duration_days": duration_days,
+            "n_timesteps": n - start_idx,
+            "mean_upsilon_diseq": float(np.mean(seg_diseq)),
+            "min_upsilon_diseq": float(np.min(seg_diseq)),
+            "simulated_accretion_m": sim_acc,
+            "observed_accretion_m": obs_acc,
+            "mean_recovery_rate_m_day": float(sim_acc / max(duration_days, 0.1)),
+        })
+
+    return episodes
+
+
 def compute_latent_embeddings(
     df: pd.DataFrame,
     scaler_type: str = "robust",
@@ -328,7 +571,7 @@ def compute_regime_centroids(
     embeddings: np.ndarray,
     df: pd.DataFrame,
 ) -> Dict[str, np.ndarray]:
-    """Compute canonical state reference vectors for breaker regimes and extreme events."""
+    """Compute canonical state reference vectors for breaker regimes and extreme events (Suggestion 8)."""
     centroids = {}
 
     if "breaker_regime" in df.columns:
@@ -340,8 +583,10 @@ def compute_regime_centroids(
     if "upsilon" in df.columns:
         ian_idx = int(np.argmax(df["upsilon"].values))
         centroids["State_ExtremeStormPeak"] = embeddings[ian_idx]
+        centroids["State_StormErosion"] = embeddings[ian_idx]
         calm_idx = int(np.argmin(df["upsilon"].values))
         centroids["State_CalmFairWeather"] = embeddings[calm_idx]
+        centroids["State_SubcriticalNoise"] = embeddings[calm_idx]
 
     if "tp_s" in df.columns and "hs_m" in df.columns:
         swell_score = (df["tp_s"].values / (df["hs_m"].values + 0.1)) * (
@@ -349,6 +594,27 @@ def compute_regime_centroids(
         )
         swell_idx = int(np.argmax(swell_score))
         centroids["State_LongPeriodSwell"] = embeddings[swell_idx]
+
+    # Suggestion 8: State-Space Recovery Navigation via Signed Disequilibrium
+    if "upsilon_diseq" in df.columns:
+        diseq = df["upsilon_diseq"].values
+        recov_idx = np.where(diseq < 0)[0]
+        if len(recov_idx) > 0:
+            # Most constructive recovery state (minimum disequilibrium)
+            best_recov = recov_idx[np.argmin(diseq[recov_idx])]
+            centroids["State_PostStormRecovery"] = embeddings[best_recov]
+            centroids["State_BermAccretion"] = embeddings[best_recov]
+    elif "delta_x_m" in df.columns:
+        dx = df["delta_x_m"].values
+        acc_idx = np.where(dx > 0)[0]
+        if len(acc_idx) > 0:
+            best_acc = acc_idx[np.argmax(dx[acc_idx])]
+            centroids["State_PostStormRecovery"] = embeddings[best_acc]
+            centroids["State_BermAccretion"] = embeddings[best_acc]
+    elif "accretion_potential" in df.columns:
+        acc_idx = int(np.argmax(df["accretion_potential"].values))
+        centroids["State_PostStormRecovery"] = embeddings[acc_idx]
+        centroids["State_BermAccretion"] = embeddings[acc_idx]
 
     return centroids
 
