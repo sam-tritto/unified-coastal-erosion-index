@@ -947,15 +947,102 @@ def compute_signed_coastal_vulnerability_index(
     return signed_ups
 
 
+def compute_expanding_window_equilibrium(
+    upsilon: Union[float, np.ndarray, pd.Series],
+    window_hours: Optional[int] = None,
+    min_periods: int = 24,
+    initial_baseline: float = 2500.0,
+    alpha_ema: Optional[float] = None,
+) -> Union[float, np.ndarray]:
+    """Compute non-leaking, strictly causal equilibrium threshold series Υ_eq(t).
+
+    Machine Learning / Target Leakage Prevention (Suggestion 7):
+    Calculating a static Υ_eq from the mean wave climate of the entire dataset causes target leakage
+    where the training model implicitly "sees" future storm and calm periods.
+    This function computes causal equilibrium strictly from antecedent historical forcing (t' <= t) via:
+    1. Expanding-Window Cumulative Mean (when window_hours is None and alpha_ema is None):
+       Υ_eq(t) = (1 / (t + 1)) * sum_{i=0}^t Υ(i)
+       (with smooth Bayesian prior warm-up blending for t < min_periods)
+    2. Trailing Moving Average (when window_hours is specified, e.g., trailing 3-year mean):
+       Υ_eq(t) = mean(Υ[max(0, t - window_hours + 1) : t + 1])
+    3. Causal Exponential Moving Average (when alpha_ema is specified):
+       Υ_eq(t) = alpha * Υ(t) + (1 - alpha) * Υ_eq(t - 1)
+
+    Parameters
+    ----------
+    upsilon : float, np.ndarray, or pd.Series
+        Instantaneous Unified Coastal Vulnerability Index series.
+    window_hours : int, optional
+        Trailing window length in hours (e.g. trailing 3-year mean = 3 * 365.25 * 24 ~ 26298 hours).
+        If None, computes full expanding cumulative mean.
+    min_periods : int
+        Minimum number of antecedent observations before relying solely on empirical window mean.
+        Before min_periods, empirical mean is smoothly blended with initial_baseline. Default is 24.
+    initial_baseline : float
+        Prior/baseline equilibrium value before sufficient antecedent observations accumulate (default 2500.0).
+    alpha_ema : float, optional
+        If provided (0 < alpha_ema <= 1), computes recursive causal EMA rather than expanding/trailing mean.
+
+    Returns
+    -------
+    upsilon_eq : float or np.ndarray
+        Strictly causal, non-leaking equilibrium threshold series.
+    """
+    if np.isscalar(upsilon):
+        return float(initial_baseline) if initial_baseline is not None else float(upsilon)
+
+    ups_arr = np.asarray(upsilon, dtype=float)
+    n = len(ups_arr)
+    if n == 0:
+        return np.array([], dtype=float)
+    if n == 1:
+        return np.array([float(initial_baseline if initial_baseline is not None else ups_arr[0])], dtype=float)
+
+    if alpha_ema is not None:
+        alpha = float(np.clip(alpha_ema, 1e-6, 1.0))
+        eq_arr = np.zeros(n, dtype=float)
+        eq_arr[0] = float(initial_baseline) if initial_baseline is not None else ups_arr[0]
+        for t in range(1, n):
+            eq_arr[t] = alpha * ups_arr[t] + (1.0 - alpha) * eq_arr[t - 1]
+        return eq_arr
+
+    counts = np.arange(1, n + 1, dtype=float)
+
+    if window_hours is None or window_hours >= n:
+        # Expanding cumulative mean
+        cumsum = np.cumsum(ups_arr)
+        raw_eq = cumsum / counts
+    else:
+        # Trailing moving average of width W
+        w = max(1, int(window_hours))
+        padded = np.pad(ups_arr, (1, 0), mode="constant", constant_values=0.0)
+        cumsum = np.cumsum(padded)
+        window_sum = cumsum[1:] - cumsum[np.maximum(0, np.arange(n) - w + 1)]
+        window_count = np.minimum(counts, float(w))
+        raw_eq = window_sum / window_count
+
+    # Warm-up blending with initial baseline to prevent wild variance on initial steps
+    if min_periods > 1 and initial_baseline is not None:
+        blend_weight = np.clip(counts / float(min_periods), 0.0, 1.0)
+        eq_arr = blend_weight * raw_eq + (1.0 - blend_weight) * float(initial_baseline)
+    else:
+        eq_arr = raw_eq
+
+    return eq_arr
+
+
 def compute_upsilon_disequilibrium(
     upsilon: Union[float, np.ndarray],
-    upsilon_eq: Union[float, np.ndarray] = 2500.0,
+    upsilon_eq: Union[float, np.ndarray, str] = 2500.0,
+    window_hours: Optional[int] = None,
+    min_periods: int = 24,
+    initial_baseline: float = 2500.0,
 ) -> Union[float, np.ndarray]:
-    """Compute Upsilon Disequilibrium (Upsilon_diseq = Upsilon - Upsilon_eq).
+    """Compute Upsilon Disequilibrium (Upsilon_diseq = Upsilon - Upsilon_eq) without data leakage.
 
     Analogous to Yates et al. (2009) equilibrium wave energy disequilibrium (Delta E = E - E_eq),
     Upsilon Disequilibrium measures the instantaneous departure of kinetic coastal forcing
-    from the baseline geomorphic equilibrium threshold Upsilon_eq:
+    from the geomorphic equilibrium baseline Upsilon_eq:
 
         Upsilon_diseq = Upsilon - Upsilon_eq
 
@@ -968,27 +1055,53 @@ def compute_upsilon_disequilibrium(
     ----------
     upsilon : float or np.ndarray
         Instantaneous Unified Coastal Vulnerability Index.
-    upsilon_eq : float or np.ndarray
-        Equilibrium baseline Upsilon threshold (default 2500.0).
+    upsilon_eq : float, np.ndarray, or str
+        Equilibrium baseline Upsilon threshold (default 2500.0), array series, or mode string
+        ('expanding', 'trailing', 'static').
+    window_hours : int, optional
+        Trailing window size in hours if upsilon_eq is 'trailing'.
+    min_periods : int
+        Minimum warm-up periods for expanding window.
+    initial_baseline : float
+        Prior baseline for warm-up periods.
 
     Returns
     -------
     upsilon_diseq : float or np.ndarray
         Dimensionless/kinetic forcing disequilibrium series.
     """
+    if isinstance(upsilon_eq, str):
+        mode = upsilon_eq.lower()
+        if mode in ["expanding", "expanding_window"]:
+            eq_val = compute_expanding_window_equilibrium(
+                upsilon, window_hours=None, min_periods=min_periods, initial_baseline=initial_baseline
+            )
+        elif mode in ["trailing", "trailing_3yr", "trailing_window", "rolling"]:
+            w_h = window_hours if window_hours is not None else (3 * 365 * 24)
+            eq_val = compute_expanding_window_equilibrium(
+                upsilon, window_hours=w_h, min_periods=min_periods, initial_baseline=initial_baseline
+            )
+        else:
+            eq_val = initial_baseline
+    else:
+        eq_val = upsilon_eq
+
     ups_arr = np.asarray(upsilon, dtype=float)
-    eq_arr = np.asarray(upsilon_eq, dtype=float)
+    eq_arr = np.asarray(eq_val, dtype=float)
     diseq = ups_arr - eq_arr
-    if np.isscalar(upsilon) and np.isscalar(upsilon_eq):
+    if np.isscalar(upsilon) and np.isscalar(eq_val):
         return float(diseq)
     return diseq
 
 
 def compute_signed_equilibrium_rate(
     upsilon: Union[float, np.ndarray],
-    upsilon_eq: Union[float, np.ndarray] = 2500.0,
+    upsilon_eq: Union[float, np.ndarray, str] = 2500.0,
     c_erosion: float = 1.2e-5,
     c_accretion: float = 1.8e-5,
+    window_hours: Optional[int] = None,
+    min_periods: int = 24,
+    initial_baseline: float = 2500.0,
 ) -> Union[float, np.ndarray]:
     """Compute instantaneous shoreline cross-shore displacement rate dX/dt using the Signed Equilibrium Formulation.
 
@@ -996,32 +1109,54 @@ def compute_signed_equilibrium_rate(
         dX/dt = -C_erosion * max(Upsilon - Upsilon_eq, 0) + C_accretion * max(Upsilon_eq - Upsilon, 0)
 
     This formulation resolves both asymmetric storm-driven gouging (-dX/dt) and post-storm berm recovery (+dX/dt)
-    without arbitrary regime switching.
+    without arbitrary regime switching and without lookahead data leakage.
 
     Parameters
     ----------
     upsilon : float or np.ndarray
         Instantaneous Unified Coastal Vulnerability Index.
-    upsilon_eq : float or np.ndarray
-        Equilibrium baseline Upsilon threshold (default 2500.0).
+    upsilon_eq : float, np.ndarray, or str
+        Equilibrium baseline Upsilon threshold (default 2500.0), series, or mode string ('expanding', 'trailing').
     c_erosion : float
         Erosive rate coefficient (default 1.2e-5).
     c_accretion : float
         Accretive rate coefficient (default 1.8e-5).
+    window_hours : int, optional
+        Trailing window size in hours if upsilon_eq is 'trailing'.
+    min_periods : int
+        Minimum warm-up periods for expanding window.
+    initial_baseline : float
+        Prior baseline for warm-up periods.
 
     Returns
     -------
     dx_dt : float or np.ndarray
         Instantaneous shoreline velocity in meters per hour (or per time step).
     """
+    if isinstance(upsilon_eq, str):
+        mode = upsilon_eq.lower()
+        if mode in ["expanding", "expanding_window"]:
+            eq_val = compute_expanding_window_equilibrium(
+                upsilon, window_hours=None, min_periods=min_periods, initial_baseline=initial_baseline
+            )
+        elif mode in ["trailing", "trailing_3yr", "trailing_window", "rolling"]:
+            w_h = window_hours if window_hours is not None else (3 * 365 * 24)
+            eq_val = compute_expanding_window_equilibrium(
+                upsilon, window_hours=w_h, min_periods=min_periods, initial_baseline=initial_baseline
+            )
+        else:
+            eq_val = initial_baseline
+    else:
+        eq_val = upsilon_eq
+
     ups_arr = np.asarray(upsilon, dtype=float)
-    eq_arr = np.asarray(upsilon_eq, dtype=float)
+    eq_arr = np.asarray(eq_val, dtype=float)
 
     delta_erosion = np.maximum(ups_arr - eq_arr, 0.0)
     delta_accretion = np.maximum(eq_arr - ups_arr, 0.0)
 
     rate = -float(c_erosion) * delta_erosion + float(c_accretion) * delta_accretion
-    if np.isscalar(upsilon) and np.isscalar(upsilon_eq):
+    if np.isscalar(upsilon) and np.isscalar(eq_val):
         return float(rate)
     return rate
 
@@ -1030,7 +1165,10 @@ def simulate_signed_equilibrium_upsilon_evolution(
     upsilon: np.ndarray,
     c_erosion: float = 1.2e-5,
     c_accretion: float = 1.8e-5,
-    upsilon_eq: Optional[float] = 2500.0,
+    upsilon_eq: Optional[Union[float, np.ndarray, str]] = 2500.0,
+    upsilon_eq_mode: str = "auto",
+    window_hours: Optional[int] = None,
+    min_periods: int = 24,
     a_eq: float = 0.0,
     b_eq: float = 2500.0,
     dynamic_eq: bool = False,
@@ -1042,10 +1180,10 @@ def simulate_signed_equilibrium_upsilon_evolution(
     """Simulate continuous shoreline morphodynamics driven by the Signed Equilibrium Upsilon Formulation.
 
     Governing Differential Equation:
-        dX/dt = -C_erosion * max(Upsilon(t) - Upsilon_eq, 0) + C_accretion * max(Upsilon_eq - Upsilon(t), 0)
+        dX/dt = -C_erosion * max(Upsilon(t) - Upsilon_eq(t), 0) + C_accretion * max(Upsilon_eq(t) - Upsilon(t), 0)
 
-    Where equilibrium threshold Upsilon_eq can be static or dynamically coupled to beach state X(t):
-        Upsilon_eq(X) = a_eq * X(t) + b_eq
+    Where equilibrium threshold Upsilon_eq can be static, dynamic beach-state coupled, expanding-window,
+    or trailing-window moving average (preventing target data leakage).
 
     Parameters
     ----------
@@ -1055,8 +1193,14 @@ def simulate_signed_equilibrium_upsilon_evolution(
         Erosive rate scaling constant.
     c_accretion : float
         Accretive rate scaling constant.
-    upsilon_eq : float, optional
-        Static baseline equilibrium threshold (used if dynamic_eq=False).
+    upsilon_eq : float, np.ndarray, or str, optional
+        Baseline equilibrium threshold value, array, or mode ('expanding', 'trailing', 'static').
+    upsilon_eq_mode : str
+        Equilibrium computation mode ('auto', 'static', 'expanding', 'trailing', 'dynamic').
+    window_hours : int, optional
+        Trailing window size in hours for trailing mode.
+    min_periods : int
+        Warm-up periods for expanding mode.
     a_eq : float
         Slope of dynamic equilibrium threshold against cross-shore displacement X.
     b_eq : float
@@ -1087,12 +1231,24 @@ def simulate_signed_equilibrium_upsilon_evolution(
 
     min_x, max_x = x_bounds
 
+    # Precompute causal equilibrium array if expanding/trailing mode
+    eq_series: Optional[np.ndarray] = None
+    if isinstance(upsilon_eq, np.ndarray) and len(upsilon_eq) == n:
+        eq_series = upsilon_eq
+    elif upsilon_eq_mode in ["expanding", "expanding_window"] or (isinstance(upsilon_eq, str) and upsilon_eq == "expanding"):
+        eq_series = compute_expanding_window_equilibrium(ups_arr, window_hours=None, min_periods=min_periods, initial_baseline=b_eq)
+    elif upsilon_eq_mode in ["trailing", "trailing_3yr", "trailing_window"] or (isinstance(upsilon_eq, str) and "trailing" in upsilon_eq):
+        w_h = window_hours if window_hours is not None else (3 * 365 * 24)
+        eq_series = compute_expanding_window_equilibrium(ups_arr, window_hours=w_h, min_periods=min_periods, initial_baseline=b_eq)
+
     for t in range(1, n):
         u = ups_arr[t]
         if dynamic_eq:
             u_eq = a_eq * curr_x + b_eq
+        elif eq_series is not None:
+            u_eq = float(eq_series[t])
         else:
-            u_eq = float(upsilon_eq) if upsilon_eq is not None else float(b_eq)
+            u_eq = float(upsilon_eq) if (upsilon_eq is not None and not isinstance(upsilon_eq, str)) else float(b_eq)
 
         d_ero = max(u - u_eq, 0.0)
         d_acc = max(u_eq - u, 0.0)
@@ -1373,6 +1529,11 @@ def compute_unified_coastal_vulnerability_index(
     y_center_m: Optional[float] = None,
     l_beach_m: Optional[float] = None,
     alpha_rot: Optional[float] = None,
+    upsilon_eq_mode: str = "expanding",
+    upsilon_eq_val: Optional[Union[float, np.ndarray]] = None,
+    eq_window_hours: Optional[int] = None,
+    eq_min_periods: int = 24,
+    eq_initial_baseline: float = 2500.0,
     rho: float = RHO_WATER,
     g: float = G_CONST,
     tau: float = TAU_CONST,
@@ -1665,10 +1826,29 @@ def compute_unified_coastal_vulnerability_index(
         dean_number=dean,
     )
 
-    # Signed Equilibrium Formulation (Upsilon_diseq = Upsilon - Upsilon_eq)
-    upsilon_eq_val = 2500.0
-    upsilon_diseq = compute_upsilon_disequilibrium(upsilon, upsilon_eq=upsilon_eq_val)
-    signed_eq_rate = compute_signed_equilibrium_rate(upsilon, upsilon_eq=upsilon_eq_val)
+    # Signed Equilibrium Formulation (Upsilon_diseq = Upsilon - Upsilon_eq) - Suggestion 7 (Preventing Data Leakage)
+    if upsilon_eq_val is not None:
+        eq_series = upsilon_eq_val
+    elif upsilon_eq_mode in ["expanding", "expanding_window"]:
+        eq_series = compute_expanding_window_equilibrium(
+            upsilon,
+            window_hours=None,
+            min_periods=eq_min_periods,
+            initial_baseline=eq_initial_baseline,
+        )
+    elif upsilon_eq_mode in ["trailing", "trailing_3yr", "trailing_window", "rolling"]:
+        w_h = eq_window_hours if eq_window_hours is not None else (3 * 365 * 24)
+        eq_series = compute_expanding_window_equilibrium(
+            upsilon,
+            window_hours=w_h,
+            min_periods=eq_min_periods,
+            initial_baseline=eq_initial_baseline,
+        )
+    else:
+        eq_series = eq_initial_baseline
+
+    upsilon_diseq = compute_upsilon_disequilibrium(upsilon, upsilon_eq=eq_series)
+    signed_eq_rate = compute_signed_equilibrium_rate(upsilon, upsilon_eq=eq_series)
     
     df_out = pd.DataFrame({
         "hs_m": hs_arr,
@@ -1705,7 +1885,7 @@ def compute_unified_coastal_vulnerability_index(
         "shielding_factor": shielding,
         "accretion_potential": accretion_pot,
         "signed_upsilon": signed_upsilon,
-        "upsilon_eq": np.full_like(hs_arr, upsilon_eq_val),
+        "upsilon_eq": eq_series if isinstance(eq_series, np.ndarray) else np.full_like(hs_arr, float(eq_series)),
         "upsilon_diseq": upsilon_diseq,
         "signed_equilibrium_rate": signed_eq_rate,
         "hs_exponent": np.full_like(hs_arr, n_exp),

@@ -54,6 +54,7 @@ from src.physics import (
     compute_stockdon_wave_runup,
     compute_shore_normal_wind,
     compute_jonswap_wind_wave_hindcast,
+    compute_expanding_window_equilibrium,
     compute_upsilon_disequilibrium,
     compute_signed_equilibrium_rate,
     simulate_signed_equilibrium_upsilon_evolution,
@@ -1601,7 +1602,7 @@ def align_hydrodynamics_with_field_surveys(
             upsilon=df_hydro["upsilon"].values,
             c_erosion=1.2e-5,
             c_accretion=1.8e-5,
-            upsilon_eq=2500.0,
+            upsilon_eq_mode="expanding",
         )
     else:
         ups_diseq_full = np.zeros(len(df_hydro))

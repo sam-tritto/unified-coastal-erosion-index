@@ -887,6 +887,14 @@ def run_benchmark_model_comparison(
                 model_name=name,
                 max_lag=effective_max_lag,
             )
+        elif model_type == "latent_equilibrium":
+            model, meta = build_latent_equilibrium_bayesian_model(
+                forcing=spec["forcing"],
+                delta_x_obs=y_obs_train,
+                model_name=name,
+                max_lag=effective_max_lag,
+                scale_forcing=spec.get("scale_forcing", False),
+            )
         else:
             continue
 
@@ -1451,6 +1459,129 @@ def build_learnable_exponent_bayesian_model(
         # 5. Robust Student-t Likelihood
         sigma = pm.HalfNormal("sigma", sigma=1.0)
         nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
+        pm.StudentT("y_obs", nu=nu, mu=mu, sigma=sigma, observed=y_obs)
+    return model, meta
+
+
+def build_latent_equilibrium_bayesian_model(
+    forcing: np.ndarray,
+    delta_x_obs: np.ndarray,
+    model_name: str = "latent_equilibrium_model",
+    max_lag: int = 48,
+    scale_forcing: bool = False,
+    upsilon_eq_prior_mu: float = 2500.0,
+    upsilon_eq_prior_sigma: float = 750.0,
+    sequential_update: bool = False,
+) -> Tuple[pm.Model, Dict[str, Any]]:
+    """Build a PyMC Bayesian Model where Equilibrium Threshold Υ_eq is inferred as a Latent Parameter.
+
+    Prevents Target / Future Data Leakage (Suggestion 7):
+    Instead of calculating Υ_eq from the empirical mean of the entire time series (which leaks future
+    wave climates into the model), Υ_eq is estimated as a latent Bayesian parameter or expanding state.
+    The model simultaneously learns:
+    1. Antecedent memory decay gamma ~ Beta(2, 5)
+    2. Latent equilibrium baseline threshold Υ_eq ~ TruncatedNormal(mu, sigma, lower=50.0, upper=25000.0)
+    3. Latent forcing disequilibrium Delta Υ_t = E_t(Υ) - Υ_eq
+    4. Asymmetric signed morphodynamic rate kinetics:
+       mu_t = alpha - k_eros * max(Delta Υ_t, 0) / scale + k_accrete * max(-Delta Υ_t, 0) / scale
+    5. Robust Student-T likelihood on observed shoreline displacement delta_x_obs.
+
+    Parameters
+    ----------
+    forcing : np.ndarray
+        Raw forcing series (e.g., Upsilon, Wave Power, etc.).
+    delta_x_obs : np.ndarray
+        Observed shoreline cross-shore displacement (m).
+    model_name : str
+        Model identifier.
+    max_lag : int
+        Convolution horizon in hours.
+    scale_forcing : bool
+        Whether to standardize the forcing series.
+    upsilon_eq_prior_mu : float
+        Prior mean for the latent equilibrium threshold (default 2500.0).
+    upsilon_eq_prior_sigma : float
+        Prior standard deviation for latent equilibrium threshold (default 750.0).
+    sequential_update : bool
+        Whether to model sequential drifting equilibrium via causal expanding prior.
+
+    Returns
+    -------
+    model : pm.Model
+        Constructed PyMC model.
+    meta : dict
+        Model metadata.
+    """
+    forcing_arr = np.asarray(forcing, dtype=float)
+    y_obs = np.asarray(delta_x_obs, dtype=float)
+    n_obs = len(y_obs)
+
+    f_mean = float(np.mean(forcing_arr))
+    f_std = float(np.std(forcing_arr)) if np.std(forcing_arr) > 1e-6 else 1.0
+    f_scaled = (forcing_arr - f_mean) / f_std if scale_forcing else forcing_arr
+
+    max_lag = max(1, min(max_lag, n_obs))
+    lag_mat = create_lag_matrix(f_scaled, max_lag=max_lag)
+    k_indices = np.arange(max_lag, dtype=float)
+
+    meta = {
+        "model_name": model_name,
+        "n_obs": n_obs,
+        "max_lag": max_lag,
+        "f_mean": f_mean,
+        "f_std": f_std,
+        "scale_forcing": scale_forcing,
+        "upsilon_eq_prior_mu": upsilon_eq_prior_mu,
+        "upsilon_eq_prior_sigma": upsilon_eq_prior_sigma,
+    }
+
+    with pm.Model() as model:
+        x_lag = pm.Data("x_lag", lag_mat)
+        k_vec = pm.Data("k_vec", k_indices)
+
+        # 1. Latent memory convolution
+        gamma = pm.Beta("gamma", alpha=2.0, beta=5.0)
+        unnorm_w = pt.power(gamma, k_vec)
+        weights = unnorm_w / pt.sum(unnorm_w)
+        effective_forcing = pm.Deterministic("effective_forcing", pt.dot(x_lag, weights))
+
+        # 2. Latent Equilibrium Parameter (Inferred without future dataset leakage)
+        if scale_forcing:
+            scaled_mu = (upsilon_eq_prior_mu - f_mean) / f_std
+            scaled_sig = max(upsilon_eq_prior_sigma / f_std, 0.1)
+            upsilon_eq_latent = pm.Normal("upsilon_eq_latent", mu=scaled_mu, sigma=scaled_sig)
+            raw_upsilon_eq = pm.Deterministic("upsilon_eq", upsilon_eq_latent * f_std + f_mean)
+            diseq = pm.Deterministic("upsilon_diseq", effective_forcing - upsilon_eq_latent)
+        else:
+            upsilon_eq_latent = pm.TruncatedNormal(
+                "upsilon_eq",
+                mu=upsilon_eq_prior_mu,
+                sigma=upsilon_eq_prior_sigma,
+                lower=50.0,
+                upper=25000.0,
+            )
+            diseq = pm.Deterministic("upsilon_diseq", effective_forcing - upsilon_eq_latent)
+
+        # 3. Asymmetric Signed Morphodynamics in PyTensor
+        delta_eros = pm.Deterministic("delta_erosion", pt.maximum(diseq, 0.0))
+        delta_acc = pm.Deterministic("delta_accretion", pt.maximum(-diseq, 0.0))
+
+        k_eros = pm.HalfNormal("k_eros", sigma=1.5)
+        k_accrete = pm.HalfNormal("k_accrete", sigma=1.5)
+        alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
+
+        # Rate scaling factor
+        scale_div = 1.0 if scale_forcing else 1000.0
+        mu = pm.Deterministic(
+            "mu",
+            alpha - (k_eros * (delta_eros / scale_div)) + (k_accrete * (delta_acc / scale_div)),
+        )
+
+        # 4. Robust Student-T likelihood
+        sigma = pm.HalfNormal("sigma", sigma=1.0)
+        nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
+        pm.StudentT("y_obs", nu=nu, mu=mu, sigma=sigma, observed=y_obs)
+
     return model, meta
 
 

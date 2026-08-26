@@ -22,6 +22,7 @@ from src.physics import (
     compute_reef_dissipation_modulator,
     compute_unified_coastal_vulnerability_index,
     compute_signed_coastal_vulnerability_index,
+    compute_expanding_window_equilibrium,
     compute_upsilon_disequilibrium,
     compute_signed_equilibrium_rate,
     simulate_signed_equilibrium_upsilon_evolution,
@@ -1003,6 +1004,101 @@ def test_simulate_signed_equilibrium_upsilon_evolution():
     assert x_pos[69] < x_pos[49]
     # Recovery phase: accretion rebuild
     assert x_pos[-1] > x_pos[69]
+
+
+def test_compute_expanding_window_equilibrium_causality():
+    """Verify Suggestion 7: Causal expanding and trailing window equilibrium has zero future data leakage."""
+    # Create arbitrary forcing series
+    rng = np.random.default_rng(123)
+    n = 100
+    ups_base = rng.uniform(500.0, 5000.0, size=n)
+
+    # 1. Expanding window without warm-up blending (min_periods=1)
+    eq_expanding = compute_expanding_window_equilibrium(ups_base, window_hours=None, min_periods=1)
+    assert len(eq_expanding) == n
+    # Verify exact cumulative mean formula at step t
+    for t in range(n):
+        expected_mean = float(np.mean(ups_base[: t + 1]))
+        np.testing.assert_allclose(eq_expanding[t], expected_mean, rtol=1e-5)
+
+    # 2. Strict Proof of Zero Look-Ahead Leakage:
+    # Modifying future values (t >= 50) MUST NOT alter past equilibrium (t < 50)
+    ups_altered = ups_base.copy()
+    ups_altered[50:] = 50000.0  # Massive future super-storm
+    eq_altered = compute_expanding_window_equilibrium(ups_altered, window_hours=None, min_periods=1)
+    np.testing.assert_allclose(eq_altered[:50], eq_expanding[:50], rtol=1e-10)
+
+    # 3. Trailing window moving average (e.g. 24 hours)
+    w = 24
+    eq_trailing = compute_expanding_window_equilibrium(ups_base, window_hours=w, min_periods=1)
+    for t in range(n):
+        expected_trail = float(np.mean(ups_base[max(0, t - w + 1) : t + 1]))
+        np.testing.assert_allclose(eq_trailing[t], expected_trail, rtol=1e-5)
+
+    # 4. Trailing window zero leakage test
+    eq_trailing_alt = compute_expanding_window_equilibrium(ups_altered, window_hours=w, min_periods=1)
+    np.testing.assert_allclose(eq_trailing_alt[:50], eq_trailing[:50], rtol=1e-10)
+
+    # 5. Causal EMA mode
+    eq_ema = compute_expanding_window_equilibrium(ups_base, alpha_ema=0.1, initial_baseline=2500.0)
+    assert len(eq_ema) == n
+    assert eq_ema[0] == 2500.0
+    assert np.isclose(eq_ema[1], 0.1 * ups_base[1] + 0.9 * 2500.0)
+
+
+def test_simulate_signed_equilibrium_with_expanding_eq():
+    """Verify simulation with expanding and trailing equilibrium modes (Suggestion 7)."""
+    ups_seq = np.array([300.0] * 40 + [8000.0] * 20 + [300.0] * 40)
+
+    # Expanding window simulation
+    x_pos_exp, x_obs_exp = simulate_signed_equilibrium_upsilon_evolution(
+        upsilon=ups_seq,
+        upsilon_eq_mode="expanding",
+        c_erosion=1.2e-5,
+        c_accretion=1.8e-5,
+    )
+    assert len(x_pos_exp) == len(ups_seq)
+    assert x_pos_exp[39] > x_pos_exp[0]  # Accretion
+    assert x_pos_exp[59] < x_pos_exp[39]  # Storm erosion
+    assert x_pos_exp[-1] > x_pos_exp[59]  # Recovery accretion
+
+    # Trailing window simulation
+    x_pos_trail, _ = simulate_signed_equilibrium_upsilon_evolution(
+        upsilon=ups_seq,
+        upsilon_eq_mode="trailing",
+        window_hours=24,
+    )
+    assert len(x_pos_trail) == len(ups_seq)
+
+
+def test_build_latent_equilibrium_bayesian_model():
+    """Verify PyMC Latent Equilibrium Model graph construction and parameter estimation without leakage."""
+    from src.models import build_latent_equilibrium_bayesian_model
+
+    rng = np.random.default_rng(42)
+    n = 60
+    forcing = rng.uniform(500.0, 6000.0, size=n)
+    delta_x = rng.normal(0.0, 0.5, size=n)
+
+    model, meta = build_latent_equilibrium_bayesian_model(
+        forcing=forcing,
+        delta_x_obs=delta_x,
+        model_name="test_latent_eq",
+        max_lag=12,
+        scale_forcing=False,
+        upsilon_eq_prior_mu=2500.0,
+        upsilon_eq_prior_sigma=500.0,
+    )
+
+    assert meta["model_name"] == "test_latent_eq"
+    assert meta["n_obs"] == n
+    assert "gamma" in model.named_vars
+    assert "upsilon_eq" in model.named_vars
+    assert "upsilon_diseq" in model.named_vars
+    assert "delta_erosion" in model.named_vars
+    assert "delta_accretion" in model.named_vars
+    assert "mu" in model.named_vars
+    assert "y_obs" in model.named_vars
 
 
 def test_critical_shear_threshold_scaling():

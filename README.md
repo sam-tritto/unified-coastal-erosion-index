@@ -226,12 +226,13 @@ uv run jupyter lab
 import numpy as np
 from src.physics import (
     compute_unified_coastal_vulnerability_index,
+    compute_expanding_window_equilibrium,
     compute_upsilon_disequilibrium,
     compute_signed_equilibrium_rate,
     simulate_signed_equilibrium_upsilon_evolution,
 )
 
-# 1. Compute Unified Index across a storm time series
+# 1. Compute Unified Index across a storm time series (with causal expanding equilibrium)
 df_physics = compute_unified_coastal_vulnerability_index(
     hs=np.array([1.2, 2.5, 4.2, 3.8]),
     tp=np.array([8.5, 11.0, 14.5, 12.0]),
@@ -240,16 +241,17 @@ df_physics = compute_unified_coastal_vulnerability_index(
     wind_dir_deg=np.array([65.0, 70.0, 75.0, 80.0]),
     wave_dir_deg=np.array([60.0, 70.0, 75.0, 70.0]),
     site="duck_nc",                      # Uses Duck geomorphology (tanβ=0.08, TR=1.0m)
+    upsilon_eq_mode="expanding",         # Causal Expanding Window (Suggestion 7: prevents target leakage)
 )
 
-print(df_physics[["upsilon", "upsilon_diseq", "signed_equilibrium_rate", "runup_r2_m"]])
+print(df_physics[["upsilon", "upsilon_eq", "upsilon_diseq", "signed_equilibrium_rate", "runup_r2_m"]])
 
-# 2. Simulate continuous shoreline morphodynamics (dX/dt) with Signed Equilibrium
+# 2. Simulate continuous shoreline morphodynamics (dX/dt) with Causal Expanding Equilibrium
 x_pos, x_obs = simulate_signed_equilibrium_upsilon_evolution(
     upsilon=df_physics["upsilon"].values,
     c_erosion=1.2e-5,
     c_accretion=1.8e-5,
-    upsilon_eq=2500.0,
+    upsilon_eq_mode="expanding",
 )
 print("Simulated shoreline displacement trajectory:", x_pos)
 ```
