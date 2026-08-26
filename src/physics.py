@@ -539,6 +539,62 @@ def compute_tidal_smearing_factor(
     return psi
 
 
+def compute_instantaneous_tide_phase_factor(
+    tide: Union[float, np.ndarray],
+    tide_range_m: Union[float, np.ndarray],
+    msl_m: float = 0.0,
+    p: float = 1.0,
+) -> Union[float, np.ndarray]:
+    """Compute instantaneous high-tide wave energy gating factor Psi_tide_phase (Psi_phase).
+
+    Psi_phase(t) = [ (eta_tide(t) - MSL) / (TR / 2) + 1 ]^p
+
+    Weights wave power by instantaneous water level relative to the berm crest / MSL.
+    At low tide (eta_tide = -TR/2), Psi_phase -> 0.0, eliminating false-positive erosion
+    signals when large waves break far offshore across a wide intertidal sweep (e.g. Truc Vert).
+    At high tide (eta_tide = +TR/2), Psi_phase -> 2^p, concentrating wave attack against
+    the upper beach and dune toe.
+    At MSL (eta_tide = 0.0) or microtidal limit (TR -> 0), Psi_phase -> 1.0.
+
+    Parameters
+    ----------
+    tide : float or np.ndarray
+        Instantaneous astronomical tide elevation or water level relative to MSL (m).
+    tide_range_m : float or np.ndarray
+        Tidal range (m).
+    msl_m : float, default 0.0
+        Mean Sea Level datum reference offset (m).
+    p : float, default 1.0
+        Tidal phase gating exponent.
+
+    Returns
+    -------
+    psi_phase : float or np.ndarray
+        Dimensionless tidal phase gating factor in [0, 2^p].
+    """
+    tide_arr = np.asarray(tide, dtype=float)
+    tr_arr = np.maximum(np.asarray(tide_range_m, dtype=float), 0.0)
+
+    # In microtidal limit (TR -> 0), tidal variation is negligible -> psi_phase = 1.0
+    semi_amp = tr_arr / 2.0
+    is_micro = semi_amp <= 1e-4
+
+    safe_semi = np.where(is_micro, 1.0, semi_amp)
+    norm_tide = np.where(is_micro, 0.0, (tide_arr - float(msl_m)) / safe_semi)
+
+    # Base bracket: [ (eta - MSL)/(TR/2) + 1 ] clipped at 0.0
+    base_bracket = np.maximum(0.0, norm_tide + 1.0)
+    psi = base_bracket ** float(p)
+
+    if np.isscalar(tide) and np.isscalar(tide_range_m):
+        return float(psi)
+    return psi
+
+
+compute_tide_phase_factor = compute_instantaneous_tide_phase_factor
+compute_tide_phase_gating = compute_instantaneous_tide_phase_factor
+
+
 def compute_directional_wave_factor(
     wave_dir_deg: Union[float, np.ndarray],
     shore_normal_deg: float,
@@ -972,6 +1028,8 @@ def compute_unified_coastal_vulnerability_index(
     c_f: Optional[float] = None,
     gamma_b: Optional[float] = None,
     hs_exponent: float = 2.5,
+    tide_phase_exponent: float = 1.0,
+    enable_tide_phase_gating: bool = True,
     s_ref: float = 1.0,
     r_ref: float = 2.0,
     w_ref: float = 15.0,
@@ -993,10 +1051,10 @@ def compute_unified_coastal_vulnerability_index(
     -------------------------------------
     The Unified Coastal Vulnerability Index (Υ) is a semi-empirical, physics-informed composite index
     designed to synthesize wave power flux, dynamic sediment settling kinetics, foreshore beach slope,
-    empirical wave height scaling, total water level (TWL), tidal energy dilution, directional radiation stress,
-    and reef-fronted dissipation:
+    empirical wave height scaling, total water level (TWL), tidal energy dilution, instantaneous high-tide gating,
+    directional radiation stress, and reef-fronted dissipation:
 
-        Υ = C_0 * tan(beta) * [ (H_shore^n * Tp) / ws(T) ] * TWL_amp * Psi_tide * Psi_dir * Wind_amp
+        Υ = C_0 * tan(beta) * [ (H_shore^n * Tp) / ws(T) ] * TWL_amp * Psi_tide * Psi_phase * Psi_dir * Wind_amp
 
     Where:
         H_shore = H_0 * Psi_reef
@@ -1007,20 +1065,24 @@ def compute_unified_coastal_vulnerability_index(
     - Sediment-wave core [ (H_shore^n * Tp) / ws(T) ] has dimensions [m^(n-1) * s^2].
     - At the baseline exponent n = 2.5, the core dimensions are [m^1.5 * s^2], giving Υ net dimensions
       of [kg / s] (kinetic mass forcing rate per second).
-    - Continuous modulators (TWL_amp, Psi_tide, Psi_dir, Psi_reef, Wind_amp) are dimensionless scaling factors [-].
+    - Continuous modulators (TWL_amp, Psi_tide, Psi_phase, Psi_dir, Psi_reef, Wind_amp) are dimensionless scaling factors [-].
 
     Continuous Dimensionless Scaling Factors:
     1. Tidal Smearing Factor: Psi_tide = 1 / (1 + TR / (2 * Hs))
        Dilutes wave work across a broad intertidal sweep on macrotidal beaches (Truc Vert) while
        concentrating berm attack on microtidal coasts (Duck, NC).
-    2. Rectified Shore-Normal Directional Alignment: Psi_dir = max(0, cos(theta_wave - theta_shore))^2
+    2. Instantaneous High-Tide Wave Energy Gating: Psi_phase(t) = [ (eta_tide(t) - MSL) / (TR / 2) + 1 ]^p
+       Weights hourly wave energy flux by instantaneous tidal phase relative to MSL/berm crest.
+       Eliminates false-positive erosion signals when huge waves occur at low tide on macrotidal beaches (Truc Vert),
+       while concentrating attack at high tide.
+    3. Rectified Shore-Normal Directional Alignment: Psi_dir = max(0, cos(theta_wave - theta_shore))^2
        Matches shore-normal radiation stress S_xx ~ E * cos^2(theta_rel) that drives cross-shore gouging.
-    3. Alongshore Rotational Divergence: Phi_longshore = sin(2 * (theta_wave - theta_shore))
+    4. Alongshore Rotational Divergence: Phi_longshore = sin(2 * (theta_wave - theta_shore))
        Captures alongshore transport gradients and beach rotation on embayed coasts (Narrabeen).
-    4. Reef Dissipation Modulator: Psi_reef = K_c * K_f = min(1, gamma_b * h_r / H_0) * exp(-c_f * W_r / h_r)
+    5. Reef Dissipation Modulator: Psi_reef = K_c * K_f = min(1, gamma_b * h_r / H_0) * exp(-c_f * W_r / h_r)
        Dynamically models coral reefs as physical low-pass filters via crest clipping and flat friction (Oahu / Waikiki).
-    5. Decoupled TWL Amplification: TWL_amp = 1.0 + max(S / s_ref, 0) + max(R_2% / r_ref, 0)
-    6. Wind Amplification: Wind_amp = 1.0 + clip(sgn(W_a) * (|W_a| / w_ref)^2, -w_bound, w_bound)
+    6. Decoupled TWL Amplification: TWL_amp = 1.0 + max(S / s_ref, 0) + max(R_2% / r_ref, 0)
+    7. Wind Amplification: Wind_amp = 1.0 + clip(sgn(W_a) * (|W_a| / w_ref)^2, -w_bound, w_bound)
 
     Parameters
     ----------
@@ -1037,7 +1099,7 @@ def compute_unified_coastal_vulnerability_index(
     wave_dir_deg : float or np.ndarray, optional
         Wave approach direction in degrees True. Defaults to shore-normal orientation.
     tide : float or np.ndarray, optional
-        Astronomical tide water level relative to MSL (m). Used for instantaneous reef depth h_r(t).
+        Astronomical tide water level relative to MSL (m). Used for instantaneous tide-phase gating and reef depth h_r(t).
     tide_range_m : float or np.ndarray, optional
         Tidal range (m). If omitted, inferred from site profile or set to 0.0 (microtidal limit).
     water_temp_c : float or np.ndarray, optional
@@ -1056,6 +1118,10 @@ def compute_unified_coastal_vulnerability_index(
         Theoretical depth-limited breaker index (default 0.78).
     hs_exponent : float
         Nonlinear wave height scaling exponent n in Hs^n (default 2.5, configurable/learnable n in [1.0, 3.0]).
+    tide_phase_exponent : float
+        Nonlinear exponent p for instantaneous high-tide gating Psi_phase = [ (eta - MSL)/(TR/2) + 1 ]^p (default 1.0).
+    enable_tide_phase_gating : bool
+        Whether to modulate Upsilon by instantaneous tide phase Psi_phase when tide series is provided (default True).
     s_ref, r_ref : float
         Reference scales for surge (1.0m) and runup (2.0m).
     w_ref, w_bound : float
@@ -1109,6 +1175,7 @@ def compute_unified_coastal_vulnerability_index(
     site_gammab = gamma_b if gamma_b is not None else site_cfg.get("gamma_b", 0.78)
 
     tr_arr = np.broadcast_to(np.asarray(base_tr, dtype=float), hs_arr.shape) if not np.isscalar(base_tr) else np.full_like(hs_arr, float(base_tr))
+    tide_arr = np.broadcast_to(np.asarray(tide, dtype=float), hs_arr.shape) if (tide is not None and not np.isscalar(tide)) else (np.full_like(hs_arr, float(tide)) if tide is not None else np.zeros_like(hs_arr))
 
     if wave_dir_deg is not None:
         w_dir_arr = np.broadcast_to(np.asarray(wave_dir_deg, dtype=float), hs_arr.shape) if not np.isscalar(wave_dir_deg) else np.full_like(hs_arr, float(wave_dir_deg))
@@ -1141,7 +1208,7 @@ def compute_unified_coastal_vulnerability_index(
     # 5. Reef Dissipation Modulator (Psi_reef) for reef-fronted coastlines
     psi_reef, h_reef, k_c, k_f, hs_shore = compute_reef_dissipation_modulator(
         hs=hs_arr,
-        tide=tide,
+        tide=tide_arr,
         surge=surge_arr,
         z_reef_m=site_z_reef,
         reef_flat_width_m=site_wr,
@@ -1169,6 +1236,16 @@ def compute_unified_coastal_vulnerability_index(
     
     # 8. Continuous Dimensionless Physical Modulators
     psi_tide = compute_tidal_smearing_factor(tr_arr, hs_arr)
+    if enable_tide_phase_gating and tide is not None:
+        psi_phase = compute_instantaneous_tide_phase_factor(
+            tide=tide_arr,
+            tide_range_m=tr_arr,
+            msl_m=0.0,
+            p=tide_phase_exponent,
+        )
+    else:
+        psi_phase = np.ones_like(hs_arr) if not np.isscalar(hs) else 1.0
+
     psi_dir = compute_directional_wave_factor(w_dir_arr, eff_shore_normal, m=2.0)
     phi_longshore = compute_longshore_transport_divergence(w_dir_arr, eff_shore_normal)
 
@@ -1189,7 +1266,7 @@ def compute_unified_coastal_vulnerability_index(
     wind_amplification = 1.0 + np.clip(w_quad, -w_bound, w_bound)
     
     # 12. Unified Coastal Vulnerability Index (Upsilon_unified)
-    upsilon = prefactor * tan_beta_arr * wave_sed_core * twl_amplification * psi_tide * psi_dir * wind_amplification
+    upsilon = prefactor * tan_beta_arr * wave_sed_core * twl_amplification * psi_tide * psi_phase * psi_dir * wind_amplification
     
     # Shielded Upsilon (accounting for outer sandbar energy dissipation)
     upsilon_shielded = upsilon * shielding
@@ -1221,7 +1298,10 @@ def compute_unified_coastal_vulnerability_index(
         "wind_normal_ms": w_a,
         "wave_dir_deg": w_dir_arr,
         "tide_range_m": tr_arr,
+        "tide_m": tide_arr,
         "psi_tide": psi_tide,
+        "psi_phase": psi_phase,
+        "psi_tide_phase": psi_phase,
         "psi_dir": psi_dir,
         "phi_longshore": phi_longshore,
         "psi_reef": psi_reef,

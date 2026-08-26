@@ -70,19 +70,25 @@ flowchart LR
    * *Microtidal Limit ($TR \to 0$):* $\Psi_{\text{tide}} \to 1.0$ (concentrated berm attack, e.g. Duck, NC with $TR = 1.0\text{ m}, H_s = 4.0\text{ m} \implies \Psi_{\text{tide}} = 0.89$).
    * *Macrotidal Limit ($TR \gg H_s$):* $\Psi_{\text{tide}} \ll 1.0$ (energy diluted across wide intertidal sweep $W = TR / \tan\beta$, e.g. Truc Vert with $TR = 4.5\text{ m}, H_s = 3.0\text{ m} \implies \Psi_{\text{tide}} = 0.57$).
 
-4. **Rectified Shore-Normal Wave Alignment ($\Psi_{\text{dir}}$):**
+4. **Instantaneous High-Tide Wave Energy Gating ($\Psi_{\text{tide-phase}}$ / $\Psi_{\text{phase}}$):**
+   $$\Psi_{\text{phase}}(t) = \left[ \frac{\eta_{\text{tide}}(t) - \text{MSL}}{TR / 2} + 1 \right]^p$$
+   * *Mechanism:* Weights hourly wave power flux by instantaneous water level relative to the berm crest / MSL.
+   * *Low Tide:* At $\eta_{\text{tide}} = -TR/2$, $\Psi_{\text{phase}} \to 0.0$, naturally extinguishing wave energy attack against the upper beach face and eliminating false-positive erosion signals when huge waves break far offshore across a wide intertidal sweep on macrotidal beaches like Truc Vert.
+   * *High Tide:* At $\eta_{\text{tide}} = +TR/2$, $\Psi_{\text{phase}} \to 2^p$, concentrating breaking wave power directly against the upper beach and dune toe.
+
+5. **Rectified Shore-Normal Wave Alignment ($\Psi_{\text{dir}}$):**
    $$\Psi_{\text{dir}} = \max\left(0,\, \cos(\theta_{\text{wave}} - \theta_{\text{shore}})\right)^2$$
    * Matches the shore-normal radiation stress component $S_{xx} \propto E \cos^2\theta_{\text{rel}}$ governing cross-shore setup and sediment gouging.
    * Oblique waves ($|\theta_{\text{rel}}| = 45^\circ$) scale to $0.50$; offshore/shadowed waves ($|\theta_{\text{rel}}| \ge 90^\circ$) are rectified to $0.0$, preventing non-physical accretion.
 
-5. **Alongshore Rotational Transport Divergence ($\Phi_{\text{longshore}}$):**
+6. **Alongshore Rotational Transport Divergence ($\Phi_{\text{longshore}}$):**
    $$\Phi_{\text{longshore}} = \sin\left(2(\theta_{\text{wave}} - \theta_{\text{shore}})\right)$$
    * Captures alongshore transport gradients and beach rotation on embayed coasts (e.g., Narrabeen East Coast Low storms).
 
-6. **Dynamic Viscosity & Settling Kinetics ($w_s(D_{50}, T)$):**
+7. **Dynamic Viscosity & Settling Kinetics ($w_s(D_{50}, T)$):**
    * Settling velocity dynamically calculates kinematic seawater viscosity $\nu(T)$ and dynamic sediment fall velocity (*Soulsby 1997*).
 
-7. **Outer-Array Sandbar Wave Dissipation & Shielding:**
+8. **Outer-Array Sandbar Wave Dissipation & Shielding:**
    * Multi-array energy attenuation ratio $\Delta P_{\text{dissip}} = \frac{P_{26\text{m}} - P_{8\text{m}}}{P_{26\text{m}} + 10^{-4}}$ tracking nearshore bar dissipation.
 
 ---

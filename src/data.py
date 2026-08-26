@@ -1097,6 +1097,7 @@ def fetch_noaa_annual_dataset(
         wind_speed=merged["wind_speed_ms"],
         wind_dir_deg=merged["wind_dir_deg"],
         wave_dir_deg=wave_dir_val,
+        tide=merged["tide_pred_m"].values if "tide_pred_m" in merged.columns else None,
         water_temp_c=merged["water_temp_c"].values if "water_temp_c" in merged.columns else None,
         p_outer_Wm=p_outer.values if p_outer is not None else None,
         site=site_key,

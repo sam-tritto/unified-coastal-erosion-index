@@ -15,6 +15,8 @@ from src.physics import (
     compute_dean_number,
     compute_shore_normal_wind,
     compute_tidal_smearing_factor,
+    compute_instantaneous_tide_phase_factor,
+    compute_tide_phase_gating,
     compute_directional_wave_factor,
     compute_longshore_transport_divergence,
     compute_reef_dissipation_modulator,
@@ -665,6 +667,101 @@ def test_tidal_smearing_factor():
     psi_arr = compute_tidal_smearing_factor(tide_range_m=tr_arr, hs=hs_arr)
     assert len(psi_arr) == 3
     assert psi_arr[0] > psi_arr[1] > psi_arr[2]
+
+
+def test_instantaneous_tide_phase_factor():
+    """Verify Instantaneous High-Tide Wave Energy Gating factor:
+    Psi_phase(t) = [ (eta_tide(t) - MSL) / (TR / 2) + 1 ]^p.
+    """
+    tr = 4.0  # 4m tidal range -> semi-amplitude = 2.0m
+
+    # 1. Low tide (eta = -2.0m) -> Psi_phase = [-2.0/2.0 + 1]^1 = [ -1 + 1 ] = 0.0
+    psi_low = compute_instantaneous_tide_phase_factor(tide=-2.0, tide_range_m=tr, p=1.0)
+    np.testing.assert_allclose(psi_low, 0.0, atol=1e-5)
+
+    # 2. Mid tide (eta = 0.0m = MSL) -> Psi_phase = [0/2.0 + 1]^1 = 1.0
+    psi_mid = compute_instantaneous_tide_phase_factor(tide=0.0, tide_range_m=tr, p=1.0)
+    np.testing.assert_allclose(psi_mid, 1.0, atol=1e-5)
+
+    # 3. High tide (eta = +2.0m) -> Psi_phase = [+2.0/2.0 + 1]^1 = 2.0
+    psi_high = compute_instantaneous_tide_phase_factor(tide=2.0, tide_range_m=tr, p=1.0)
+    np.testing.assert_allclose(psi_high, 2.0, atol=1e-5)
+
+    # 4. Exponent p = 2.0 -> high tide = 2^2 = 4.0, low tide = 0^2 = 0.0
+    psi_high_quad = compute_instantaneous_tide_phase_factor(tide=2.0, tide_range_m=tr, p=2.0)
+    np.testing.assert_allclose(psi_high_quad, 4.0, atol=1e-5)
+
+    # 5. Extreme spring low tide / drawdown (eta = -2.5m < -2.0m) -> clipped at 0.0
+    psi_spring_low = compute_instantaneous_tide_phase_factor(tide=-2.5, tide_range_m=tr, p=1.0)
+    np.testing.assert_allclose(psi_spring_low, 0.0, atol=1e-5)
+
+    # 6. Microtidal limit (TR -> 0) -> neutral baseline 1.0
+    psi_micro = compute_instantaneous_tide_phase_factor(tide=0.5, tide_range_m=0.0, p=1.0)
+    np.testing.assert_allclose(psi_micro, 1.0, atol=1e-5)
+
+    # 7. Alias function equivalence
+    np.testing.assert_allclose(
+        compute_tide_phase_gating(tide=1.0, tide_range_m=2.0),
+        compute_instantaneous_tide_phase_factor(tide=1.0, tide_range_m=2.0),
+    )
+
+    # 8. Array evaluation
+    tide_series = np.array([-2.0, -1.0, 0.0, 1.0, 2.0])
+    psi_series = compute_instantaneous_tide_phase_factor(tide=tide_series, tide_range_m=4.0, p=1.0)
+    expected_series = np.array([0.0, 0.5, 1.0, 1.5, 2.0])
+    np.testing.assert_allclose(psi_series, expected_series, atol=1e-5)
+
+
+def test_tide_phase_gating_macrotidal_truc_vert():
+    """Verify that Psi_phase eliminates false-positive erosion signals when huge waves occur
+    at low tide on macrotidal beaches like Truc Vert (TR = 4.5m).
+    """
+    hs = np.array([5.0])  # 5.0m major storm swell
+    tp = np.array([14.0])
+    surge = np.array([0.2])
+    wind = np.array([12.0])
+    wind_dir = np.array([275.0])
+
+    # Truc Vert: TR = 4.5m -> semi-amplitude = 2.25m
+    # Scenario A: Storm peak at Low Tide (eta_tide = -2.25m)
+    df_low = compute_unified_coastal_vulnerability_index(
+        hs=hs,
+        tp=tp,
+        surge=surge,
+        wind_speed=wind,
+        wind_dir_deg=wind_dir,
+        tide=np.array([-2.25]),
+        site="truc_vert_france",
+    )
+    assert df_low["psi_phase"].iloc[0] == pytest.approx(0.0, abs=1e-4)
+    assert df_low["upsilon"].iloc[0] == pytest.approx(0.0, abs=1e-4)  # No false-positive erosion at low tide!
+
+    # Scenario B: Storm peak at Mid Tide (eta_tide = 0.0m)
+    df_mid = compute_unified_coastal_vulnerability_index(
+        hs=hs,
+        tp=tp,
+        surge=surge,
+        wind_speed=wind,
+        wind_dir_deg=wind_dir,
+        tide=np.array([0.0]),
+        site="truc_vert_france",
+    )
+    assert df_mid["psi_phase"].iloc[0] == pytest.approx(1.0, abs=1e-4)
+    assert df_mid["upsilon"].iloc[0] > 0.0
+
+    # Scenario C: Storm peak at High Tide (eta_tide = +2.25m)
+    df_high = compute_unified_coastal_vulnerability_index(
+        hs=hs,
+        tp=tp,
+        surge=surge,
+        wind_speed=wind,
+        wind_dir_deg=wind_dir,
+        tide=np.array([2.25]),
+        site="truc_vert_france",
+    )
+    assert df_high["psi_phase"].iloc[0] == pytest.approx(2.0, abs=1e-4)
+    assert df_high["upsilon"].iloc[0] == pytest.approx(2.0 * df_mid["upsilon"].iloc[0], rel=1e-3)
+    assert df_high["upsilon"].iloc[0] > df_mid["upsilon"].iloc[0] > df_low["upsilon"].iloc[0]
 
 
 def test_directional_wave_factor_and_rectification():
