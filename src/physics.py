@@ -1011,6 +1011,125 @@ def simulate_signed_equilibrium_upsilon_evolution(
 
 
 
+def compute_critical_shear_threshold(
+    tan_beta: Union[float, np.ndarray],
+    d50_m: Union[float, np.ndarray],
+    upsilon_crit_0: float = 500.0,
+    d50_ref: float = 0.00035,
+    tan_beta_ref: float = 0.08,
+    a: float = 1.0,
+    b: float = 1.0,
+) -> Union[float, np.ndarray]:
+    """Compute the Critical Threshold Shear Activation threshold Upsilon_crit(tan(beta), D_50).
+
+    Beaches with steep dunes/slopes or coarser sand resist morphodynamic change until
+    a critical hydrodynamic forcing threshold is crossed:
+
+        Upsilon_crit(tan(beta), D_50) = Upsilon_crit_0 * (D_50 / D_50_ref)^a * (tan(beta) / tan(beta)_ref)^b
+
+    Physics & Geomorphic Rationale:
+    - Coarser sand (larger D_50) increases critical shear stress for incipient sediment motion
+      (Shields 1936, Soulsby 1997), requiring higher turbulent wave power to dislodge grains.
+    - Steeper foreshore/dune slopes (larger tan(beta)) exhibit higher gravitational stability
+      and angle-of-repose thresholds before upper-beach scarping and dune face retreat initiate.
+    - Finer sand and flatter dissipative profiles mobilize at lower energetic thresholds.
+
+    Parameters
+    ----------
+    tan_beta : float or np.ndarray
+        Foreshore beach slope [-].
+    d50_m : float or np.ndarray
+        Median sediment grain size in meters [m].
+    upsilon_crit_0 : float
+        Baseline critical shear threshold at reference conditions (default 500.0).
+    d50_ref : float
+        Reference median grain size (default 0.00035 m = 0.35 mm for Duck, NC).
+    tan_beta_ref : float
+        Reference foreshore beach slope (default 0.08 for Duck, NC).
+    a : float
+        Grain size scaling exponent (default 1.0).
+    b : float
+        Foreshore slope scaling exponent (default 1.0).
+
+    Returns
+    -------
+    upsilon_crit : float or np.ndarray
+        Critical shear activation threshold in Upsilon units.
+    """
+    tb_arr = np.maximum(np.asarray(tan_beta, dtype=float), 1e-4)
+    d50_arr = np.maximum(np.asarray(d50_m, dtype=float), 1e-6)
+    
+    crit = float(upsilon_crit_0) * ((d50_arr / max(float(d50_ref), 1e-6)) ** float(a)) * ((tb_arr / max(float(tan_beta_ref), 1e-4)) ** float(b))
+    if np.isscalar(tan_beta) and np.isscalar(d50_m):
+        return float(crit)
+    return crit
+
+
+def compute_excess_upsilon(
+    upsilon: Union[float, np.ndarray],
+    upsilon_crit: Optional[Union[float, np.ndarray]] = None,
+    tan_beta: Optional[Union[float, np.ndarray]] = None,
+    d50_m: Optional[Union[float, np.ndarray]] = None,
+    upsilon_crit_0: float = 500.0,
+    d50_ref: float = 0.00035,
+    tan_beta_ref: float = 0.08,
+    a: float = 1.0,
+    b: float = 1.0,
+) -> Union[float, np.ndarray]:
+    """Compute the Excess Vulnerability Index (Upsilon_excess = max(0, Upsilon - Upsilon_crit)).
+
+    Formulation:
+        Upsilon_excess = max(0, Upsilon - Upsilon_crit(tan(beta), D_50))
+
+    Impact:
+    - Eliminates background hydrodynamic noise during calm/fair-weather seasons.
+    - Sharpens storm event peak detection and non-linear morphodynamic damage thresholds.
+
+    Parameters
+    ----------
+    upsilon : float or np.ndarray
+        Instantaneous Unified Coastal Vulnerability Index (Upsilon).
+    upsilon_crit : float or np.ndarray, optional
+        Pre-computed critical threshold. If omitted, computed from tan_beta and d50_m.
+    tan_beta : float or np.ndarray, optional
+        Foreshore beach slope [-] (used if upsilon_crit is not provided).
+    d50_m : float or np.ndarray, optional
+        Median sediment grain size [m] (used if upsilon_crit is not provided).
+    upsilon_crit_0 : float
+        Baseline critical threshold (default 500.0).
+    d50_ref, tan_beta_ref : float
+        Reference scales for grain size (0.00035 m) and slope (0.08).
+    a, b : float
+        Scaling exponents for grain size and slope (default 1.0, 1.0).
+
+    Returns
+    -------
+    upsilon_excess : float or np.ndarray
+        Excess vulnerability forcing exceeding the critical morphodynamic threshold.
+    """
+    ups_arr = np.asarray(upsilon, dtype=float)
+    if upsilon_crit is None:
+        if tan_beta is None or d50_m is None:
+            tb = 0.08 if tan_beta is None else tan_beta
+            d50 = 0.00035 if d50_m is None else d50_m
+            crit_arr = compute_critical_shear_threshold(tb, d50, upsilon_crit_0=upsilon_crit_0, d50_ref=d50_ref, tan_beta_ref=tan_beta_ref, a=a, b=b)
+        else:
+            crit_arr = compute_critical_shear_threshold(tan_beta, d50_m, upsilon_crit_0=upsilon_crit_0, d50_ref=d50_ref, tan_beta_ref=tan_beta_ref, a=a, b=b)
+    else:
+        crit_arr = np.asarray(upsilon_crit, dtype=float)
+
+    excess = np.maximum(0.0, ups_arr - crit_arr)
+    if np.isscalar(upsilon) and (upsilon_crit is None or np.isscalar(upsilon_crit)):
+        return float(excess)
+    return excess
+
+
+# Physical aliases for Critical Threshold Shear Activation
+compute_critical_threshold_shear_activation = compute_excess_upsilon
+compute_excess_vulnerability_index = compute_excess_upsilon
+
+
+
 def compute_unified_coastal_vulnerability_index(
     hs: Union[float, np.ndarray],
     tp: Union[float, np.ndarray],
@@ -1041,6 +1160,11 @@ def compute_unified_coastal_vulnerability_index(
     dynamic_slope: bool = False,
     dynamic_grain_size: bool = False,
     delta_x: Optional[Union[float, np.ndarray]] = None,
+    upsilon_crit_0: float = 500.0,
+    d50_ref: float = 0.00035,
+    tan_beta_ref: float = 0.08,
+    upsilon_crit: Optional[Union[float, np.ndarray]] = None,
+    enable_critical_threshold: bool = True,
     rho: float = RHO_WATER,
     g: float = G_CONST,
     tau: float = TAU_CONST,
@@ -1052,12 +1176,14 @@ def compute_unified_coastal_vulnerability_index(
     The Unified Coastal Vulnerability Index (Υ) is a semi-empirical, physics-informed composite index
     designed to synthesize wave power flux, dynamic sediment settling kinetics, foreshore beach slope,
     empirical wave height scaling, total water level (TWL), tidal energy dilution, instantaneous high-tide gating,
-    directional radiation stress, and reef-fronted dissipation:
+    directional radiation stress, reef-fronted dissipation, and critical shear activation:
 
         Υ = C_0 * tan(beta) * [ (H_shore^n * Tp) / ws(T) ] * TWL_amp * Psi_tide * Psi_phase * Psi_dir * Wind_amp
+        Υ_excess = max(0, Υ - Υ_crit(tan(beta), D_50))
 
     Where:
         H_shore = H_0 * Psi_reef
+        Υ_crit(tan(beta), D_50) = Υ_crit,0 * (D_50 / D_50,ref) * (tan(beta) / tan(beta)_ref)
 
     Dimensional Breakdown:
     - Prefactor C_0 = (rho * g^1.5) / (16 * (2*pi)^1.5) has physical dimensions [kg / (m^0.5 * s^3)].
@@ -1067,22 +1193,25 @@ def compute_unified_coastal_vulnerability_index(
       of [kg / s] (kinetic mass forcing rate per second).
     - Continuous modulators (TWL_amp, Psi_tide, Psi_phase, Psi_dir, Psi_reef, Wind_amp) are dimensionless scaling factors [-].
 
-    Continuous Dimensionless Scaling Factors:
-    1. Tidal Smearing Factor: Psi_tide = 1 / (1 + TR / (2 * Hs))
+    Continuous Dimensionless Scaling Factors & Morphodynamic Regimes:
+    1. Critical Threshold Shear Activation: Upsilon_excess = max(0, Upsilon - Upsilon_crit(tan(beta), D_50))
+       Beaches with steep dunes or coarser sand resist morphodynamic change until a critical threshold is crossed,
+       eliminating background noise during calm seasons and sharpening storm event detection.
+    2. Tidal Smearing Factor: Psi_tide = 1 / (1 + TR / (2 * Hs))
        Dilutes wave work across a broad intertidal sweep on macrotidal beaches (Truc Vert) while
        concentrating berm attack on microtidal coasts (Duck, NC).
-    2. Instantaneous High-Tide Wave Energy Gating: Psi_phase(t) = [ (eta_tide(t) - MSL) / (TR / 2) + 1 ]^p
+    3. Instantaneous High-Tide Wave Energy Gating: Psi_phase(t) = [ (eta_tide(t) - MSL) / (TR / 2) + 1 ]^p
        Weights hourly wave energy flux by instantaneous tidal phase relative to MSL/berm crest.
        Eliminates false-positive erosion signals when huge waves occur at low tide on macrotidal beaches (Truc Vert),
        while concentrating attack at high tide.
-    3. Rectified Shore-Normal Directional Alignment: Psi_dir = max(0, cos(theta_wave - theta_shore))^2
+    4. Rectified Shore-Normal Directional Alignment: Psi_dir = max(0, cos(theta_wave - theta_shore))^2
        Matches shore-normal radiation stress S_xx ~ E * cos^2(theta_rel) that drives cross-shore gouging.
-    4. Alongshore Rotational Divergence: Phi_longshore = sin(2 * (theta_wave - theta_shore))
+    5. Alongshore Rotational Divergence: Phi_longshore = sin(2 * (theta_wave - theta_shore))
        Captures alongshore transport gradients and beach rotation on embayed coasts (Narrabeen).
-    5. Reef Dissipation Modulator: Psi_reef = K_c * K_f = min(1, gamma_b * h_r / H_0) * exp(-c_f * W_r / h_r)
+    6. Reef Dissipation Modulator: Psi_reef = K_c * K_f = min(1, gamma_b * h_r / H_0) * exp(-c_f * W_r / h_r)
        Dynamically models coral reefs as physical low-pass filters via crest clipping and flat friction (Oahu / Waikiki).
-    6. Decoupled TWL Amplification: TWL_amp = 1.0 + max(S / s_ref, 0) + max(R_2% / r_ref, 0)
-    7. Wind Amplification: Wind_amp = 1.0 + clip(sgn(W_a) * (|W_a| / w_ref)^2, -w_bound, w_bound)
+    7. Decoupled TWL Amplification: TWL_amp = 1.0 + max(S / s_ref, 0) + max(R_2% / r_ref, 0)
+    8. Wind Amplification: Wind_amp = 1.0 + clip(sgn(W_a) * (|W_a| / w_ref)^2, -w_bound, w_bound)
 
     Parameters
     ----------
@@ -1140,6 +1269,16 @@ def compute_unified_coastal_vulnerability_index(
         If True, dynamically coarsens active foreshore grain size D_50(t) during storms via wave winnowing.
     delta_x : float or np.ndarray, optional
         Observed cross-shore position changes used to couple dynamic slope with beach width.
+    upsilon_crit_0 : float
+        Baseline critical shear threshold at reference conditions (default 500.0).
+    d50_ref : float
+        Reference median grain size (default 0.00035 m).
+    tan_beta_ref : float
+        Reference foreshore beach slope (default 0.08).
+    upsilon_crit : float or np.ndarray, optional
+        Explicit critical threshold series. If None, calculated via compute_critical_shear_threshold.
+    enable_critical_threshold : bool
+        Whether to compute Upsilon_excess above the critical activation threshold (default True).
     rho : float
         Water density (1025 kg/m^3).
     g : float
@@ -1150,7 +1289,7 @@ def compute_unified_coastal_vulnerability_index(
     Returns
     -------
     df_out : pd.DataFrame
-        DataFrame with hydrodynamics, dynamic settling kinetics, wave dissipation, reef attenuation, runup, slope, grain size, modulators, and Υ.
+        DataFrame with hydrodynamics, dynamic settling kinetics, wave dissipation, reef attenuation, runup, slope, grain size, modulators, Upsilon, Upsilon_crit, and Upsilon_excess.
     """
     hs_arr = np.asarray(hs, dtype=float)
     tp_arr = np.asarray(tp, dtype=float)
@@ -1268,6 +1407,27 @@ def compute_unified_coastal_vulnerability_index(
     # 12. Unified Coastal Vulnerability Index (Upsilon_unified)
     upsilon = prefactor * tan_beta_arr * wave_sed_core * twl_amplification * psi_tide * psi_phase * psi_dir * wind_amplification
     
+    # 13. Critical Threshold Shear Activation (Upsilon_excess = max(0, Upsilon - Upsilon_crit))
+    if upsilon_crit is not None:
+        u_crit_arr = np.broadcast_to(np.asarray(upsilon_crit, dtype=float), hs_arr.shape) if not np.isscalar(upsilon_crit) else np.full_like(hs_arr, float(upsilon_crit))
+    else:
+        u_crit_arr = compute_critical_shear_threshold(
+            tan_beta=tan_beta_arr,
+            d50_m=d50_arr,
+            upsilon_crit_0=upsilon_crit_0,
+            d50_ref=d50_ref,
+            tan_beta_ref=tan_beta_ref,
+        )
+        if np.isscalar(u_crit_arr):
+            u_crit_arr = np.full_like(hs_arr, float(u_crit_arr))
+
+    if enable_critical_threshold:
+        upsilon_excess = np.maximum(0.0, upsilon - u_crit_arr)
+    else:
+        upsilon_excess = upsilon.copy()
+
+    log_upsilon_excess = np.log10(np.maximum(upsilon_excess, 1e-4))
+
     # Shielded Upsilon (accounting for outer sandbar energy dissipation)
     upsilon_shielded = upsilon * shielding
     
@@ -1325,7 +1485,10 @@ def compute_unified_coastal_vulnerability_index(
         "hs_exponent": np.full_like(hs_arr, n_exp),
         "tan_beta": tan_beta_arr,
         "d50_m": d50_arr,
+        "upsilon_crit": u_crit_arr,
         "upsilon": upsilon,
+        "upsilon_excess": upsilon_excess,
+        "log_upsilon_excess": log_upsilon_excess,
         "upsilon_shielded": upsilon_shielded,
         "upsilon_raw": upsilon_raw,
         "log_upsilon": log_upsilon,

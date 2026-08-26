@@ -25,6 +25,10 @@ from src.physics import (
     compute_upsilon_disequilibrium,
     compute_signed_equilibrium_rate,
     simulate_signed_equilibrium_upsilon_evolution,
+    compute_critical_shear_threshold,
+    compute_excess_upsilon,
+    compute_critical_threshold_shear_activation,
+    compute_excess_vulnerability_index,
     compute_dynamic_foreshore_slope,
     compute_dynamic_grain_size,
     COASTAL_SITE_PROFILES,
@@ -995,6 +999,116 @@ def test_simulate_signed_equilibrium_upsilon_evolution():
     assert x_pos[69] < x_pos[49]
     # Recovery phase: accretion rebuild
     assert x_pos[-1] > x_pos[69]
+
+
+def test_critical_shear_threshold_scaling():
+    """Verify physical scaling of Upsilon_crit(tan(beta), D_50)."""
+    # 1. Baseline reference conditions (Duck, NC: tan_beta = 0.08, D50 = 0.35 mm) -> Upsilon_crit = 500.0
+    u_crit_base = compute_critical_shear_threshold(tan_beta=0.08, d50_m=0.00035, upsilon_crit_0=500.0)
+    np.testing.assert_allclose(u_crit_base, 500.0, rtol=1e-5)
+
+    # 2. Coarser sand (D50 = 0.70 mm = 2x) -> 2x higher threshold to mobilize
+    u_crit_coarse = compute_critical_shear_threshold(tan_beta=0.08, d50_m=0.00070, upsilon_crit_0=500.0)
+    np.testing.assert_allclose(u_crit_coarse, 1000.0, rtol=1e-5)
+
+    # 3. Steeper foreshore/dune slope (tan_beta = 0.16 = 2x) -> 2x higher resistance threshold
+    u_crit_steep = compute_critical_shear_threshold(tan_beta=0.16, d50_m=0.00035, upsilon_crit_0=500.0)
+    np.testing.assert_allclose(u_crit_steep, 1000.0, rtol=1e-5)
+
+    # 4. Fine sand + gentle dissipative slope (Torrey Pines: tan_beta = 0.04, D50 = 0.20 mm)
+    u_crit_tp = compute_critical_shear_threshold(tan_beta=0.04, d50_m=0.00020, upsilon_crit_0=500.0)
+    expected_tp = 500.0 * (0.00020 / 0.00035) * (0.04 / 0.08)
+    np.testing.assert_allclose(u_crit_tp, expected_tp, rtol=1e-5)
+
+    # 5. Coarse sand + steep reflective slope (Oahu North Shore: tan_beta = 0.09, D50 = 0.45 mm)
+    u_crit_oahu = compute_critical_shear_threshold(tan_beta=0.09, d50_m=0.00045, upsilon_crit_0=500.0)
+    expected_oahu = 500.0 * (0.00045 / 0.00035) * (0.09 / 0.08)
+    np.testing.assert_allclose(u_crit_oahu, expected_oahu, rtol=1e-5)
+
+    # 6. Array broadcast
+    tb_vec = np.array([0.04, 0.08, 0.12])
+    d50_vec = np.array([0.00020, 0.00035, 0.00050])
+    u_crit_vec = compute_critical_shear_threshold(tan_beta=tb_vec, d50_m=d50_vec, upsilon_crit_0=500.0)
+    assert len(u_crit_vec) == 3
+    assert u_crit_vec[0] < u_crit_vec[1] < u_crit_vec[2]
+
+
+def test_excess_upsilon_activation_and_noise_cutoff():
+    """Verify Upsilon_excess = max(0, Upsilon - Upsilon_crit) cuts off calm background noise
+    and preserves active storm forcing.
+    """
+    u_crit = 500.0
+
+    # 1. Calm fair-weather condition (Upsilon = 250 < 500) -> Upsilon_excess = 0.0 (Noise eliminated)
+    calm_excess = compute_excess_upsilon(upsilon=250.0, upsilon_crit=u_crit)
+    assert calm_excess == 0.0
+
+    # 2. Exact critical threshold (Upsilon = 500) -> Upsilon_excess = 0.0
+    thresh_excess = compute_excess_upsilon(upsilon=500.0, upsilon_crit=u_crit)
+    assert thresh_excess == 0.0
+
+    # 3. Active storm condition (Upsilon = 3500 > 500) -> Upsilon_excess = 3000.0
+    storm_excess = compute_excess_upsilon(upsilon=3500.0, upsilon_crit=u_crit)
+    assert storm_excess == 3000.0
+
+    # 4. Extreme storm (Upsilon = 20000 > 500) -> Upsilon_excess = 19500.0
+    extreme_excess = compute_excess_upsilon(upsilon=20000.0, upsilon_crit=u_crit)
+    assert extreme_excess == 19500.0
+
+    # 5. Direct computation with tan_beta and d50_m
+    direct_excess = compute_excess_upsilon(upsilon=1200.0, tan_beta=0.08, d50_m=0.00035, upsilon_crit_0=500.0)
+    assert direct_excess == 700.0
+
+    # 6. Physical aliases equivalence
+    np.testing.assert_allclose(
+        compute_critical_threshold_shear_activation(1200.0, upsilon_crit=500.0),
+        compute_excess_vulnerability_index(1200.0, upsilon_crit=500.0),
+    )
+
+    # 7. Array evaluation
+    ups_series = np.array([100.0, 300.0, 500.0, 1000.0, 5000.0])
+    excess_series = compute_excess_upsilon(ups_series, upsilon_crit=500.0)
+    expected_series = np.array([0.0, 0.0, 0.0, 500.0, 4500.0])
+    np.testing.assert_allclose(excess_series, expected_series, atol=1e-5)
+
+
+def test_unified_index_critical_threshold_integration():
+    """Verify integration of Upsilon_crit and Upsilon_excess in compute_unified_coastal_vulnerability_index."""
+    hs_series = np.array([0.4, 0.5, 4.0, 5.0, 0.3])  # Calm, calm, storm, storm, calm
+    tp_series = np.array([5.0, 6.0, 14.0, 15.0, 5.0])
+    surge_series = np.array([0.0, 0.0, 1.2, 1.5, 0.0])
+    wind_series = np.array([2.0, 3.0, 18.0, 22.0, 2.0])
+
+    df = compute_unified_coastal_vulnerability_index(
+        hs=hs_series,
+        tp=tp_series,
+        surge=surge_series,
+        wind_speed=wind_series,
+        wind_dir_deg=np.full_like(hs_series, 70.0),
+        site="duck_nc",
+        upsilon_crit_0=500.0,
+    )
+
+    assert "upsilon_crit" in df.columns
+    assert "upsilon_excess" in df.columns
+    assert "log_upsilon_excess" in df.columns
+
+    # Duck reference critical threshold
+    np.testing.assert_allclose(df["upsilon_crit"].iloc[0], 500.0, rtol=1e-4)
+
+    # Calm days (index 0, 4) should have Upsilon < Upsilon_crit -> Upsilon_excess == 0.0
+    assert df["upsilon_excess"].iloc[0] == 0.0
+    assert df["upsilon_excess"].iloc[4] == 0.0
+
+    # Storm days (index 2, 3) should have Upsilon > Upsilon_crit -> Upsilon_excess > 0.0
+    assert df["upsilon_excess"].iloc[2] > 0.0
+    assert df["upsilon_excess"].iloc[3] > 0.0
+    np.testing.assert_allclose(
+        df["upsilon_excess"].iloc[2],
+        df["upsilon"].iloc[2] - df["upsilon_crit"].iloc[2],
+        rtol=1e-4,
+    )
+
 
 
 

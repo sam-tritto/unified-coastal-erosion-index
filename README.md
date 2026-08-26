@@ -19,9 +19,11 @@ $$\mathbf{p}_{\text{site}} = \big[\tan\beta,\; D_{50},\; TR,\; \theta_{\text{sho
 
 ### The Unified Master Formulation
 
-$$\Upsilon_{\text{unified}} = \underbrace{\left(\frac{\rho g^{3/2}}{16 (2\pi)^{3/2}}\right) \cdot \tan\beta \cdot \frac{H_{\text{shore}}^n T_p}{w_s(D_{50}, T)}}_{\text{Kinematic Wave-Sediment Core}} \cdot \underbrace{\left[ 1 + \frac{\max(S, 0)}{s_{\text{ref}}} + \frac{\max(R_{2\%}, 0)}{r_{\text{ref}}} \right]}_{\text{Decoupled TWL Elevation}} \cdot \underbrace{\Psi_{\text{tide}}}_{\text{Tidal Dilution}} \cdot \underbrace{\Psi_{\text{dir}}}_{\text{Wave Direction}} \cdot \underbrace{\Psi_{\text{wind}}}_{\text{Wind Stress}}$$
+$$\Upsilon_{\text{unified}} = \underbrace{\left(\frac{\rho g^{3/2}}{16 (2\pi)^{3/2}}\right) \cdot \tan\beta \cdot \frac{H_{\text{shore}}^n T_p}{w_s(D_{50}, T)}}_{\text{Kinematic Wave-Sediment Core}} \cdot \underbrace{\left[ 1 + \frac{\max(S, 0)}{s_{\text{ref}}} + \frac{\max(R_{2\%}, 0)}{r_{\text{ref}}} \right]}_{\text{Decoupled TWL Elevation}} \cdot \underbrace{\Psi_{\text{tide}}}_{\text{Tidal Dilution}} \cdot \underbrace{\Psi_{\text{phase}}}_{\text{High-Tide Gating}} \cdot \underbrace{\Psi_{\text{dir}}}_{\text{Wave Direction}} \cdot \underbrace{\Psi_{\text{wind}}}_{\text{Wind Stress}}$$
 
-where deepwater incident wave height $H_0$ is modulated across reef-fronted systems via $H_{\text{shore}} = H_0 \cdot \Psi_{\text{reef}}$.
+$$\Upsilon_{\text{excess}} = \max\left(0,\, \Upsilon - \Upsilon_{\text{crit}}(\tan\beta, D_{50})\right)$$
+
+where deepwater incident wave height $H_0$ is modulated across reef-fronted systems via $H_{\text{shore}} = H_0 \cdot \Psi_{\text{reef}}$, and critical shear activation threshold scales with sediment size and beach slope via $\Upsilon_{\text{crit}}(\tan\beta, D_{50}) = \Upsilon_{\text{crit}, 0} \cdot (D_{50} / D_{50,\text{ref}}) \cdot (\tan\beta / \tan\beta_{\text{ref}})$.
 
 ```mermaid
 flowchart LR
@@ -39,6 +41,7 @@ flowchart LR
     subgraph Modulators ["Continuous Dimensionless Scaling Factors"]
         D["TWL Elevation: S/s_ref + R2%/r_ref"]
         E["Tidal Smearing: 1 / (1 + TR / 2Hs)"]
+        TG["Tide Gating: ((η - MSL)/(TR/2) + 1)^p"]
         F["Wave Direction: max(0, cos θ_rel)^2"]
         G["Alongshore Transport: sin(2θ_rel)"]
         H["Wind Stress: 1 + sign(Wa)·(Wa/Wref)^2"]
@@ -46,12 +49,20 @@ flowchart LR
 
     Core --> Master["Unified Index: Υ_unified"]
     Modulators --> Master
-    Master --> SignedEq["Signed Equilibrium: dX/dt = -C_ero·max(Υ - Υ_eq, 0) + C_acc·max(Υ_eq - Υ, 0)"]
+    Master --> CritThresh["Critical Shear Activation: Υ_excess = max(0, Υ - Υ_crit(tanβ, D50))"]
+    CritThresh --> SignedEq["Signed Equilibrium: dX/dt = -C_ero·max(Υ_excess - Υ_eq, 0) + C_acc·max(Υ_eq - Υ, 0)"]
 ```
 
 ### Continuous Dimensionless Scaling Factors & Signed Equilibrium
 
-1. **Signed Equilibrium Formulation ($\Upsilon_{\text{diseq}} = \Upsilon - \Upsilon_{\text{eq}}$):**
+1. **Critical Threshold Shear Activation ($\Upsilon_{\text{excess}} = \max(0, \Upsilon - \Upsilon_{\text{crit}})$):**
+   $$\Upsilon_{\text{excess}} = \max\left(0,\, \Upsilon - \Upsilon_{\text{crit}}(\tan\beta, D_{50})\right)$$
+   $$\Upsilon_{\text{crit}}(\tan\beta, D_{50}) = \Upsilon_{\text{crit}, 0} \cdot \left(\frac{D_{50}}{D_{50,\text{ref}}}\right)^a \cdot \left(\frac{\tan\beta}{\tan\beta_{\text{ref}}}\right)^b$$
+   * **How it works:** Beaches with steep dunes or coarser sand resist morphodynamic change until a critical hydrodynamic threshold is crossed (calibrated baseline $\Upsilon_{\text{crit}, 0} \approx 500$).
+   * **Geomorphic Rationale:** Coarser sediment grains ($D_{50}$) require higher critical shear stress for incipient sediment motion (*Shields 1936, Soulsby 1997*), while steep foreshore profiles and dune toes ($\tan\beta$) exhibit higher gravitational angle-of-repose stability against wave attack.
+   * **Impact:** Eliminates background noise during calm fair-weather seasons, sharpening storm event peak detection and non-linear damage activation.
+
+2. **Signed Equilibrium Formulation ($\Upsilon_{\text{diseq}} = \Upsilon - \Upsilon_{\text{eq}}$):**
    $$\Upsilon_{\text{diseq}} = \Upsilon - \Upsilon_{\text{eq}}$$
    $$\frac{dX}{dt} = -C_{\text{erosion}} \max(\Upsilon - \Upsilon_{\text{eq}}, 0) + C_{\text{accretion}} \max(\Upsilon_{\text{eq}} - \Upsilon, 0)$$
    * **Equilibrium Threshold ($\Upsilon_{\text{eq}}$):** Analogous to the *Yates et al. (2009)* equilibrium wave energy concept ($E_{\text{eq}}$), $\Upsilon_{\text{eq}}$ establishes the critical baseline carrying capacity (calibrated default $\Upsilon_{\text{eq}} \approx 2500$).
