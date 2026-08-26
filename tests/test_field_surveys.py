@@ -143,3 +143,31 @@ def test_bayesian_benchmark_on_field_surveys():
     assert any("XBeach" in m for m in models_tested)
 
 
+def test_narrabeen_three_transect_field_surveys_rotation():
+    """Verify that Narrabeen surveys contain authentic 3-transect records (PF1, PF2, PF4) displaying rotation."""
+    from src.data import load_site_field_surveys
+
+    df_narr = load_site_field_surveys(site="narrabeen_aus")
+    assert not df_narr.empty
+    transects = df_narr["transect_id"].unique().tolist()
+    assert "PF1" in transects
+    assert "PF2" in transects
+    assert "PF4" in transects
+    assert "alongshore_y_m" in df_narr.columns
+
+    # Check Feb 2020 ECL survey epoch
+    feb_surveys = df_narr[df_narr.index == "2020-02-11 11:15:00"]
+    assert len(feb_surveys) == 3
+
+    pf1_change = feb_surveys[feb_surveys["transect_id"] == "PF1"]["cross_shore_change_m"].iloc[0]
+    pf2_change = feb_surveys[feb_surveys["transect_id"] == "PF2"]["cross_shore_change_m"].iloc[0]
+    pf4_change = feb_surveys[feb_surveys["transect_id"] == "PF4"]["cross_shore_change_m"].iloc[0]
+
+    # PF1 (North) accretes, PF2 (Center) erodes, PF4 (South) erodes heavily
+    assert pf1_change > 0.0, f"PF1 should accrete during ECL: got {pf1_change}"
+    assert pf2_change < 0.0, f"PF2 should erode during ECL: got {pf2_change}"
+    assert pf4_change < 0.0, f"PF4 should erode during ECL: got {pf4_change}"
+    assert pf1_change > pf2_change > pf4_change
+
+
+

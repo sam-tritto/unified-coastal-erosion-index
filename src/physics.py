@@ -42,7 +42,12 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "z_reef_m": -1.0,
         "c_f": 0.08,
         "gamma_b": 0.78,
+        "is_embayment": False,   # Straight open barrier beach
+        "l_beach_m": 1000.0,     # FRF experimental zone alongshore span (m)
+        "y_center_m": 500.0,     # FRF central research pier coordinate (m)
+        "alpha_rot": 0.0,        # No headland-bounded rotation
         "default_transects": ["FRF_0058", "FRF_0109"],
+        "transect_coords_m": {"FRF_0058": 580.0, "FRF_0109": 1090.0},
         "coops_station_id": "8651370",
         "primary_buoy_id": "44056",
         "outer_buoy_id": "44100",
@@ -64,7 +69,12 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "z_reef_m": -1.0,
         "c_f": 0.08,
         "gamma_b": 0.78,
-        "default_transects": ["PF2", "PF4"],
+        "is_embayment": True,    # Classic headland-bounded rotational embayment
+        "l_beach_m": 3600.0,     # 3.6 km embayment length from Collaroy to North Narrabeen
+        "y_center_m": 1800.0,    # Embayment center fulcrum (PF2)
+        "alpha_rot": 12.0,       # 12.0 m rotational sensitivity during East Coast Low storms
+        "default_transects": ["PF2", "PF4", "PF1"],
+        "transect_coords_m": {"PF1": 3400.0, "PF2": 1800.0, "PF4": 400.0, "PF6": 200.0, "PF8": 50.0},
     },
     "torrey_pines_ca": {
         "name": "Torrey Pines Beach, CA, USA",
@@ -82,7 +92,12 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "z_reef_m": -1.0,
         "c_f": 0.08,
         "gamma_b": 0.78,
+        "is_embayment": True,    # Embayed cliff-backed pocket beach
+        "l_beach_m": 4800.0,     # 4.8 km compartment length
+        "y_center_m": 2400.0,    # Central fulcrum
+        "alpha_rot": 6.0,        # Moderate rotational response under swell obliquity
         "default_transects": ["TP_NORTH", "TP_SOUTH"],
+        "transect_coords_m": {"TP_NORTH": 4200.0, "TP_SOUTH": 1200.0},
         "coops_station_id": "9410230",
         "primary_buoy_id": "46254",
         "outer_buoy_id": "46225",
@@ -104,7 +119,12 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "z_reef_m": -1.0,
         "c_f": 0.08,
         "gamma_b": 0.78,
+        "is_embayment": False,   # Semi-open northward littoral drift system
+        "l_beach_m": 6000.0,     # 6.0 km compartment length
+        "y_center_m": 3000.0,
+        "alpha_rot": 3.0,
         "default_transects": ["GC_NORTH", "GC_SOUTH"],
+        "transect_coords_m": {"GC_NORTH": 5000.0, "GC_SOUTH": 1500.0},
     },
     "truc_vert_france": {
         "name": "Truc Vert Beach, Gironde, France",
@@ -122,7 +142,12 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "z_reef_m": -1.0,
         "c_f": 0.08,
         "gamma_b": 0.78,
+        "is_embayment": False,   # Open continuous macrotidal sandy barrier coast
+        "l_beach_m": 2000.0,     # 2.0 km research grid span
+        "y_center_m": 1000.0,
+        "alpha_rot": 0.0,        # Pure cross-shore bar dynamics
         "default_transects": ["TV_MAIN", "TV_NORTH"],
+        "transect_coords_m": {"TV_MAIN": 1000.0, "TV_NORTH": 1800.0},
     },
     "oahu_north_shore_hi": {
         "name": "Oahu's North Shore (Waimea / Sunset), HI, USA",
@@ -140,7 +165,12 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "z_reef_m": -1.0,        # Reef crest elevation relative to MSL (-1.0m)
         "c_f": 0.08,             # Coral friction coefficient
         "gamma_b": 0.78,         # Depth-limited theoretical breaker index
+        "is_embayment": True,    # Pocket embayments bounded by basalt rocky points
+        "l_beach_m": 7200.0,     # 7.2 km coastal segment length
+        "y_center_m": 3600.0,    # Embayment fulcrum
+        "alpha_rot": 8.0,        # Alongshore rotation between headlands under NW vs NE swell
         "default_transects": ["NS_SUNSET", "NS_WAIMEA"],
+        "transect_coords_m": {"NS_SUNSET": 6200.0, "NS_WAIMEA": 1200.0},
         "coops_station_id": "1612480",
         "primary_buoy_id": "51201",
         "outer_buoy_id": "51001",
@@ -162,7 +192,12 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "z_reef_m": -0.8,        # Reef crest elevation relative to MSL (-0.8m)
         "c_f": 0.10,             # High rugosity coral bed friction
         "gamma_b": 0.78,
+        "is_embayment": True,    # Urban pocket beach bounded by groynes and reef channels
+        "l_beach_m": 3200.0,     # 3.2 km compartment length
+        "y_center_m": 1600.0,    # Center coordinate
+        "alpha_rot": 5.0,        # Controlled embayment rotation
         "default_transects": ["WK_CANOES", "WK_QUEENS"],
+        "transect_coords_m": {"WK_CANOES": 2100.0, "WK_QUEENS": 1100.0},
         "coops_station_id": "1612340",
         "primary_buoy_id": "51202",
         "outer_buoy_id": "51201",
@@ -663,6 +698,73 @@ def compute_longshore_transport_divergence(
     return phi
 
 
+def compute_coupled_2d_embayment_displacement(
+    delta_x_cross_shore: Union[float, np.ndarray],
+    phi_longshore: Union[float, np.ndarray],
+    y_alongshore_m: Union[float, np.ndarray],
+    y_center_m: float = 1800.0,
+    l_beach_m: float = 3600.0,
+    alpha_rot: float = 12.0,
+) -> Union[float, np.ndarray]:
+    """Compute coupled 2D shoreline displacement for embayed and rotational coastlines.
+
+    Governing Coupled 2D Proxy Formulation:
+        Delta_X_net = Delta_X_cross_shore(Upsilon) + alpha_rot * Phi_longshore * ((y - y_center) / L_beach)
+
+    Where:
+        Phi_longshore = sin(2 * (theta_wave - theta_shore)) in [-1, 1]
+        (y - y_center) / L_beach in [-0.5, 0.5] represents the normalized alongshore transect position.
+
+    Physical & Morphodynamic Mechanisms:
+    - Cross-Shore Term Delta_X_cross_shore(Upsilon): Uniform cross-shore volumetric cut/fill
+      driven by storm wave power, surge, runup, and sediment settling kinetics.
+    - Alongshore Transport Gradient Term alpha_rot * Phi_longshore * ((y - y_center) / L_beach):
+      Captures alongshore transport gradients and headland-bounded beach rotation (e.g. Narrabeen).
+      Oblique East Coast Low (ECL) storms driving waves from the southeast (Phi_longshore > 0)
+      induce counter-clockwise beach rotation: sand is eroded from the southern updrift end (PF4)
+      and transported alongshore to accrete at the northern downdrift headland (PF1) during the exact same storm.
+    - Central Embayment Fulcrum (y = y_center): Rotational displacement is exactly 0,
+      so the central profile experiences pure cross-shore morphodynamics.
+
+    Parameters
+    ----------
+    delta_x_cross_shore : float or np.ndarray
+        Cross-shore shoreline displacement (m) predicted from Upsilon / equilibrium morphodynamics.
+    phi_longshore : float or np.ndarray
+        Alongshore transport divergence / rotational potential in [-1, 1].
+    y_alongshore_m : float or np.ndarray
+        Alongshore coordinate of the target transect/profile in meters [m] (0 <= y <= L_beach).
+    y_center_m : float
+        Central fulcrum / pivot coordinate of the embayment in meters (default 1800.0 m for Narrabeen).
+    l_beach_m : float
+        Total length of the embayed beach compartment in meters (default 3600.0 m for Narrabeen).
+    alpha_rot : float
+        Rotational mobility scaling coefficient in meters (default 12.0 m).
+
+    Returns
+    -------
+    delta_x_net : float or np.ndarray
+        Net coupled 2D shoreline displacement (m) accounting for cross-shore erosion and alongshore rotation.
+    """
+    dx_cross = np.asarray(delta_x_cross_shore, dtype=float)
+    phi_ls = np.asarray(phi_longshore, dtype=float)
+    y_arr = np.asarray(y_alongshore_m, dtype=float)
+
+    l_eff = max(float(l_beach_m), 1.0)
+    norm_y = (y_arr - float(y_center_m)) / l_eff
+    rot_offset = float(alpha_rot) * phi_ls * norm_y
+    dx_net = dx_cross + rot_offset
+
+    if np.isscalar(delta_x_cross_shore) and np.isscalar(phi_longshore) and np.isscalar(y_alongshore_m):
+        return float(dx_net)
+    return dx_net
+
+
+# Physical aliases for Alongshore Transport Gradient & Beach Rotation
+compute_alongshore_transport_gradient_rotation = compute_coupled_2d_embayment_displacement
+compute_embayed_beach_rotation = compute_coupled_2d_embayment_displacement
+
+
 def compute_reef_dissipation_modulator(
     hs: Union[float, np.ndarray],
     tide: Optional[Union[float, np.ndarray]] = None,
@@ -1010,6 +1112,108 @@ def simulate_signed_equilibrium_upsilon_evolution(
     return x_pos, x_obs
 
 
+def simulate_coupled_2d_embayment_evolution(
+    upsilon: np.ndarray,
+    phi_longshore: np.ndarray,
+    y_alongshore_m: float,
+    y_center_m: float = 1800.0,
+    l_beach_m: float = 3600.0,
+    alpha_rot: float = 12.0,
+    c_erosion: float = 1.2e-5,
+    c_accretion: float = 1.8e-5,
+    upsilon_eq: Optional[float] = 2500.0,
+    a_eq: float = 0.0,
+    b_eq: float = 2500.0,
+    dynamic_eq: bool = False,
+    initial_x: float = 0.0,
+    x_bounds: Tuple[float, float] = (-35.0, 25.0),
+    random_seed: int = 42,
+    add_noise: bool = False,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Simulate continuous coupled 2D shoreline morphodynamics for embayed and rotational coastlines.
+
+    Couples the signed equilibrium Upsilon cross-shore morphodynamics with the instantaneous
+    alongshore transport gradient rotation over time:
+
+        Delta_X_net(y, t) = X_cross(t) - X_cross(0) + alpha_rot * Phi_longshore(t) * ((y - y_center) / L_beach)
+
+    Parameters
+    ----------
+    upsilon : np.ndarray
+        Time series of Unified Coastal Vulnerability Index.
+    phi_longshore : np.ndarray
+        Time series of alongshore transport potential Phi_longshore = sin(2 * (theta_wave - theta_shore)).
+    y_alongshore_m : float
+        Alongshore coordinate of the transect in meters [m].
+    y_center_m : float
+        Central fulcrum coordinate of the embayment (m).
+    l_beach_m : float
+        Total length of the embayed beach compartment (m).
+    alpha_rot : float
+        Rotational mobility coefficient (m).
+    c_erosion, c_accretion : float
+        Cross-shore morphodynamic rate constants.
+    upsilon_eq : float, optional
+        Static baseline equilibrium threshold.
+    a_eq, b_eq : float
+        Dynamic equilibrium parameters.
+    dynamic_eq : bool
+        Whether to dynamically couple Upsilon_eq with beach displacement.
+    initial_x : float
+        Initial shoreline position offset (m).
+    x_bounds : tuple of float
+        (min_x, max_x) clipping limits in meters.
+    random_seed : int
+        Seed for survey observation noise.
+    add_noise : bool
+        Whether to add simulated survey measurement noise (sigma = 0.15m).
+
+    Returns
+    -------
+    x_net : np.ndarray
+        Deterministic coupled 2D shoreline displacement trajectory (m).
+    x_obs : np.ndarray
+        Observed coupled 2D shoreline trajectory with noise (m).
+    """
+    # 1. Simulate 1D cross-shore equilibrium evolution
+    x_cross, _ = simulate_signed_equilibrium_upsilon_evolution(
+        upsilon=upsilon,
+        c_erosion=c_erosion,
+        c_accretion=c_accretion,
+        upsilon_eq=upsilon_eq,
+        a_eq=a_eq,
+        b_eq=b_eq,
+        dynamic_eq=dynamic_eq,
+        initial_x=initial_x,
+        x_bounds=x_bounds,
+        random_seed=random_seed,
+        add_noise=False,
+    )
+
+    # 2. Couple with 2D alongshore transport gradient rotation
+    phi_arr = np.asarray(phi_longshore, dtype=float)
+    dx_cross = x_cross - float(initial_x)
+    dx_rot = compute_coupled_2d_embayment_displacement(
+        delta_x_cross_shore=dx_cross,
+        phi_longshore=phi_arr,
+        y_alongshore_m=float(y_alongshore_m),
+        y_center_m=float(y_center_m),
+        l_beach_m=float(l_beach_m),
+        alpha_rot=float(alpha_rot),
+    )
+    x_net = float(initial_x) + dx_rot
+    min_x, max_x = x_bounds
+    x_net = np.clip(x_net, min_x, max_x)
+
+    if add_noise:
+        rng = np.random.default_rng(random_seed)
+        noise = rng.normal(0.0, 0.15, len(x_net))
+        x_obs = x_net + noise
+    else:
+        x_obs = x_net.copy()
+
+    return x_net, x_obs
+
 
 def compute_critical_shear_threshold(
     tan_beta: Union[float, np.ndarray],
@@ -1165,6 +1369,10 @@ def compute_unified_coastal_vulnerability_index(
     tan_beta_ref: float = 0.08,
     upsilon_crit: Optional[Union[float, np.ndarray]] = None,
     enable_critical_threshold: bool = True,
+    y_alongshore_m: Optional[Union[float, np.ndarray]] = None,
+    y_center_m: Optional[float] = None,
+    l_beach_m: Optional[float] = None,
+    alpha_rot: Optional[float] = None,
     rho: float = RHO_WATER,
     g: float = G_CONST,
     tau: float = TAU_CONST,
@@ -1388,6 +1596,21 @@ def compute_unified_coastal_vulnerability_index(
     psi_dir = compute_directional_wave_factor(w_dir_arr, eff_shore_normal, m=2.0)
     phi_longshore = compute_longshore_transport_divergence(w_dir_arr, eff_shore_normal)
 
+    # Alongshore Transport Gradient & Embayment Rotation Parameters
+    site_is_embayment = site_cfg.get("is_embayment", False)
+    site_l_beach = l_beach_m if l_beach_m is not None else site_cfg.get("l_beach_m", 3600.0)
+    site_y_center = y_center_m if y_center_m is not None else site_cfg.get("y_center_m", 1800.0)
+    site_alpha_rot = alpha_rot if alpha_rot is not None else site_cfg.get("alpha_rot", (12.0 if site_is_embayment else 0.0))
+
+    if y_alongshore_m is not None:
+        y_coord_arr = np.broadcast_to(np.asarray(y_alongshore_m, dtype=float), hs_arr.shape) if not np.isscalar(y_alongshore_m) else np.full_like(hs_arr, float(y_alongshore_m))
+        phi_rot_gradient = (y_coord_arr - float(site_y_center)) / max(float(site_l_beach), 1.0)
+        delta_x_rot_proxy = float(site_alpha_rot) * phi_longshore * phi_rot_gradient
+    else:
+        y_coord_arr = np.full_like(hs_arr, float(site_y_center))
+        phi_rot_gradient = np.zeros_like(hs_arr)
+        delta_x_rot_proxy = np.zeros_like(hs_arr)
+
     # 9. Prefactor & Wave-Sediment Kinetic Core: C_0 * (H_shore^n * Tp) / ws(T)
     prefactor = (rho * (g ** 1.5)) / (16.0 * (tau ** 1.5))
     wave_sed_core = ( (np.maximum(hs_eff, 0.01) ** n_exp) * np.maximum(tp_arr, 0.1) ) / ws
@@ -1464,6 +1687,9 @@ def compute_unified_coastal_vulnerability_index(
         "psi_tide_phase": psi_phase,
         "psi_dir": psi_dir,
         "phi_longshore": phi_longshore,
+        "y_alongshore_m": y_coord_arr,
+        "phi_rot_gradient": phi_rot_gradient,
+        "delta_x_rot_proxy": delta_x_rot_proxy,
         "psi_reef": psi_reef,
         "h_reef_m": h_reef,
         "k_c_crest": k_c,

@@ -29,6 +29,10 @@ from src.physics import (
     compute_excess_upsilon,
     compute_critical_threshold_shear_activation,
     compute_excess_vulnerability_index,
+    compute_coupled_2d_embayment_displacement,
+    compute_alongshore_transport_gradient_rotation,
+    compute_embayed_beach_rotation,
+    simulate_coupled_2d_embayment_evolution,
     compute_dynamic_foreshore_slope,
     compute_dynamic_grain_size,
     COASTAL_SITE_PROFILES,
@@ -1108,6 +1112,212 @@ def test_unified_index_critical_threshold_integration():
         df["upsilon"].iloc[2] - df["upsilon_crit"].iloc[2],
         rtol=1e-4,
     )
+
+
+def test_coupled_2d_embayment_displacement_formulation():
+    """Verify the Coupled 2D Embayment Displacement Proxy Delta_X_net = Delta_X_cross + alpha_rot * Phi_ls * ((y - y_c) / L)."""
+    # 1. Shore-normal wave approach (Phi_longshore = 0.0) -> Pure cross-shore response
+    dx_cross = -5.0
+    dx_net_norm = compute_coupled_2d_embayment_displacement(
+        delta_x_cross_shore=dx_cross,
+        phi_longshore=0.0,
+        y_alongshore_m=3400.0,  # North Narrabeen
+        y_center_m=1800.0,
+        l_beach_m=3600.0,
+        alpha_rot=12.0,
+    )
+    assert dx_net_norm == dx_cross
+
+    # 2. Oblique East Coast Low (ECL) storm from SE (Phi_longshore = +1.0)
+    # North transect (PF1, y=3400m): (3400 - 1800) / 3600 = 1600 / 3600 = +4/9
+    # Rotational term = 12.0 * 1.0 * (4/9) = +5.3333 m
+    # Net displacement = -3.0 + 5.3333 = +2.3333 m (accretion at north downdrift headland!)
+    dx_north = compute_coupled_2d_embayment_displacement(
+        delta_x_cross_shore=-3.0,
+        phi_longshore=1.0,
+        y_alongshore_m=3400.0,
+        y_center_m=1800.0,
+        l_beach_m=3600.0,
+        alpha_rot=12.0,
+    )
+    np.testing.assert_allclose(dx_north, -3.0 + 12.0 * (1600.0 / 3600.0), rtol=1e-4)
+    assert dx_north > 0.0  # Accretion at northern end
+
+    # Central fulcrum (PF2, y=1800m): (1800 - 1800) / 3600 = 0.0 -> Net = -3.0 m
+    dx_center = compute_coupled_2d_embayment_displacement(
+        delta_x_cross_shore=-3.0,
+        phi_longshore=1.0,
+        y_alongshore_m=1800.0,
+        y_center_m=1800.0,
+        l_beach_m=3600.0,
+        alpha_rot=12.0,
+    )
+    assert dx_center == -3.0
+
+    # South transect (PF4, y=400m): (400 - 1800) / 3600 = -1400 / 3600 = -7/18
+    # Rotational term = 12.0 * 1.0 * (-7/18) = -4.6667 m
+    # Net displacement = -3.0 - 4.6667 = -7.6667 m (severe scour at south updrift end!)
+    dx_south = compute_coupled_2d_embayment_displacement(
+        delta_x_cross_shore=-3.0,
+        phi_longshore=1.0,
+        y_alongshore_m=400.0,
+        y_center_m=1800.0,
+        l_beach_m=3600.0,
+        alpha_rot=12.0,
+    )
+    np.testing.assert_allclose(dx_south, -3.0 - 12.0 * (1400.0 / 3600.0), rtol=1e-4)
+    assert dx_south < -3.0
+
+    # 3. Reversed NE wave approach (Phi_longshore = -1.0) flips rotation dipole
+    dx_north_ne = compute_coupled_2d_embayment_displacement(
+        delta_x_cross_shore=-3.0,
+        phi_longshore=-1.0,
+        y_alongshore_m=3400.0,
+        y_center_m=1800.0,
+        l_beach_m=3600.0,
+        alpha_rot=12.0,
+    )
+    dx_south_ne = compute_coupled_2d_embayment_displacement(
+        delta_x_cross_shore=-3.0,
+        phi_longshore=-1.0,
+        y_alongshore_m=400.0,
+        y_center_m=1800.0,
+        l_beach_m=3600.0,
+        alpha_rot=12.0,
+    )
+    assert dx_north_ne < -3.0  # North erodes
+    assert dx_south_ne > -3.0  # South receives sand
+
+    # 4. Aliases equivalence
+    np.testing.assert_allclose(
+        compute_alongshore_transport_gradient_rotation(-3.0, 1.0, 3400.0),
+        compute_embayed_beach_rotation(-3.0, 1.0, 3400.0),
+    )
+
+    # 5. Vectorized array evaluation
+    y_coords = np.array([400.0, 1800.0, 3400.0])
+    dx_arr = compute_coupled_2d_embayment_displacement(
+        delta_x_cross_shore=np.full(3, -2.0),
+        phi_longshore=np.full(3, 1.0),
+        y_alongshore_m=y_coords,
+        y_center_m=1800.0,
+        l_beach_m=3600.0,
+        alpha_rot=12.0,
+    )
+    assert dx_arr[0] < -2.0  # South eroded
+    assert dx_arr[1] == -2.0  # Center unchanged
+    assert dx_arr[2] > -2.0  # North accreted / widened
+
+
+def test_simulate_coupled_2d_embayment_evolution_narrabeen():
+    """Verify multi-transect time-series simulation of Narrabeen headland beach rotation."""
+    # Synthetic 200-hour East Coast Low storm time-series
+    hours = 200
+    ups_series = np.full(hours, 6500.0)  # High storm Upsilon forcing (>> 2500 equilibrium)
+    phi_series = np.full(hours, 1.0)     # Oblique SE storm waves (Phi_longshore = +1.0)
+
+    # Simulate PF1 (North Narrabeen / Alley, y=3400m)
+    x_north, _ = simulate_coupled_2d_embayment_evolution(
+        upsilon=ups_series,
+        phi_longshore=phi_series,
+        y_alongshore_m=3400.0,
+        y_center_m=1800.0,
+        l_beach_m=3600.0,
+        alpha_rot=12.0,
+        initial_x=0.0,
+    )
+
+    # Simulate PF2 (Central Fulcrum, y=1800m)
+    x_center, _ = simulate_coupled_2d_embayment_evolution(
+        upsilon=ups_series,
+        phi_longshore=phi_series,
+        y_alongshore_m=1800.0,
+        y_center_m=1800.0,
+        l_beach_m=3600.0,
+        alpha_rot=12.0,
+        initial_x=0.0,
+    )
+
+    # Simulate PF4 (Collaroy / South, y=400m)
+    x_south, _ = simulate_coupled_2d_embayment_evolution(
+        upsilon=ups_series,
+        phi_longshore=phi_series,
+        y_alongshore_m=400.0,
+        y_center_m=1800.0,
+        l_beach_m=3600.0,
+        alpha_rot=12.0,
+        initial_x=0.0,
+    )
+
+    # At final timestep:
+    # 1. Central transect experiences pure cross-shore disequilibrium erosion (x_center < 0)
+    assert x_center[-1] < 0.0
+    # 2. North transect is displaced positive (accretion / widening) relative to center
+    assert x_north[-1] > x_center[-1]
+    # 3. South transect is displaced negative (severe narrowing / scour) relative to center
+    assert x_south[-1] < x_center[-1]
+    # 4. Net rotation gradient dipole: x_north > x_center > x_south
+    assert x_north[-1] > x_south[-1]
+
+
+def test_coastal_site_profiles_embayment_parameters():
+    """Verify that all global site profiles have complete alongshore and embayment specifications."""
+    required_keys = ["is_embayment", "l_beach_m", "y_center_m", "alpha_rot", "default_transects", "transect_coords_m"]
+    for site_key, profile in COASTAL_SITE_PROFILES.items():
+        for k in required_keys:
+            assert k in profile, f"Site '{site_key}' missing required alongshore/embayment key '{k}'"
+        assert profile["l_beach_m"] > 0.0
+        assert profile["y_center_m"] >= 0.0
+        assert profile["alpha_rot"] >= 0.0
+        assert len(profile["default_transects"]) >= 2
+        assert len(profile["transect_coords_m"]) >= 2
+
+
+def test_unified_index_alongshore_embayment_integration():
+    """Verify compute_unified_coastal_vulnerability_index calculation of alongshore rotation gradient."""
+    hs = np.array([3.5, 4.0, 4.5])
+    tp = np.array([12.0, 13.0, 14.0])
+    surge = np.array([0.5, 0.6, 0.7])
+    wind = np.array([14.0, 16.0, 18.0])
+    wind_dir = np.full(3, 130.0)
+    wave_dir = np.full(3, 130.0)  # +45 deg oblique to Narrabeen 85 deg shore-normal -> Phi_ls = 1.0
+
+    # North Transect (y = 3400m)
+    df_north = compute_unified_coastal_vulnerability_index(
+        hs=hs,
+        tp=tp,
+        surge=surge,
+        wind_speed=wind,
+        wind_dir_deg=wind_dir,
+        wave_dir_deg=wave_dir,
+        site="narrabeen_aus",
+        y_alongshore_m=3400.0,
+    )
+
+    # South Transect (y = 400m)
+    df_south = compute_unified_coastal_vulnerability_index(
+        hs=hs,
+        tp=tp,
+        surge=surge,
+        wind_speed=wind,
+        wind_dir_deg=wind_dir,
+        wave_dir_deg=wave_dir,
+        site="narrabeen_aus",
+        y_alongshore_m=400.0,
+    )
+
+    assert "phi_rot_gradient" in df_north.columns
+    assert "delta_x_rot_proxy" in df_north.columns
+    assert "y_alongshore_m" in df_north.columns
+
+    # North has positive gradient and positive rotation proxy (sand trapped at north headland)
+    assert df_north["phi_rot_gradient"].iloc[0] > 0.0
+    assert df_north["delta_x_rot_proxy"].iloc[0] > 0.0
+
+    # South has negative gradient and negative rotation proxy (sand exported northward)
+    assert df_south["phi_rot_gradient"].iloc[0] < 0.0
+    assert df_south["delta_x_rot_proxy"].iloc[0] < 0.0
+
 
 
 

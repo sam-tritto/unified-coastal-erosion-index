@@ -57,6 +57,8 @@ from src.physics import (
     compute_upsilon_disequilibrium,
     compute_signed_equilibrium_rate,
     simulate_signed_equilibrium_upsilon_evolution,
+    compute_coupled_2d_embayment_displacement,
+    simulate_coupled_2d_embayment_evolution,
     DUCK_SHORE_NORMAL_DEG,
 )
 
@@ -1466,7 +1468,7 @@ def load_multi_year_dataset(
 def load_site_field_surveys(
     site: str = "duck_nc",
     transect_id: Optional[str] = None,
-    transect_index: int = 0,
+    transect_index: Optional[int] = None,
     csv_path: Optional[str] = None,
 ) -> pd.DataFrame:
     """Load authentic in-situ beach profile field surveys for any supported coastal site."""
@@ -1491,14 +1493,18 @@ def load_site_field_surveys(
     site_cfg = COASTAL_SITE_PROFILES[site_key]
     default_transects = site_cfg.get("default_transects", ["FRF_0058", "FRF_0109"])
 
-    # Resolve default transect if not provided or if incompatible
-    if transect_id is None:
+    # Resolve default transect if provided or if specific index is requested
+    resolved_transect = None
+    if transect_id is not None and transect_id.lower() != "all":
+        if transect_id in default_transects:
+            resolved_transect = transect_id
+        else:
+            # If an incompatible transect is passed, gracefully map it
+            idx = 1 if ("0109" in str(transect_id) or "south" in str(transect_id).lower() or "4" in str(transect_id)) else 0
+            resolved_transect = default_transects[min(idx, len(default_transects) - 1)]
+    elif transect_index is not None:
         idx = max(0, min(transect_index, len(default_transects) - 1))
-        transect_id = default_transects[idx]
-    elif transect_id not in default_transects:
-        # If a Duck transect (e.g. FRF_0058) is passed for Torrey Pines or Narrabeen, gracefully map it
-        idx = 1 if ("0109" in str(transect_id) or "2" in str(transect_id) or "south" in str(transect_id).lower() or "4" in str(transect_id)) else 0
-        transect_id = default_transects[min(idx, len(default_transects) - 1)]
+        resolved_transect = default_transects[idx]
 
     # Locate dataset CSV (Unified site_field_surveys.csv)
     possible_paths = [
@@ -1527,8 +1533,8 @@ def load_site_field_surveys(
         if not df_site.empty:
             df = df_site
 
-    if transect_id is not None and "transect_id" in df.columns:
-        df_t = df[df["transect_id"] == transect_id]
+    if resolved_transect is not None and "transect_id" in df.columns:
+        df_t = df[df["transect_id"] == resolved_transect]
         if not df_t.empty:
             df = df_t
 
@@ -1536,7 +1542,8 @@ def load_site_field_surveys(
         df["cross_shore_change_m"] = df.groupby("transect_id")["shoreline_pos_mhw_m"].diff().fillna(0.0)
 
     df_out = df.set_index("survey_date")
-    df_out.attrs["provenance"] = f"In-situ beach profile field surveys for {site_cfg.get('name', site_key)} (Transect {transect_id})"
+    t_label = resolved_transect if resolved_transect is not None else "All Transects"
+    df_out.attrs["provenance"] = f"In-situ beach profile field surveys for {site_cfg.get('name', site_key)} (Transect {t_label})"
     return df_out
 
 
