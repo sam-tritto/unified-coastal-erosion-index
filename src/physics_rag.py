@@ -14,7 +14,13 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import RobustScaler, StandardScaler
+
+try:
+    import duckdb
+except ImportError:
+    duckdb = None  # type: ignore
 
 try:
     from src.embeddings import (
@@ -451,6 +457,184 @@ Instructions:
     except Exception:
         pass
     return None
+
+
+def explain_hierarchical_with_gemini(
+    query_text: str,
+    spec: PhysicsQuerySpec,
+    child_df: pd.DataFrame,
+    parent_windows: List["ParentWindowContext"],
+    model_name: str = "gemini-2.5-flash",
+    api_key: Optional[str] = None,
+    client: Optional[Any] = None,
+) -> Optional[str]:
+    """Generate rich multi-scale diagnostic narrative synthesizing child matches and hydrated parent time-series."""
+    if child_df.empty:
+        return None
+
+    try:
+        from google import genai
+
+        if client is None:
+            k = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+            if k:
+                client = genai.Client(api_key=k)
+            else:
+                try:
+                    client = genai.Client()
+                except Exception:
+                    client = None
+
+        if client is None:
+            return None
+
+        display_cols = [
+            c for c in [
+                "timestamp", "hs_m", "tp_s", "surge_m", "wind_normal_ms",
+                "xi_iribarren", "breaker_regime", "upsilon", "upsilon_diseq", "delta_x_m", "similarity"
+            ] if c in child_df.columns
+        ]
+        child_table_str = child_df[display_cols].to_string(index=False)
+
+        parent_summaries = []
+        for idx, pw in enumerate(parent_windows[:3]):
+            st = pw.summary_stats
+            parent_summaries.append(
+                f"Window #{idx+1} [Event: {pw.event_timestamp}, Span: {pw.window_start} to {pw.window_end}, {len(pw.parent_df) if pw.parent_df is not None else 0} timesteps]:\n"
+                f"  - Peak Hs: {st.get('peak_hs_m', 0.0):.2f}m (Rise rate: {st.get('hs_rise_rate_m_per_hr', 0.0):.3f} m/hr), Peak Tp: {st.get('peak_tp_s', 0.0):.1f}s\n"
+                f"  - Peak Surge: {st.get('peak_surge_m', 0.0):.2f}m (Surge duration: {st.get('surge_duration_hours', 0.0):.1f}h)\n"
+                f"  - Peak Upsilon Index: {st.get('peak_upsilon', 0.0):.1e}, Cumulative Power Impulse: {st.get('cumulative_power_impulse_MJ_per_m', 0.0):.1f} MJ/m\n"
+                f"  - Net Shoreline Displacement ΔX: {st.get('net_delta_x_m', 0.0):+.2f}m (Start: {st.get('delta_x_start_m', 0.0):.2f}m, End: {st.get('delta_x_end_m', 0.0):.2f}m)\n"
+                f"  - Mean Disequilibrium Υ_diseq: {st.get('mean_upsilon_diseq', 0.0):.1e} ({st.get('recovery_phase_fraction', 0.0)*100:.1f}% recovery timesteps)"
+            )
+        parent_str = "\n".join(parent_summaries)
+
+        prompt = f"""You are an authoritative senior coastal oceanographer reviewing Hierarchical Parent-Child Physics-RAG search results.
+The search engine matched instantaneous child hydrodynamic states and hydrated continuous multi-channel parent time-series sequences (±72h context windows via DuckDB) for the query: "{query_text}".
+
+Query Intent: {spec.intent_summary or spec.raw_query}
+Target Regime / Phase: {spec.phase or spec.breaker_regime or 'General Hydrodynamics'}
+
+Top Child Vector Matches:
+{child_table_str}
+
+Hydrated Parent Time-Series Context Windows (Temporal Multi-Channel Evolution):
+{parent_str}
+
+Instructions:
+1. Multi-Scale Synthesis: Connect the instantaneous child physical state (peak scour, breaker type, surge elevation) with its antecedent wave energy buildup (pre-storm rise rate) and post-event relaxation trajectory.
+2. Hydrodynamic & Morphodynamic Root Cause: Analyze how wave power flux impulse, storm surge duration, and Iribarren breaker dynamics drove the observed shoreline displacement (ΔX) and Unified Index (Υ).
+3. Disequilibrium & Recovery: If post-storm recovery or berm accretion is present, explain how the Signed Disequilibrium (Υ_diseq < 0) governed constructive swash welding.
+4. Quantitative Grounding: Directly reference the quantitative values from both the child records and parent window summary statistics. Maintain a rigorous, objective, and professional scientific tone.
+"""
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config={
+                "temperature": 0.2,
+            },
+        )
+        if response and response.text:
+            return response.text.strip()
+    except Exception:
+        pass
+    return None
+
+
+class ParentWindowContext(BaseModel):
+    """Encapsulates a hydrated parent time-series context window around a child event."""
+    model_config = {"arbitrary_types_allowed": True}
+
+    match_index: int = Field(default=0, description="Row index of the child event in the dataset.")
+    event_timestamp: Any = Field(description="Timestamp of the matched child physical state.")
+    similarity: float = Field(default=1.0, description="Cosine or vector similarity score.")
+    window_start: Any = Field(default=None, description="Start timestamp of the parent time-series context window.")
+    window_end: Any = Field(default=None, description="End timestamp of the parent time-series context window.")
+    pre_window_hours: float = Field(default=72.0, description="Antecedent context window duration in hours.")
+    post_window_hours: float = Field(default=24.0, description="Post-event context window duration in hours.")
+    parent_df: Any = Field(default=None, description="Hydrated multi-channel sequence DataFrame from DuckDB.")
+    summary_stats: Dict[str, Any] = Field(default_factory=dict, description="Extracted temporal dynamics and oceanographic summary metrics.")
+
+
+class HierarchicalRAGResult:
+    """Structured container for Hierarchical Parent-Child RAG results with hydrated multi-channel context."""
+
+    def __init__(
+        self,
+        query: str,
+        child_matches_df: pd.DataFrame,
+        parent_windows: List[ParentWindowContext],
+        similarities: np.ndarray,
+        explanation: str,
+        parsed_criteria: Union[Dict[str, Any], PhysicsQuerySpec],
+        llm_explanation: Optional[str] = None,
+        query_vector: Optional[np.ndarray] = None,
+        metrics: Optional[Dict[str, Any]] = None,
+    ):
+        self.query = query
+        self.child_matches_df = child_matches_df
+        self.matches_df = child_matches_df  # Compatibility alias
+        self.parent_windows = parent_windows
+        self.similarities = similarities
+        self.explanation = explanation
+        self.parsed_criteria = parsed_criteria
+        self.llm_explanation = llm_explanation
+        self.query_vector = query_vector
+        self.metrics = metrics or {}
+
+    def __repr__(self) -> str:
+        return f"<HierarchicalRAGResult query='{self.query}', n_children={len(self.child_matches_df)}, n_windows={len(self.parent_windows)}>"
+
+    def summary(self) -> str:
+        """Return formatted multi-scale text summary with child matches and hydrated parent sequence statistics."""
+        lines = [
+            "=== Hierarchical Parent-Child Physics-RAG Results ===",
+            f"Query: \"{self.query}\"",
+            f"Child Event Matches (Top-k): {len(self.child_matches_df)}",
+            f"Hydrated Parent Windows: {len(self.parent_windows)}",
+            "",
+            "Multi-Scale Physical Diagnostic Narrative:",
+            f"{self.llm_explanation or self.explanation}",
+            "",
+            "Top Matching Child Observations (Instantaneous Physical States):",
+        ]
+
+        display_cols = [
+            c for c in [
+                "timestamp", "hs_m", "tp_s", "surge_m", "wind_normal_ms",
+                "xi_iribarren", "breaker_regime", "upsilon", "upsilon_diseq", "delta_x_m", "similarity"
+            ] if c in self.child_matches_df.columns
+        ]
+
+        table_str = self.child_matches_df[display_cols].to_string(index=False)
+        lines.append(table_str)
+
+        if self.parent_windows:
+            lines.append("")
+            lines.append("Hydrated Parent Context Windows (Temporal Sequence Evolution):")
+            for idx, pw in enumerate(self.parent_windows[:3]):
+                lines.append(f"\n--- Parent Window #{idx + 1} for Event at {pw.event_timestamp} (Similarity: {pw.similarity:.3f}) ---")
+                lines.append(f"Window Span: {pw.window_start} to {pw.window_end} (Antecedent: -{pw.pre_window_hours}h, Post: +{pw.post_window_hours}h, Timesteps: {len(pw.parent_df) if pw.parent_df is not None else 0})")
+                stats = pw.summary_stats
+                if stats:
+                    lines.append("Key Temporal Statistics:")
+                    lines.append(
+                        f"  * Peak Hs: {stats.get('peak_hs_m', 0.0):.2f}m | Mean Hs: {stats.get('mean_hs_m', 0.0):.2f}m | Hs Rise Rate: {stats.get('hs_rise_rate_m_per_hr', 0.0):.3f} m/hr"
+                    )
+                    lines.append(
+                        f"  * Peak Tp: {stats.get('peak_tp_s', 0.0):.1f}s | Peak Surge: {stats.get('peak_surge_m', 0.0):.2f}m | Surge Duration (>0.3m): {stats.get('surge_duration_hours', 0.0):.1f}h"
+                    )
+                    lines.append(
+                        f"  * Peak Index Υ: {stats.get('peak_upsilon', 0.0):.1e} | Cumulative Wave Energy Impulse: {stats.get('cumulative_power_impulse_MJ_per_m', 0.0):.1f} MJ/m"
+                    )
+                    lines.append(
+                        f"  * Shoreline Displacement ΔX: Start {stats.get('delta_x_start_m', 0.0):.2f}m -> End {stats.get('delta_x_end_m', 0.0):.2f}m (Net: {stats.get('net_delta_x_m', 0.0):+.2f}m)"
+                    )
+                    lines.append(
+                        f"  * Mean Disequilibrium (Υ_diseq): {stats.get('mean_upsilon_diseq', 0.0):.1e} | Recovery Fraction: {stats.get('recovery_phase_fraction', 0.0)*100:.1f}%"
+                    )
+
+        return "\n".join(lines)
 
 
 class PhysicsRAGResult:
@@ -990,6 +1174,402 @@ class PhysicsRAG:
             k_list=k_list,
             use_llm_parser=use_llm_parser,
         )
+
+    def to_hierarchical(
+        self,
+        parquet_path: Optional[str] = None,
+        default_pre_window_hours: float = 72.0,
+        default_post_window_hours: float = 24.0,
+        db_conn: Optional[Any] = None,
+    ) -> "HierarchicalPhysicsRAG":
+        """Convert this PhysicsRAG instance into a HierarchicalPhysicsRAG engine with DuckDB sequence store."""
+        return HierarchicalPhysicsRAG(
+            df=self.df,
+            parquet_path=parquet_path,
+            embeddings=self.embeddings,
+            feature_names=self.feature_names,
+            scaler_meta=self.scaler_meta,
+            model_name=self.model_name,
+            api_key=self.api_key,
+            top_k=self.top_k,
+            default_pre_window_hours=default_pre_window_hours,
+            default_post_window_hours=default_post_window_hours,
+            db_conn=db_conn,
+        )
+
+    def query_hierarchical(
+        self,
+        query_text: str,
+        top_k: int = 5,
+        pre_window_hours: float = 72.0,
+        post_window_hours: float = 24.0,
+        min_similarity: float = -1.0,
+        use_llm_parser: bool = True,
+        use_llm_synthesis: bool = True,
+        parent_columns: Optional[List[str]] = None,
+    ) -> HierarchicalRAGResult:
+        """Execute a hierarchical parent-child query, hydrating ±72h continuous time-series context windows."""
+        hrag = self.to_hierarchical(
+            default_pre_window_hours=pre_window_hours,
+            default_post_window_hours=post_window_hours,
+        )
+        return hrag.query(
+            query_text=query_text,
+            top_k=top_k,
+            pre_window_hours=pre_window_hours,
+            post_window_hours=post_window_hours,
+            min_similarity=min_similarity,
+            use_llm_parser=use_llm_parser,
+            use_llm_synthesis=use_llm_synthesis,
+            parent_columns=parent_columns,
+        )
+
+
+class HierarchicalPhysicsRAG(PhysicsRAG):
+    """Hierarchical Parent-Child Physics-RAG Engine using embedded DuckDB & Scikit-Learn.
+
+    Architecture:
+    - Child Layer: In-memory Scikit-Learn NearestNeighbors / Cosine indexing over normalized physical scalars & regime features.
+    - Parent Layer: Local columnar multi-channel sequence storage in DuckDB / Apache Parquet.
+    - Hydration Engine: Slices surrounding continuous temporal context windows (e.g. -72h to +24h) for top child matches.
+    - LLM Engine: Gemini Flash structured query parsing and multi-scale diagnostic narrative synthesis.
+    """
+
+    DEFAULT_CHILD_FEATURE_COLS = [
+        "hs_m", "tp_s", "surge_m", "wind_normal_ms",
+        "xi_iribarren", "upsilon", "dean_number", "delta_p_dissip",
+    ]
+
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        parquet_path: Optional[str] = None,
+        child_feature_cols: Optional[List[str]] = None,
+        embeddings: Optional[np.ndarray] = None,
+        feature_names: Optional[List[str]] = None,
+        scaler_meta: Optional[Dict[str, Any]] = None,
+        scaler_type: str = "robust",
+        model_name: str = "gemini-2.5-flash",
+        api_key: Optional[str] = None,
+        top_k: int = 5,
+        default_pre_window_hours: float = 72.0,
+        default_post_window_hours: float = 24.0,
+        db_conn: Optional[Any] = None,
+        **kwargs: Any,
+    ):
+        super().__init__(
+            df=df,
+            embeddings=embeddings,
+            feature_names=feature_names,
+            scaler_meta=scaler_meta,
+            model_name=model_name,
+            api_key=api_key,
+            top_k=top_k,
+            **kwargs,
+        )
+        self.parquet_path = parquet_path
+        self.default_pre_window_hours = default_pre_window_hours
+        self.default_post_window_hours = default_post_window_hours
+        self.scaler_type = scaler_type
+
+        # Ensure timestamp column is datetime
+        if "timestamp" in self.df.columns:
+            try:
+                self.df["timestamp"] = pd.to_datetime(self.df["timestamp"])
+            except Exception:
+                pass
+        else:
+            self.df["timestamp"] = pd.date_range("2022-01-01", periods=len(self.df), freq="1h")
+
+        # Child feature columns
+        self.child_feature_cols = child_feature_cols or [c for c in self.DEFAULT_CHILD_FEATURE_COLS if c in self.df.columns]
+
+        # In-memory Scikit-Learn NearestNeighbors index
+        n_neighbors = min(max(top_k * 4, 10), len(self.df))
+        self.knn_index = NearestNeighbors(n_neighbors=n_neighbors, metric="cosine").fit(self.embeddings)
+
+        # DuckDB Parent sequence storage
+        self.con = db_conn or (duckdb.connect(":memory:") if duckdb is not None else None)
+        self._init_duckdb_store()
+
+    def _init_duckdb_store(self) -> None:
+        """Register the parent time-series DataFrame or Parquet file in DuckDB."""
+        if self.con is None or duckdb is None:
+            return
+
+        try:
+            if self.parquet_path and os.path.exists(self.parquet_path):
+                self.con.execute(f"CREATE OR REPLACE VIEW parent_sensors AS SELECT * FROM '{self.parquet_path}'")
+            else:
+                self.con.register("parent_sensors", self.df)
+        except Exception:
+            pass
+
+    def export_parent_parquet(self, parquet_path: str) -> str:
+        """Save continuous multi-channel dataset to local Apache Parquet columnar storage using DuckDB."""
+        parent_dir = os.path.dirname(os.path.abspath(parquet_path))
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
+
+        if self.con is not None and duckdb is not None:
+            try:
+                self.con.register("parent_export_df", self.df)
+                self.con.execute(f"COPY parent_export_df TO '{parquet_path}' (FORMAT PARQUET)")
+                self.parquet_path = parquet_path
+                self.con.execute(f"CREATE OR REPLACE VIEW parent_sensors AS SELECT * FROM '{parquet_path}'")
+                return parquet_path
+            except Exception:
+                pass
+
+        try:
+            self.df.to_parquet(parquet_path, index=False)
+            self.parquet_path = parquet_path
+            if self.con is not None and duckdb is not None:
+                self.con.execute(f"CREATE OR REPLACE VIEW parent_sensors AS SELECT * FROM '{parquet_path}'")
+        except Exception:
+            # If disk write fails or pyarrow is incompatible, retain registered in-memory table
+            if self.con is not None and duckdb is not None:
+                self.con.register("parent_sensors", self.df)
+        return parquet_path
+
+    @classmethod
+    def from_dataset(
+        cls,
+        df: pd.DataFrame,
+        parquet_path: Optional[str] = None,
+        child_feature_cols: Optional[List[str]] = None,
+        scaler_type: str = "robust",
+        model_name: str = "gemini-2.5-flash",
+        api_key: Optional[str] = None,
+        **kwargs: Any,
+    ) -> "HierarchicalPhysicsRAG":
+        """Factory method to construct HierarchicalPhysicsRAG directly from a DataFrame."""
+        embeddings, feature_names, meta = compute_latent_embeddings(df, scaler_type=scaler_type)
+        return cls(
+            df=df,
+            parquet_path=parquet_path,
+            child_feature_cols=child_feature_cols,
+            embeddings=embeddings,
+            feature_names=feature_names,
+            scaler_meta=meta,
+            scaler_type=scaler_type,
+            model_name=model_name,
+            api_key=api_key,
+            **kwargs,
+        )
+
+    def hydrate_parent_window(
+        self,
+        event_timestamp: Union[str, pd.Timestamp],
+        match_index: int = 0,
+        similarity: float = 1.0,
+        pre_window_hours: Optional[float] = None,
+        post_window_hours: Optional[float] = None,
+        columns: Optional[List[str]] = None,
+    ) -> ParentWindowContext:
+        """Slice and hydrate surrounding continuous parent time-series context window using DuckDB."""
+        pre_h = pre_window_hours if pre_window_hours is not None else self.default_pre_window_hours
+        post_h = post_window_hours if post_window_hours is not None else self.default_post_window_hours
+        ts_str = pd.to_datetime(event_timestamp).strftime("%Y-%m-%d %H:%M:%S")
+        cols_sql = ", ".join(columns) if columns else "*"
+
+        parent_df = pd.DataFrame()
+        if self.con is not None and duckdb is not None:
+            try:
+                query = f"""
+                    SELECT {cols_sql}
+                    FROM parent_sensors
+                    WHERE CAST(timestamp AS TIMESTAMP) BETWEEN CAST('{ts_str}' AS TIMESTAMP) - INTERVAL '{pre_h} HOUR'
+                                                          AND CAST('{ts_str}' AS TIMESTAMP) + INTERVAL '{post_h} HOUR'
+                    ORDER BY timestamp ASC
+                """
+                parent_df = self.con.execute(query).df()
+            except Exception:
+                parent_df = pd.DataFrame()
+
+        if parent_df.empty:
+            # Fallback pure-pandas slicing
+            try:
+                ts = pd.to_datetime(event_timestamp)
+                t_start = ts - pd.Timedelta(hours=pre_h)
+                t_end = ts + pd.Timedelta(hours=post_h)
+                mask = (pd.to_datetime(self.df["timestamp"]) >= t_start) & (pd.to_datetime(self.df["timestamp"]) <= t_end)
+                parent_df = self.df[mask].sort_values("timestamp").copy()
+                if columns:
+                    valid_cols = [c for c in columns if c in parent_df.columns]
+                    parent_df = parent_df[valid_cols]
+            except Exception:
+                parent_df = pd.DataFrame()
+
+        # Compute temporal evolution statistics across the hydrated window
+        stats = self._compute_window_statistics(parent_df, event_timestamp)
+
+        w_start = parent_df["timestamp"].min() if not parent_df.empty else (pd.to_datetime(event_timestamp) - pd.Timedelta(hours=pre_h))
+        w_end = parent_df["timestamp"].max() if not parent_df.empty else (pd.to_datetime(event_timestamp) + pd.Timedelta(hours=post_h))
+
+        return ParentWindowContext(
+            match_index=match_index,
+            event_timestamp=event_timestamp,
+            similarity=similarity,
+            window_start=w_start,
+            window_end=w_end,
+            pre_window_hours=pre_h,
+            post_window_hours=post_h,
+            parent_df=parent_df,
+            summary_stats=stats,
+        )
+
+    def _compute_window_statistics(self, parent_df: pd.DataFrame, event_ts: Any) -> Dict[str, Any]:
+        """Compute hydrodynamic, morphodynamic, and wave energy evolution metrics across a parent window."""
+        stats: Dict[str, Any] = {}
+        if parent_df.empty:
+            return stats
+
+        try:
+            # Wave height dynamics
+            if "hs_m" in parent_df.columns:
+                stats["peak_hs_m"] = float(parent_df["hs_m"].max())
+                stats["mean_hs_m"] = float(parent_df["hs_m"].mean())
+                hs_start = float(parent_df["hs_m"].iloc[0])
+                stats["hs_start_m"] = hs_start
+                peak_idx = int(parent_df["hs_m"].argmax())
+                peak_time = parent_df["timestamp"].iloc[peak_idx]
+                dt_hours = max(1.0, (pd.to_datetime(peak_time) - pd.to_datetime(parent_df["timestamp"].iloc[0])).total_seconds() / 3600.0)
+                stats["hs_rise_rate_m_per_hr"] = float((stats["peak_hs_m"] - hs_start) / dt_hours)
+
+            # Wave period dynamics
+            if "tp_s" in parent_df.columns:
+                stats["peak_tp_s"] = float(parent_df["tp_s"].max())
+                stats["mean_tp_s"] = float(parent_df["tp_s"].mean())
+
+            # Surge residual dynamics
+            if "surge_m" in parent_df.columns:
+                stats["peak_surge_m"] = float(parent_df["surge_m"].max())
+                stats["mean_surge_m"] = float(parent_df["surge_m"].mean())
+                stats["surge_duration_hours"] = float((parent_df["surge_m"] > 0.3).sum())
+
+            # Unified Index dynamics
+            if "upsilon" in parent_df.columns:
+                stats["peak_upsilon"] = float(parent_df["upsilon"].max())
+                stats["mean_upsilon"] = float(parent_df["upsilon"].mean())
+
+            # Cumulative Wave Energy Impulse (integral of wave power flux P dt in MJ/m)
+            if "p_flux_Wm" in parent_df.columns:
+                dt_sec = 3600.0
+                if len(parent_df) > 1:
+                    dt_sec = (pd.to_datetime(parent_df["timestamp"].iloc[-1]) - pd.to_datetime(parent_df["timestamp"].iloc[0])).total_seconds() / max(1, len(parent_df) - 1)
+                total_joules = np.sum(parent_df["p_flux_Wm"].values) * dt_sec
+                stats["cumulative_power_impulse_MJ_per_m"] = float(total_joules / 1e6)
+
+            # Shoreline displacement dynamics
+            if "delta_x_m" in parent_df.columns:
+                dx_start = float(parent_df["delta_x_m"].iloc[0])
+                dx_end = float(parent_df["delta_x_m"].iloc[-1])
+                stats["delta_x_start_m"] = dx_start
+                stats["delta_x_end_m"] = dx_end
+                stats["net_delta_x_m"] = float(dx_end - dx_start)
+
+            # Disequilibrium dynamics
+            if "upsilon_diseq" in parent_df.columns:
+                stats["mean_upsilon_diseq"] = float(parent_df["upsilon_diseq"].mean())
+                stats["recovery_phase_fraction"] = float((parent_df["upsilon_diseq"] < 0).mean())
+        except Exception:
+            pass
+
+        return stats
+
+    def query(
+        self,
+        query_text: str,
+        top_k: int = 5,
+        pre_window_hours: Optional[float] = None,
+        post_window_hours: Optional[float] = None,
+        min_similarity: float = -1.0,
+        use_llm_parser: bool = True,
+        use_llm_synthesis: bool = True,
+        parent_columns: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> HierarchicalRAGResult:
+        """Execute Hierarchical Parent-Child query matching child vectors and hydrating parent DuckDB time-series."""
+        # 1. Base Child Vector Retrieval
+        base_res = super().query(
+            query_text=query_text,
+            top_k=top_k,
+            min_similarity=min_similarity,
+            use_llm_parser=use_llm_parser,
+            use_llm_synthesis=False,  # We perform multi-scale hierarchical synthesis below
+        )
+
+        child_df = base_res.matches_df
+        selected_sims = base_res.similarities
+        spec = base_res.parsed_criteria if isinstance(base_res.parsed_criteria, PhysicsQuerySpec) else GeminiPhysicsQueryParser._fallback_parse(query_text)
+
+        # 2. Hydrate Parent Context Windows via DuckDB
+        parent_windows: List[ParentWindowContext] = []
+        for idx in range(len(child_df)):
+            row = child_df.iloc[idx]
+            match_ts = row["timestamp"] if "timestamp" in row else self.df.iloc[idx]["timestamp"]
+            sim = float(selected_sims[idx]) if idx < len(selected_sims) else 1.0
+
+            pw = self.hydrate_parent_window(
+                event_timestamp=match_ts,
+                match_index=idx,
+                similarity=sim,
+                pre_window_hours=pre_window_hours,
+                post_window_hours=post_window_hours,
+                columns=parent_columns,
+            )
+            parent_windows.append(pw)
+
+        # 3. Generate Multi-Scale Explanations
+        deterministic_expl = self._generate_hierarchical_explanation(spec, child_df, parent_windows)
+        llm_expl = None
+        if use_llm_synthesis:
+            llm_expl = explain_hierarchical_with_gemini(
+                query_text=query_text,
+                spec=spec,
+                child_df=child_df,
+                parent_windows=parent_windows,
+                model_name=self.model_name,
+                api_key=self.api_key,
+            )
+
+        return HierarchicalRAGResult(
+            query=query_text,
+            child_matches_df=child_df,
+            parent_windows=parent_windows,
+            similarities=selected_sims,
+            explanation=deterministic_expl,
+            parsed_criteria=spec,
+            llm_explanation=llm_expl,
+            query_vector=base_res.query_vector,
+        )
+
+    def _generate_hierarchical_explanation(
+        self,
+        spec: PhysicsQuerySpec,
+        child_df: pd.DataFrame,
+        parent_windows: List[ParentWindowContext],
+    ) -> str:
+        """Synthesize deterministic multi-scale explanation connecting child hits with parent sequence dynamics."""
+        base_expl = self._generate_explanation(spec, child_df)
+        if not parent_windows:
+            return base_expl
+
+        top_pw = parent_windows[0]
+        st = top_pw.summary_stats
+        if not st:
+            return base_expl
+
+        parts = [base_expl, "\n[Parent Temporal Sequence Evolution]:"]
+        parts.append(
+            f"Hydrated ±{top_pw.pre_window_hours:.0f}h context window around event {top_pw.event_timestamp}. "
+            f"Antecedent wave energy built up with Hs rising at {st.get('hs_rise_rate_m_per_hr', 0.0):.3f} m/hr to peak Hs = {st.get('peak_hs_m', 0.0):.2f}m. "
+            f"Coincident peak storm surge reached {st.get('peak_surge_m', 0.0):.2f}m (elevated duration: {st.get('surge_duration_hours', 0.0):.1f}h), "
+            f"delivering cumulative wave energy impulse of {st.get('cumulative_power_impulse_MJ_per_m', 0.0):.1f} MJ/m. "
+            f"Observed net shoreline displacement across window is ΔX = {st.get('net_delta_x_m', 0.0):+.2f}m."
+        )
+        return " ".join(parts)
 
 
 # ==============================================================================

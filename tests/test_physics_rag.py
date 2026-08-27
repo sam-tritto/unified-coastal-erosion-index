@@ -21,6 +21,10 @@ from src.physics_rag import (
     PhysicsRAG,
     PhysicsRAGResult,
     explain_with_gemini,
+    explain_hierarchical_with_gemini,
+    ParentWindowContext,
+    HierarchicalRAGResult,
+    HierarchicalPhysicsRAG,
 )
 
 
@@ -351,4 +355,116 @@ def test_evaluate_rag_benchmark_suite(sample_coastal_df):
     assert summary["Mean Precision@5"] > 0.80
     assert summary["Mean Regime Purity@5"] > 0.80
     assert summary["Mean Reciprocal Rank (MRR)"] > 0.80
+
+
+def test_parent_window_context_model(sample_coastal_df):
+    """Test ParentWindowContext data model and serialization."""
+    pw = ParentWindowContext(
+        match_index=0,
+        event_timestamp="2022-09-21 12:00:00",
+        similarity=0.95,
+        window_start="2022-09-18 12:00:00",
+        window_end="2022-09-22 12:00:00",
+        pre_window_hours=72.0,
+        post_window_hours=24.0,
+        parent_df=sample_coastal_df.iloc[:10],
+        summary_stats={"peak_hs_m": 4.2, "net_delta_x_m": -0.8},
+    )
+    assert pw.similarity == 0.95
+    assert pw.summary_stats["peak_hs_m"] == 4.2
+    assert len(pw.parent_df) == 10
+
+
+def test_hierarchical_physics_rag_initialization_and_window_hydration(sample_coastal_df, tmp_path):
+    """Test HierarchicalPhysicsRAG DuckDB registration, window slicing, and Parquet caching."""
+    parquet_file = str(tmp_path / "test_sensors.parquet")
+    
+    hrag = HierarchicalPhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust")
+    hrag.export_parent_parquet(parquet_file)
+    assert (tmp_path / "test_sensors.parquet").exists()
+
+    # Hydrate window around middle timestamp
+    mid_ts = sample_coastal_df.iloc[30]["timestamp"]
+    pw = hrag.hydrate_parent_window(
+        event_timestamp=mid_ts,
+        pre_window_hours=48.0,
+        post_window_hours=24.0,
+    )
+
+    assert isinstance(pw, ParentWindowContext)
+    assert not pw.parent_df.empty
+    assert "peak_hs_m" in pw.summary_stats
+    assert "hs_rise_rate_m_per_hr" in pw.summary_stats
+    assert "net_delta_x_m" in pw.summary_stats
+    assert "mean_upsilon" in pw.summary_stats
+
+
+def test_hierarchical_physics_rag_query(sample_coastal_df):
+    """Test full hierarchical parent-child query pipeline with DuckDB hydration."""
+    hrag = HierarchicalPhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust")
+
+    res = hrag.query(
+        "Find high energy storm waves over 3m with beach erosion",
+        top_k=3,
+        pre_window_hours=72.0,
+        post_window_hours=24.0,
+        use_llm_parser=False,
+        use_llm_synthesis=False,
+    )
+
+    assert isinstance(res, HierarchicalRAGResult)
+    assert len(res.child_matches_df) == 3
+    assert len(res.parent_windows) == 3
+    assert all(isinstance(pw, ParentWindowContext) for pw in res.parent_windows)
+    
+    summary_text = res.summary()
+    assert "Hierarchical Parent-Child Physics-RAG" in summary_text
+    assert "Hydrated Parent Context Windows" in summary_text
+    assert "Peak Hs" in summary_text
+
+
+def test_physics_rag_query_hierarchical_compatibility(sample_coastal_df):
+    """Verify PhysicsRAG backwards compatibility with query_hierarchical()."""
+    rag = PhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust")
+
+    res = rag.query_hierarchical(
+        "Show me all the Spilling breakers",
+        top_k=2,
+        pre_window_hours=48.0,
+        post_window_hours=12.0,
+        use_llm_parser=False,
+        use_llm_synthesis=False,
+    )
+
+    assert isinstance(res, HierarchicalRAGResult)
+    assert len(res.child_matches_df) == 2
+    assert len(res.parent_windows) == 2
+
+
+def test_explain_hierarchical_with_gemini_mock(sample_coastal_df):
+    """Test explain_hierarchical_with_gemini using a mock client."""
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.text = "The antecedent 72h wave buildup shows sustained wave power flux driving significant foreshore scarping."
+    mock_client.models.generate_content.return_value = mock_response
+
+    hrag = HierarchicalPhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust")
+    res = hrag.query(
+        "Find high energy storm waves over 3m",
+        top_k=2,
+        use_llm_parser=False,
+        use_llm_synthesis=False,
+    )
+
+    spec = PhysicsQuerySpec(raw_query="Find high energy storm waves over 3m", hs_min=3.0)
+    narrative = explain_hierarchical_with_gemini(
+        query_text="Find high energy storm waves over 3m",
+        spec=spec,
+        child_df=res.child_matches_df,
+        parent_windows=res.parent_windows,
+        client=mock_client,
+    )
+
+    assert narrative is not None
+    assert "antecedent" in narrative.lower()
 
