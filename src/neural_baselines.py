@@ -126,6 +126,87 @@ class PhysicsGuidedLSTM(nn.Module):
         return self.fc_residual(final_step).squeeze(-1)
 
 
+class PhysicsGuidedLoss(nn.Module):
+    """Composite Physics-Guided Soft Loss Function for Coastal Morphodynamics.
+
+    L_total = L_MSE + lambda_mono * L_monotonic(Upsilon, Delta_X) + lambda_mass * L_conservation
+
+    Formulation:
+    1. L_MSE: Standard Mean Squared Error reconstruction loss:
+       L_MSE = (1/N) * sum((y_hat_t - y_t)^2)
+    2. L_monotonic: Monotonicity penalty during severe vulnerability index (Upsilon) spikes.
+       Under intense storm surge / overwash pulses (high log_upsilon), beach cutting/erosion is
+       physically obligatory (Delta_X <= 0). Any predicted positive accretion (Delta_X > 0)
+       is mathematically penalized with a quadratic violation loss:
+       L_monotonic = mean( (ReLU(y_hat_t - x_{t-1}) * ReLU(log_upsilon_t - tau))^2 )
+    3. L_conservation: Volumetric / kinematic jump conservation penalty:
+       Prevents unphysical high-frequency volumetric runaway and single-step kinematic divergence:
+       L_conservation = mean( ReLU(|y_hat_t - x_{t-1}| - Delta_X_max)^2 )
+    """
+
+    def __init__(
+        self,
+        lambda_mono: float = 0.5,
+        lambda_mass: float = 0.25,
+        lag_col_idx: int = 4,
+        log_upsilon_col_idx: Optional[int] = 5,
+        upsilon_threshold_z: float = 0.0,
+        max_delta_x_z: float = 3.0,
+    ):
+        super().__init__()
+        self.lambda_mono = lambda_mono
+        self.lambda_mass = lambda_mass
+        self.lag_col_idx = lag_col_idx
+        self.log_upsilon_col_idx = log_upsilon_col_idx
+        self.upsilon_threshold_z = upsilon_threshold_z
+        self.max_delta_x_z = max_delta_x_z
+        self.mse = nn.MSELoss()
+
+    def forward(
+        self,
+        preds: torch.Tensor,
+        targets: torch.Tensor,
+        batch_x: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+        # 1. Base MSE reconstruction loss
+        l_mse = self.mse(preds, targets)
+
+        if batch_x is None or (self.lambda_mono <= 0.0 and self.lambda_mass <= 0.0):
+            return l_mse, {
+                "loss_total": float(l_mse.item()),
+                "loss_mse": float(l_mse.item()),
+                "loss_mono": 0.0,
+                "loss_mass": 0.0,
+            }
+
+        # Antecedent shoreline state at final timestep of lookback window
+        x_prev = batch_x[:, -1, self.lag_col_idx]
+        delta_x_pred = preds - x_prev  # positive = accretion, negative = erosion
+
+        # 2. Monotonicity constraint: penalize unphysical accretion during extreme Upsilon spikes
+        if self.log_upsilon_col_idx is not None and self.log_upsilon_col_idx < batch_x.size(-1):
+            ups_val = batch_x[:, -1, self.log_upsilon_col_idx]
+            ups_excess = torch.relu(ups_val - self.upsilon_threshold_z)
+            accretion_violation = torch.relu(delta_x_pred)
+            l_mono = torch.mean((accretion_violation * ups_excess) ** 2)
+        else:
+            l_mono = torch.tensor(0.0, device=preds.device)
+
+        # 3. Conservation constraint: penalize unphysical sudden volumetric jumps
+        excess_jump = torch.relu(torch.abs(delta_x_pred) - self.max_delta_x_z)
+        l_mass = torch.mean(excess_jump ** 2)
+
+        l_total = l_mse + (self.lambda_mono * l_mono) + (self.lambda_mass * l_mass)
+
+        loss_breakdown = {
+            "loss_total": float(l_total.item()),
+            "loss_mse": float(l_mse.item()),
+            "loss_mono": float(l_mono.item()) if isinstance(l_mono, torch.Tensor) else float(l_mono),
+            "loss_mass": float(l_mass.item()) if isinstance(l_mass, torch.Tensor) else float(l_mass),
+        }
+        return l_total, loss_breakdown
+
+
 # ==============================================================================
 # Data Preparation & Windowing with State Feedback
 # ==============================================================================
@@ -221,9 +302,10 @@ def train_neural_model(
     batch_size: int = 64,
     lr: float = 2e-3,
     weight_decay: float = 1e-4,
+    criterion: Optional[Union[nn.Module, Any]] = None,
     device: str = "cpu",
 ) -> Tuple[nn.Module, List[float]]:
-    """Train a PyTorch neural network model with AdamW and MSE loss."""
+    """Train a PyTorch neural network model with AdamW and MSE or PhysicsGuidedLoss."""
     model.to(device)
     model.train()
 
@@ -232,7 +314,9 @@ def train_neural_model(
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-5)
-    criterion = nn.MSELoss()
+
+    is_physics_loss = isinstance(criterion, PhysicsGuidedLoss)
+    loss_fn = criterion if criterion is not None else nn.MSELoss()
 
     loss_history: List[float] = []
 
@@ -244,7 +328,12 @@ def train_neural_model(
 
             optimizer.zero_grad()
             preds = model(batch_x)
-            loss = criterion(preds, batch_y)
+
+            if is_physics_loss:
+                loss, _ = loss_fn(preds, batch_y, batch_x)
+            else:
+                loss = loss_fn(preds, batch_y)
+
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0)
             optimizer.step()
@@ -363,7 +452,7 @@ def evaluate_dual_horizon(
 
 
 # ==============================================================================
-# Unified Deep Learning Benchmark Suite
+# Definitive Three-Tier Deep Learning Benchmark Suite
 # ==============================================================================
 
 def run_deep_learning_benchmark(
@@ -379,9 +468,18 @@ def run_deep_learning_benchmark(
     storm_duration: int = 72,
     storm_window: Optional[Tuple[str, str]] = None,
     random_seed: int = 42,
+    lambda_mono: float = 0.5,
+    lambda_mass: float = 0.25,
     **kwargs: Any,
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-    """Execute multi-horizon benchmark comparison across MLP, Standard LSTM, and PG-LSTM."""
+    """Execute definitive three-tier benchmark comparison across Data-Driven, Input-Guided, and Dual-Guided models.
+
+    Tiers:
+    - Tier 1 (Data-Driven): Standard LSTM (hydrodynamic forcings, pure MSE loss).
+    - Tier 2 (Input-Guided): PG-LSTM (physical indices as inputs, pure MSE loss).
+    - Tier 3 (Dual-Guided): PG-LSTM with physical inputs and a Physics-Guided composite loss function.
+    - Reference Baseline: Multi-Layer Perceptron (feedforward).
+    """
     torch.manual_seed(random_seed)
     np.random.seed(random_seed)
     device = "cpu"
@@ -432,21 +530,127 @@ def run_deep_learning_benchmark(
     full_predictions: Dict[str, np.ndarray] = {}
     storm_rollouts: Dict[str, np.ndarray] = {}
 
-    # --- Architecture 1: Multi-Layer Perceptron (MLP) ---
+    # --- Tier 1 (Data-Driven): Standard LSTM (Pure MSE) ---
+    model_t1 = CoastalLSTM(input_dim=len(data_raw["feature_cols"]), hidden_dim=hidden_dim, num_layers=2, dropout=0.10)
+    model_t1, loss_t1 = train_neural_model(
+        model_t1, data_raw["x_train"], data_raw["y_train"], epochs=epochs, lr=lr, batch_size=batch_size, device=device
+    )
+    m_t1, p_test_t1, p_full_t1 = evaluate_dual_horizon(model_t1, data_raw, device=device)
+    p_storm_t1, y_storm_true, time_storm = simulate_storm_rollout(
+        model_t1, df_aug, data_raw["feature_cols"], data_raw["scaler_x"], data_raw["scaler_y"],
+        start_idx=storm_start_idx, horizon_hours=storm_duration, lookback=lookback, device=device
+    )
+    m_storm_t1 = compute_metrics(y_storm_true, p_storm_t1)
+    results.append({
+        "Tier": "Tier 1 (Data-Driven)",
+        "Model": "Standard LSTM (Pure MSE)",
+        "Paradigm": "Deep Learning",
+        "Loss Formulation": "Standard MSE",
+        "1-Hour Nowcast R2": m_t1["Test R2 Score"],
+        "72h Storm RMSE (m)": m_storm_t1["rmse"],
+        "Full-Year R2 Score": m_t1["Full-Year R2 Score"],
+        "Full-Year RMSE (m)": m_t1["Full-Year RMSE (m)"],
+    })
+    trained_models["Tier 1 (Data-Driven)"] = model_t1
+    trained_models["LSTM"] = model_t1
+    test_predictions["Tier 1 (Data-Driven)"] = p_test_t1
+    test_predictions["LSTM"] = p_test_t1
+    full_predictions["Tier 1 (Data-Driven)"] = p_full_t1
+    full_predictions["LSTM"] = p_full_t1
+    storm_rollouts["Tier 1 (Data-Driven)"] = p_storm_t1
+    storm_rollouts["LSTM"] = p_storm_t1
+
+    # --- Tier 2 (Input-Guided): PG-LSTM (Physical Features + Pure MSE) ---
+    model_t2 = PhysicsGuidedLSTM(input_dim=len(data_phys["feature_cols"]), hidden_dim=int(hidden_dim * 1.5), num_layers=2, dropout=0.10)
+    model_t2, loss_t2 = train_neural_model(
+        model_t2, data_phys["x_train"], data_phys["y_train"], epochs=epochs, lr=lr, batch_size=batch_size, device=device
+    )
+    m_t2, p_test_t2, p_full_t2 = evaluate_dual_horizon(model_t2, data_phys, device=device)
+    p_storm_t2, _, _ = simulate_storm_rollout(
+        model_t2, df_aug, data_phys["feature_cols"], data_phys["scaler_x"], data_phys["scaler_y"],
+        start_idx=storm_start_idx, horizon_hours=storm_duration, lookback=lookback, device=device
+    )
+    m_storm_t2 = compute_metrics(y_storm_true, p_storm_t2)
+    results.append({
+        "Tier": "Tier 2 (Input-Guided)",
+        "Model": "Input-Guided PG-LSTM (Physical Inputs + MSE)",
+        "Paradigm": "Physics-Informed DL",
+        "Loss Formulation": "Standard MSE",
+        "1-Hour Nowcast R2": m_t2["Test R2 Score"],
+        "72h Storm RMSE (m)": m_storm_t2["rmse"],
+        "Full-Year R2 Score": m_t2["Full-Year R2 Score"],
+        "Full-Year RMSE (m)": m_t2["Full-Year RMSE (m)"],
+    })
+    trained_models["Tier 2 (Input-Guided)"] = model_t2
+    trained_models["PG-LSTM (Input-Guided)"] = model_t2
+    test_predictions["Tier 2 (Input-Guided)"] = p_test_t2
+    test_predictions["PG-LSTM (Input-Guided)"] = p_test_t2
+    full_predictions["Tier 2 (Input-Guided)"] = p_full_t2
+    full_predictions["PG-LSTM (Input-Guided)"] = p_full_t2
+    storm_rollouts["Tier 2 (Input-Guided)"] = p_storm_t2
+    storm_rollouts["PG-LSTM (Input-Guided)"] = p_storm_t2
+
+    # --- Tier 3 (Dual-Guided): PG-LSTM with Physical Features + Physics-Guided Soft Loss ---
+    lag_idx = data_phys["feature_cols"].index("shoreline_lag1") if "shoreline_lag1" in data_phys["feature_cols"] else 4
+    ups_idx = data_phys["feature_cols"].index("log_upsilon") if "log_upsilon" in data_phys["feature_cols"] else 5
+
+    physics_criterion = PhysicsGuidedLoss(
+        lambda_mono=lambda_mono,
+        lambda_mass=lambda_mass,
+        lag_col_idx=lag_idx,
+        log_upsilon_col_idx=ups_idx,
+        upsilon_threshold_z=0.0,
+        max_delta_x_z=3.0,
+    )
+
+    model_t3 = PhysicsGuidedLSTM(input_dim=len(data_phys["feature_cols"]), hidden_dim=int(hidden_dim * 1.5), num_layers=2, dropout=0.10)
+    model_t3, loss_t3 = train_neural_model(
+        model_t3, data_phys["x_train"], data_phys["y_train"], epochs=epochs, lr=lr, batch_size=batch_size,
+        criterion=physics_criterion, device=device
+    )
+    m_t3, p_test_t3, p_full_t3 = evaluate_dual_horizon(model_t3, data_phys, device=device)
+    p_storm_t3, _, _ = simulate_storm_rollout(
+        model_t3, df_aug, data_phys["feature_cols"], data_phys["scaler_x"], data_phys["scaler_y"],
+        start_idx=storm_start_idx, horizon_hours=storm_duration, lookback=lookback, device=device
+    )
+    m_storm_t3 = compute_metrics(y_storm_true, p_storm_t3)
+    results.append({
+        "Tier": "Tier 3 (Dual-Guided)",
+        "Model": "Dual-Guided PG-LSTM (Physical Inputs + Soft Physics Loss)",
+        "Paradigm": "Physics-Informed DL",
+        "Loss Formulation": f"Composite (MSE + {lambda_mono}*L_mono + {lambda_mass}*L_mass)",
+        "1-Hour Nowcast R2": m_t3["Test R2 Score"],
+        "72h Storm RMSE (m)": m_storm_t3["rmse"],
+        "Full-Year R2 Score": m_t3["Full-Year R2 Score"],
+        "Full-Year RMSE (m)": m_t3["Full-Year RMSE (m)"],
+    })
+    trained_models["Tier 3 (Dual-Guided)"] = model_t3
+    trained_models["PG-LSTM"] = model_t3
+    trained_models["PG-LSTM (Dual-Guided)"] = model_t3
+    test_predictions["Tier 3 (Dual-Guided)"] = p_test_t3
+    test_predictions["PG-LSTM"] = p_test_t3
+    full_predictions["Tier 3 (Dual-Guided)"] = p_full_t3
+    full_predictions["PG-LSTM"] = p_full_t3
+    storm_rollouts["Tier 3 (Dual-Guided)"] = p_storm_t3
+    storm_rollouts["PG-LSTM"] = p_storm_t3
+
+    # --- Reference Baseline: Multi-Layer Perceptron (MLP) ---
     mlp_input_dim = len(data_raw["feature_cols"]) * lookback
     model_mlp = CoastalMLP(input_dim=mlp_input_dim, hidden_dims=[hidden_dim * 2, hidden_dim], dropout=0.15)
     model_mlp, loss_mlp = train_neural_model(
         model_mlp, data_raw["x_train"], data_raw["y_train"], epochs=epochs, lr=lr, batch_size=batch_size, device=device
     )
     m_mlp, p_test_mlp, p_full_mlp = evaluate_dual_horizon(model_mlp, data_raw, device=device)
-    p_storm_mlp, y_storm_true, time_storm = simulate_storm_rollout(
+    p_storm_mlp, _, _ = simulate_storm_rollout(
         model_mlp, df_aug, data_raw["feature_cols"], data_raw["scaler_x"], data_raw["scaler_y"],
         start_idx=storm_start_idx, horizon_hours=storm_duration, lookback=lookback, device=device
     )
     m_storm_mlp = compute_metrics(y_storm_true, p_storm_mlp)
     results.append({
+        "Tier": "Reference Baseline",
         "Model": "Black-Box MLP (Feedforward)",
         "Paradigm": "Deep Learning",
+        "Loss Formulation": "Standard MSE",
         "1-Hour Nowcast R2": m_mlp["Test R2 Score"],
         "72h Storm RMSE (m)": m_storm_mlp["rmse"],
         "Full-Year R2 Score": m_mlp["Full-Year R2 Score"],
@@ -456,54 +660,6 @@ def run_deep_learning_benchmark(
     test_predictions["MLP"] = p_test_mlp
     full_predictions["MLP"] = p_full_mlp
     storm_rollouts["MLP"] = p_storm_mlp
-
-    # --- Architecture 2: Standard LSTM (Black-Box Recurrent) ---
-    model_lstm = CoastalLSTM(input_dim=len(data_raw["feature_cols"]), hidden_dim=hidden_dim, num_layers=2, dropout=0.10)
-    model_lstm, loss_lstm = train_neural_model(
-        model_lstm, data_raw["x_train"], data_raw["y_train"], epochs=epochs, lr=lr, batch_size=batch_size, device=device
-    )
-    m_lstm, p_test_lstm, p_full_lstm = evaluate_dual_horizon(model_lstm, data_raw, device=device)
-    p_storm_lstm, _, _ = simulate_storm_rollout(
-        model_lstm, df_aug, data_raw["feature_cols"], data_raw["scaler_x"], data_raw["scaler_y"],
-        start_idx=storm_start_idx, horizon_hours=storm_duration, lookback=lookback, device=device
-    )
-    m_storm_lstm = compute_metrics(y_storm_true, p_storm_lstm)
-    results.append({
-        "Model": "Standard LSTM (Black-Box Recurrent)",
-        "Paradigm": "Deep Learning",
-        "1-Hour Nowcast R2": m_lstm["Test R2 Score"],
-        "72h Storm RMSE (m)": m_storm_lstm["rmse"],
-        "Full-Year R2 Score": m_lstm["Full-Year R2 Score"],
-        "Full-Year RMSE (m)": m_lstm["Full-Year RMSE (m)"],
-    })
-    trained_models["LSTM"] = model_lstm
-    test_predictions["LSTM"] = p_test_lstm
-    full_predictions["LSTM"] = p_full_lstm
-    storm_rollouts["LSTM"] = p_storm_lstm
-
-    # --- Architecture 3: Physics-Guided LSTM (PG-LSTM) ---
-    model_pgnn = PhysicsGuidedLSTM(input_dim=len(data_phys["feature_cols"]), hidden_dim=int(hidden_dim * 1.5), num_layers=2, dropout=0.10)
-    model_pgnn, loss_pgnn = train_neural_model(
-        model_pgnn, data_phys["x_train"], data_phys["y_train"], epochs=epochs, lr=lr, batch_size=batch_size, device=device
-    )
-    m_pgnn, p_test_pgnn, p_full_pgnn = evaluate_dual_horizon(model_pgnn, data_phys, device=device)
-    p_storm_pgnn, _, _ = simulate_storm_rollout(
-        model_pgnn, df_aug, data_phys["feature_cols"], data_phys["scaler_x"], data_phys["scaler_y"],
-        start_idx=storm_start_idx, horizon_hours=storm_duration, lookback=lookback, device=device
-    )
-    m_storm_pgnn = compute_metrics(y_storm_true, p_storm_pgnn)
-    results.append({
-        "Model": "Physics-Guided LSTM (PG-LSTM)",
-        "Paradigm": "Physics-Informed DL",
-        "1-Hour Nowcast R2": m_pgnn["Test R2 Score"],
-        "72h Storm RMSE (m)": m_storm_pgnn["rmse"],
-        "Full-Year R2 Score": m_pgnn["Full-Year R2 Score"],
-        "Full-Year RMSE (m)": m_pgnn["Full-Year RMSE (m)"],
-    })
-    trained_models["PG-LSTM"] = model_pgnn
-    test_predictions["PG-LSTM"] = p_test_pgnn
-    full_predictions["PG-LSTM"] = p_full_pgnn
-    storm_rollouts["PG-LSTM"] = p_storm_pgnn
 
     df_results = pd.DataFrame(results).sort_values(by="72h Storm RMSE (m)", ascending=True).reset_index(drop=True)
 
@@ -520,9 +676,12 @@ def run_deep_learning_benchmark(
         "y_true_test": data_raw["y_true_test_unscaled"],
         "y_true_full": data_raw["y_true_full_unscaled"],
         "loss_histories": {
+            "Tier 1 (Data-Driven)": loss_t1,
+            "Tier 2 (Input-Guided)": loss_t2,
+            "Tier 3 (Dual-Guided)": loss_t3,
             "MLP": loss_mlp,
-            "LSTM": loss_lstm,
-            "PG-LSTM": loss_pgnn,
+            "LSTM": loss_t1,
+            "PG-LSTM": loss_t3,
         },
     }
     return df_results, suite_data
@@ -532,32 +691,41 @@ def generate_whitepaper_synthesis_table(
     df_bayesian: pd.DataFrame,
     df_neural: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Generate comprehensive cross-paradigm publication table synthesizing Bayesian and Neural models."""
+    """Generate comprehensive cross-paradigm publication table synthesizing Analytical, Process-Based, and ML models."""
     rows: List[Dict[str, Any]] = []
 
-    # 1. Add top Bayesian Models
+    # 1. Add Bayesian & Analytical Models
     if not df_bayesian.empty:
         for _, r in df_bayesian.iterrows():
             m_name = str(r.get("Model", ""))
-            m_type = str(r.get("Type", ""))
-
-            # Dynamically extract out-of-sample test and full-year metrics if available
             test_r2 = float(r.get("Test R2 Score", r.get("R2 Score", 0.0)))
             test_rmse = float(r.get("Test RMSE (m)", r.get("RMSE (m)", 0.0)))
             r2_full = float(r.get("Full R2 Score", r.get("Full-Year R2 Score", r.get("R2 Score", test_r2))))
             rmse_full = float(r.get("Full RMSE (m)", r.get("Full-Year RMSE (m)", r.get("RMSE (m)", test_rmse))))
 
-            if "Hybrid" in m_name:
-                paradigm = "Bayesian Physics"
+            if "Yates" in m_name or "Equilibrium" in m_name and "Upsilon" not in m_name:
+                benchmark_class = "Analytical / Equilibrium"
+                paradigm = "Equilibrium Analytical"
+                uq_profile = "Deterministic / 94% HDI"
+            elif "XBeach" in m_name:
+                benchmark_class = "Process-Based"
+                paradigm = "Hydrodynamic / Morphodynamic PDE"
+                uq_profile = "Deterministic"
+            elif "Wave Power" in m_name or "Mean Wave" in m_name or "Dual-Regime" in m_name:
+                benchmark_class = "Analytical / Equilibrium"
+                paradigm = "Empirical Baseline"
                 uq_profile = "94% HDI Envelopes (Full MCMC)"
-            elif "Dean" in m_name or "Asymmetric" in m_name or "Upsilon" in m_name:
-                paradigm = "Bayesian Physics"
+            elif "Hybrid" in m_name or "Upsilon" in m_name or "Dean" in m_name or "Signed" in m_name:
+                benchmark_class = "Machine Learning (Bayesian)"
+                paradigm = "Bayesian Physics-Informed"
                 uq_profile = "94% HDI Envelopes (Full MCMC)"
             else:
+                benchmark_class = "Analytical / Equilibrium"
                 paradigm = "Empirical Baseline"
                 uq_profile = "94% HDI Envelopes (Full MCMC)"
 
             rows.append({
+                "Benchmark Class": benchmark_class,
                 "Model Architecture": m_name,
                 "Paradigm": paradigm,
                 "Out-of-Sample Test R2": test_r2,
@@ -567,23 +735,35 @@ def generate_whitepaper_synthesis_table(
                 "Uncertainty Quantification (UQ)": uq_profile,
             })
 
-    # 2. Add Neural Models
+    # 2. Add Neural Models (Three-Tier Benchmark)
     if not df_neural.empty:
         for _, r in df_neural.iterrows():
             m_name = str(r.get("Model", ""))
+            tier = str(r.get("Tier", ""))
             test_r2 = float(r.get("1-Hour Nowcast R2", r.get("Test R2 Score", 0.0)))
             storm_rmse = float(r.get("72h Storm RMSE (m)", r.get("Test RMSE (m)", 0.0)))
             r2_full = float(r.get("Full-Year R2 Score", r.get("Full R2 Score", 0.0)))
             rmse_full = float(r.get("Full-Year RMSE (m)", r.get("Full RMSE (m)", 0.0)))
 
-            if "PG-LSTM" in m_name or "Physics-Guided" in m_name:
-                paradigm = "Physics-Informed DL"
+            if "Tier 3" in tier or "Dual-Guided" in m_name:
+                benchmark_class = "Machine Learning (Tier 3)"
+                paradigm = "Physics-Informed DL (Dual-Guided)"
+                uq_profile = "Physics Soft Loss Bounds / Dropout MC"
+            elif "Tier 2" in tier or "Input-Guided" in m_name:
+                benchmark_class = "Machine Learning (Tier 2)"
+                paradigm = "Physics-Informed DL (Input-Guided)"
                 uq_profile = "Dropout MC (Approximate)"
+            elif "Tier 1" in tier or "Standard LSTM" in m_name:
+                benchmark_class = "Machine Learning (Tier 1)"
+                paradigm = "Deep Learning (Data-Driven)"
+                uq_profile = "None (Point Estimate)"
             else:
+                benchmark_class = "Machine Learning (Reference)"
                 paradigm = "Deep Learning"
                 uq_profile = "None (Point Estimate)"
 
             rows.append({
+                "Benchmark Class": benchmark_class,
                 "Model Architecture": m_name,
                 "Paradigm": paradigm,
                 "Out-of-Sample Test R2": test_r2,

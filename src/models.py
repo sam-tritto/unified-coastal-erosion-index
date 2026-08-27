@@ -1,8 +1,9 @@
 """Bayesian modeling of coastal morphodynamic response and shoreline change using PyMC.
 
 Includes:
-- Latent Bayesian estimation of antecedent memory retention (gamma ~ Beta(2, 5))
+- Latent Bayesian estimation of antecedent memory retention (gamma ~ Beta(5, 20))
 - Differentiable PyTensor convolution matrix for dynamic memory weighting
+- Robust Student-t likelihood with constrained degrees of freedom (nu >= 5)
 - Multivariate linear model (individual beta per forcing: Hs, S, Wa, Omega)
 - Non-linear polynomial response model with Horseshoe sparsity priors
 - 4-chain NUTS MCMC sampling and convergence diagnostics (R-hat < 1.05, ESS > 400)
@@ -60,11 +61,11 @@ def build_latent_memory_bayesian_model(
     """Build a PyMC Bayesian model where antecedent memory gamma is inferred as a latent variable.
 
     Formulation:
-    - gamma ~ Beta(alpha=2, beta=5)  (Latent memory parameter)
+    - gamma ~ Beta(alpha=5, beta=20)  (Informative latent memory prior)
     - weights_k = gamma^k / sum(gamma^j) for k = 0, ..., max_lag-1
     - E(gamma) = X_lag * weights(gamma)
     - mu_t = alpha + beta_forcing * E_t(gamma)
-    - y_obs ~ StudentT(nu, mu_t, sigma)
+    - y_obs ~ StudentT(nu >= 5, mu_t, sigma)
 
     Parameters
     ----------
@@ -110,8 +111,8 @@ def build_latent_memory_bayesian_model(
         x_lag = pm.Data("x_lag", lag_mat)
         k_vec = pm.Data("k_vec", k_indices)
         
-        # 1. Latent memory parameter prior (Beta(2, 5) favors intermediate response windows)
-        gamma = pm.Beta("gamma", alpha=2.0, beta=5.0)
+        # 1. Latent memory parameter prior (Beta(5, 20) informative prior favoring physical intermediate response windows)
+        gamma = pm.Beta("gamma", alpha=5.0, beta=20.0)
         
         # 2. Differentiable exponential weights in PyTensor
         # weights_k = gamma^k / sum(gamma^j)
@@ -125,7 +126,7 @@ def build_latent_memory_bayesian_model(
         alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
         beta_forcing = pm.Normal("beta_forcing", mu=-2.0, sigma=1.5)
         sigma = pm.HalfNormal("sigma", sigma=1.0)
-        nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
+        nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
         
         # 5. Deterministic latent response
         mu = pm.Deterministic("mu", alpha + beta_forcing * effective_forcing)
@@ -1048,7 +1049,7 @@ def build_multivariate_linear_model(
     with pm.Model() as model:
         alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
         sigma = pm.HalfNormal("sigma", sigma=1.0)
-        nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
+        nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
 
         mu = alpha
         for fname, fscaled in scaled_data.items():
@@ -1093,7 +1094,7 @@ def build_nonlinear_response_model(
 
         alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
         sigma = pm.HalfNormal("sigma", sigma=1.0)
-        nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
+        nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
 
         # Horseshoe prior for sparsity on polynomial coefficients
         tau_global = pm.HalfCauchy("tau_global", beta=0.5)
@@ -1161,8 +1162,8 @@ def build_physics_anchored_hybrid_model(
         x_lag = pm.Data("x_lag", lag_mat)
         k_vec = pm.Data("k_vec", k_indices)
 
-        # 1. Latent Antecedent Storm Memory
-        gamma = pm.Beta("gamma", alpha=2.0, beta=5.0)
+        # 1. Latent Antecedent Storm Memory (informative Beta(5, 20))
+        gamma = pm.Beta("gamma", alpha=5.0, beta=20.0)
         unnorm_w = pt.power(gamma, k_vec)
         weights = unnorm_w / pt.sum(unnorm_w)
         upsilon_memory = pm.Deterministic("upsilon_memory", pt.dot(x_lag, weights))
@@ -1179,7 +1180,7 @@ def build_physics_anchored_hybrid_model(
 
         alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
         sigma = pm.HalfNormal("sigma", sigma=1.0)
-        nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
+        nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
 
         mu_det = pm.Deterministic("mu", alpha + mu)
         pm.StudentT("y_obs", nu=nu, mu=mu_det, sigma=sigma, observed=y_obs)
@@ -1292,8 +1293,8 @@ def build_asymmetric_dual_regime_model(
         omega_data = pm.Data("omega_data", omega_series)
         k_vec = pm.Data("k_vec", k_indices)
 
-        # 1. Latent memory convolution
-        gamma = pm.Beta("gamma", alpha=2.0, beta=5.0)
+        # 1. Latent memory convolution (informative Beta(5, 20))
+        gamma = pm.Beta("gamma", alpha=5.0, beta=20.0)
         unnorm_w = pt.power(gamma, k_vec)
         weights = unnorm_w / pt.sum(unnorm_w)
         eff_eros = pm.Deterministic("eff_eros", pt.dot(x_lag_eros, weights))
@@ -1313,7 +1314,7 @@ def build_asymmetric_dual_regime_model(
         mu_det = pm.Deterministic("mu", mu)
 
         sigma = pm.HalfNormal("sigma", sigma=1.0)
-        nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
+        nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
         pm.StudentT("y_obs", nu=nu, mu=mu_det, sigma=sigma, observed=y_obs)
 
     return model, meta
@@ -1440,8 +1441,8 @@ def build_learnable_exponent_bayesian_model(
         u_std = pt.std(raw_upsilon) + 1e-4
         u_scaled = (raw_upsilon - u_mean) / u_std
 
-        # 3. Latent Memory Convolution in PyTensor
-        gamma = pm.Beta("gamma", alpha=2.0, beta=5.0)
+        # 3. Latent Memory Convolution in PyTensor (informative Beta(5, 20))
+        gamma = pm.Beta("gamma", alpha=5.0, beta=20.0)
         unnorm_w = pt.power(gamma, k_vec)
         weights = unnorm_w / pt.sum(unnorm_w)
 
@@ -1456,9 +1457,9 @@ def build_learnable_exponent_bayesian_model(
         alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
         mu = pm.Deterministic("mu", alpha + beta_upsilon * upsilon_memory)
 
-        # 5. Robust Student-t Likelihood
+        # 5. Robust Student-t Likelihood (nu >= 5)
         sigma = pm.HalfNormal("sigma", sigma=1.0)
-        nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
+        nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
         pm.StudentT("y_obs", nu=nu, mu=mu, sigma=sigma, observed=y_obs)
     return model, meta
 
@@ -1539,8 +1540,8 @@ def build_latent_equilibrium_bayesian_model(
         x_lag = pm.Data("x_lag", lag_mat)
         k_vec = pm.Data("k_vec", k_indices)
 
-        # 1. Latent memory convolution
-        gamma = pm.Beta("gamma", alpha=2.0, beta=5.0)
+        # 1. Latent memory convolution (informative Beta(5, 20))
+        gamma = pm.Beta("gamma", alpha=5.0, beta=20.0)
         unnorm_w = pt.power(gamma, k_vec)
         weights = unnorm_w / pt.sum(unnorm_w)
         effective_forcing = pm.Deterministic("effective_forcing", pt.dot(x_lag, weights))
@@ -1577,9 +1578,9 @@ def build_latent_equilibrium_bayesian_model(
             alpha - (k_eros * (delta_eros / scale_div)) + (k_accrete * (delta_acc / scale_div)),
         )
 
-        # 4. Robust Student-T likelihood
+        # 4. Robust Student-T likelihood (nu >= 5)
         sigma = pm.HalfNormal("sigma", sigma=1.0)
-        nu = pm.Gamma("nu", alpha=2.0, beta=0.2)
+        nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
         pm.StudentT("y_obs", nu=nu, mu=mu, sigma=sigma, observed=y_obs)
 
     return model, meta

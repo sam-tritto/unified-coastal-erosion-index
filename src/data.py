@@ -187,6 +187,7 @@ def fetch_noaa_coops_water_level_and_surge(
     station_id: str = NOAA_COOPS_DUCK_ID,
     begin_date: str = "20220920",
     end_date: str = "20221020",
+    datum: Optional[str] = None,
     timeout: int = 20,
     max_retries: int = 3,
 ) -> Optional[pd.DataFrame]:
@@ -195,12 +196,14 @@ def fetch_noaa_coops_water_level_and_surge(
     base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
     headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
 
+    target_datum = datum or ("MSL" if station_id in ["1612480", "1612340"] else "NAVD")
+
     params_wl = {
         "begin_date": begin_date,
         "end_date": end_date,
         "station": station_id,
         "product": "hourly_height",
-        "datum": "NAVD",
+        "datum": target_datum,
         "units": "metric",
         "time_zone": "gmt",
         "application": "Research_UCVI",
@@ -212,7 +215,7 @@ def fetch_noaa_coops_water_level_and_surge(
         "end_date": end_date,
         "station": station_id,
         "product": "predictions",
-        "datum": "NAVD",
+        "datum": target_datum,
         "units": "metric",
         "time_zone": "gmt",
         "interval": "h",
@@ -232,6 +235,10 @@ def fetch_noaa_coops_water_level_and_surge(
                     df_wl["water_level_m"] = pd.to_numeric(df_wl["v"], errors="coerce")
                     df_wl = df_wl.set_index("t")[["water_level_m"]]
                     break
+                elif "error" in data_wl and target_datum == "NAVD":
+                    # Fallback to MSL if NAVD is not supported at station (e.g. Pacific stations)
+                    params_wl["datum"] = "MSL"
+                    params_pred["datum"] = "MSL"
         except Exception:
             pass
         time.sleep(1.0 * (attempt + 1))
@@ -1340,6 +1347,7 @@ def fetch_site_annual_dataset(
     df_out["wind_speed_ms"] = wind_spd
     df_out["wind_dir_deg"] = wind_dir
     df_out["water_temp_c"] = water_temp
+    df_out["p_outer_Wm"] = p_outer
     for c in phys.columns:
         df_out[c] = phys[c].values
 
@@ -1373,19 +1381,21 @@ def load_annual_dataset(
             if "water_temp_c" in df_cached.columns and len(df_cached) >= 8000:
                 if "site" not in df_cached.columns:
                     df_cached["site"] = site_key
-                from src.physics import COASTAL_SITE_PROFILES
+                from src.physics import COASTAL_SITE_PROFILES, compute_reef_dissipation_modulator, compute_cross_array_dissipation_ratio, compute_wave_energy_flux
                 site_cfg = COASTAL_SITE_PROFILES.get(site_key, {})
                 if "site_name" not in df_cached.columns:
                     df_cached["site_name"] = site_cfg.get("name", site_key)
                 if "tan_beta" not in df_cached.columns:
                     df_cached["tan_beta"] = site_cfg.get("tan_beta", 0.08)
-                if "psi_reef" not in df_cached.columns:
-                    from src.physics import compute_reef_dissipation_modulator
-                    is_reef = site_cfg.get("is_reef", False)
+                
+                is_reef = site_cfg.get("is_reef", False)
+                needs_update = ("psi_reef" not in df_cached.columns) or (is_reef and ((df_cached["delta_p_dissip"] >= 0.999).all() or (df_cached["shielding_factor"] <= 1e-4).all()))
+                if needs_update:
                     z_reef = site_cfg.get("z_reef_m", -1.0)
                     wr = site_cfg.get("reef_flat_width_m", 0.0)
                     cf = site_cfg.get("c_f", 0.08)
                     gammab = site_cfg.get("gamma_b", 0.78)
+                    ld = site_cfg.get("l_d_ref_m", 25.0)
                     tide_vals = df_cached["tide_pred_m"].values if "tide_pred_m" in df_cached.columns else None
                     surge_vals = df_cached["surge_m"].values if "surge_m" in df_cached.columns else None
                     psi_r, hr, kc, kf, hs_sh = compute_reef_dissipation_modulator(
@@ -1396,6 +1406,7 @@ def load_annual_dataset(
                         reef_flat_width_m=wr,
                         c_f=cf,
                         gamma_b=gammab,
+                        l_d_ref_m=ld,
                         is_reef=is_reef,
                     )
                     df_cached["psi_reef"] = psi_r
@@ -1403,6 +1414,19 @@ def load_annual_dataset(
                     df_cached["k_c_crest"] = kc
                     df_cached["k_f_friction"] = kf
                     df_cached["hs_shore_m"] = hs_sh
+
+                    if is_reef:
+                        # Recompute p_flux, delta_p_dissip and shielding_factor for reef sites
+                        p_flux = compute_wave_energy_flux(hs_sh, df_cached["tp_s"].values)
+                        df_cached["p_flux_Wm"] = p_flux
+                        if "p_outer_Wm" in df_cached.columns:
+                            p_out = df_cached["p_outer_Wm"].values
+                        else:
+                            p_out = compute_wave_energy_flux(df_cached["hs_m"].values, df_cached["tp_s"].values)
+                        dp, sh = compute_cross_array_dissipation_ratio(p_out, p_flux)
+                        df_cached["delta_p_dissip"] = dp
+                        df_cached["shielding_factor"] = sh
+                        df_cached["upsilon_shielded"] = df_cached["upsilon"] * sh
 
                 label = f"Cached Continuous Annual Observational ({year}, {site_key.upper()}, N={len(df_cached)}) — Morph: {morph_model.upper()}"
                 df_cached.attrs["data_provenance"] = {

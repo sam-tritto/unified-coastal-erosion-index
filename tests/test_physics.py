@@ -893,7 +893,7 @@ def test_unified_index_global_continuous_scaling():
 def test_reef_dissipation_modulator_physics():
     """Verify exact mathematical formulations of depth-limited breaking Kc and flat friction Kf."""
     # Scenario: 4.0m deepwater swell hitting reef with 1.0m water depth (Zreef = -1.0m, tide=0, surge=0)
-    # Wr = 150m, cf = 0.08, gamma_b = 0.78
+    # Wr = 150m, cf = 0.08, gamma_b = 0.78, l_d_ref_m = 25.0
     psi_reef, h_r, k_c, k_f, hs_shore = compute_reef_dissipation_modulator(
         hs=4.0,
         tide=0.0,
@@ -902,6 +902,7 @@ def test_reef_dissipation_modulator_physics():
         reef_flat_width_m=150.0,
         c_f=0.08,
         gamma_b=0.78,
+        l_d_ref_m=25.0,
         is_reef=True,
     )
     # 1. Reef depth hr = max(0, 0 + 0 - (-1.0)) = 1.0m
@@ -910,8 +911,8 @@ def test_reef_dissipation_modulator_physics():
     # 2. Crest clipping: Kc = min(1.0, 0.78 * 1.0 / 4.0) = 0.195
     assert k_c == pytest.approx(0.195, rel=1e-4)
 
-    # 3. Flat friction: Kf = exp(-0.08 * 150.0 / 1.0) = exp(-12.0)
-    expected_kf = np.exp(-12.0)
+    # 3. Flat friction: Kf = exp(-0.08 * 150.0 / (25.0 * 1.0)) = exp(-0.48) = 0.61878
+    expected_kf = np.exp(-12.0 / 25.0)
     assert k_f == pytest.approx(expected_kf, rel=1e-4)
 
     # 4. Total modulator Psi_reef = Kc * Kf

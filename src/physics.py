@@ -165,6 +165,7 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "z_reef_m": -1.0,        # Reef crest elevation relative to MSL (-1.0m)
         "c_f": 0.08,             # Coral friction coefficient
         "gamma_b": 0.78,         # Depth-limited theoretical breaker index
+        "l_d_ref_m": 25.0,       # Characteristic shallow-water reef damping scale (m)
         "is_embayment": True,    # Pocket embayments bounded by basalt rocky points
         "l_beach_m": 7200.0,     # 7.2 km coastal segment length
         "y_center_m": 3600.0,    # Embayment fulcrum
@@ -192,6 +193,7 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "z_reef_m": -0.8,        # Reef crest elevation relative to MSL (-0.8m)
         "c_f": 0.10,             # High rugosity coral bed friction
         "gamma_b": 0.78,
+        "l_d_ref_m": 25.0,       # Characteristic damping scale (m)
         "is_embayment": True,    # Urban pocket beach bounded by groynes and reef channels
         "l_beach_m": 3200.0,     # 3.2 km compartment length
         "y_center_m": 1600.0,    # Center coordinate
@@ -773,17 +775,18 @@ def compute_reef_dissipation_modulator(
     reef_flat_width_m: float = 150.0,
     c_f: float = 0.08,
     gamma_b: float = 0.78,
+    l_d_ref_m: float = 25.0,
     is_reef: bool = True,
 ) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray], Union[float, np.ndarray], Union[float, np.ndarray], Union[float, np.ndarray]]:
     """Compute the Reef Dissipation Modulator (Psi_reef) for reef-fronted coastal archetypes.
 
     Coral reefs act as physical low-pass filters, attenuating deep-water wave energy before it reaches
-    the shoreline through a two-step dissipation process:
+    the shoreline through a two-step dissipation process (Lowe et al. 2005, Ferrario et al. 2014):
     1. Crest Clipping (Depth-Limited Breaking):
        h_r(t) = max(0, Tide(t) + S(t) - Z_reef)
        K_c = min(1.0, (gamma_b * h_r(t)) / H_0)
     2. Flat Friction (Coral Drag Decay across Reef Flat):
-       K_f = exp(- (c_f * W_r) / h_r(t))
+       K_f = exp(- (c_f * W_r) / (L_d * h_r(t)))
 
     Composite Modulator & Shoreline Wave Scaling:
        Psi_reef = K_c * K_f in [0, 1]
@@ -805,6 +808,8 @@ def compute_reef_dissipation_modulator(
         Coral bed friction coefficient (default 0.08).
     gamma_b : float
         Theoretical depth-limited breaker index (default 0.78).
+    l_d_ref_m : float
+        Characteristic shallow-water reef damping length scale (default 25.0m).
     is_reef : bool
         Whether the site possesses a fronting coral reef barrier. If False, returns unattenuated (Psi_reef = 1.0).
 
@@ -846,12 +851,13 @@ def compute_reef_dissipation_modulator(
     safe_hs = np.maximum(hs_arr, 1e-4)
     k_c = np.where(h_r <= 1e-5, 0.0, np.minimum(1.0, (float(gamma_b) * h_r) / safe_hs))
 
-    # 3. Flat Friction (The Coral Drag): Kf = exp(- (c_f * Wr) / hr)
+    # 3. Flat Friction (Coral Drag Decay across Shallow Reef Flat): Kf = exp(- (c_f * Wr) / (L_d * hr))
     # If Wr == 0, Kf = 1.0. If hr <= 0, Kf = 0.0.
     if float(reef_flat_width_m) <= 0.0:
         k_f = np.where(h_r <= 1e-5, 0.0, 1.0)
     else:
-        k_f = np.where(h_r <= 1e-5, 0.0, np.exp(- (float(c_f) * float(reef_flat_width_m)) / np.maximum(h_r, 1e-4)))
+        l_d = max(float(l_d_ref_m), 1.0)
+        k_f = np.where(h_r <= 1e-5, 0.0, np.exp(- (float(c_f) * float(reef_flat_width_m)) / (l_d * np.maximum(h_r, 1e-4))))
 
     # Composite Modulator: Psi_reef = Kc * Kf
     psi_reef = np.clip(k_c * k_f, 0.0, 1.0)
@@ -1714,6 +1720,7 @@ def compute_unified_coastal_vulnerability_index(
     w_a = compute_shore_normal_wind(wind_speed, wind_dir_deg, eff_shore_normal)
     
     # 5. Reef Dissipation Modulator (Psi_reef) for reef-fronted coastlines
+    site_ld = site_cfg.get("l_d_ref_m", 25.0)
     psi_reef, h_reef, k_c, k_f, hs_shore = compute_reef_dissipation_modulator(
         hs=hs_arr,
         tide=tide_arr,
@@ -1722,6 +1729,7 @@ def compute_unified_coastal_vulnerability_index(
         reef_flat_width_m=site_wr,
         c_f=site_cf,
         gamma_b=site_gammab,
+        l_d_ref_m=site_ld,
         is_reef=site_is_reef,
     )
     hs_eff = hs_shore if site_is_reef else hs_arr
@@ -1735,9 +1743,13 @@ def compute_unified_coastal_vulnerability_index(
     dean = compute_dean_number(hs_eff, tp_arr, ws=ws)
     accretion_pot = compute_constructive_accretion_potential(hs_eff, tp_arr, g=g, tau=tau)
     
-    # 7. Cross-array wave dissipation & sandbar shielding
+    # 7. Cross-array wave dissipation & sandbar / reef shielding
     if p_outer_Wm is not None:
         delta_p, shielding = compute_cross_array_dissipation_ratio(p_outer_Wm, p_flux)
+    elif site_is_reef:
+        # Deepwater incident wave power vs transmitted shore wave power across reef flat
+        p_deep = compute_wave_energy_flux(hs_arr, tp_arr, rho=rho, g=g, tau=tau)
+        delta_p, shielding = compute_cross_array_dissipation_ratio(p_deep, p_flux)
     else:
         delta_p = np.zeros_like(hs_arr)
         shielding = np.ones_like(hs_arr)
