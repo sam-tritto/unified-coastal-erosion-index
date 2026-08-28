@@ -59,7 +59,7 @@ def test_physics_guided_lstm_forward():
 
 
 def test_physics_guided_loss():
-    criterion = PhysicsGuidedLoss(lambda_mono=0.5, lambda_mass=0.25, lag_col_idx=4, log_upsilon_col_idx=5)
+    criterion = PhysicsGuidedLoss(lambda_mono=0.05, lambda_mass=0.05, lag_col_idx=4, log_upsilon_col_idx=5)
     batch_size = 6
     lookback = 12
     n_features = 8

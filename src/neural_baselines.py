@@ -146,8 +146,8 @@ class PhysicsGuidedLoss(nn.Module):
 
     def __init__(
         self,
-        lambda_mono: float = 0.5,
-        lambda_mass: float = 0.25,
+        lambda_mono: float = 0.05,
+        lambda_mass: float = 0.05,
         lag_col_idx: int = 4,
         log_upsilon_col_idx: Optional[int] = 5,
         upsilon_threshold_z: float = 0.0,
@@ -461,6 +461,7 @@ def run_deep_learning_benchmark(
     train_split: float = 0.75,
     epochs: int = 30,
     lr: float = 0.005,
+    lr_pg: Optional[float] = None,
     hidden_dim: int = 32,
     batch_size: int = 64,
     target_col: str = "shoreline_pos_obs_m",
@@ -468,8 +469,8 @@ def run_deep_learning_benchmark(
     storm_duration: int = 72,
     storm_window: Optional[Tuple[str, str]] = None,
     random_seed: int = 42,
-    lambda_mono: float = 0.5,
-    lambda_mass: float = 0.25,
+    lambda_mono: float = 0.05,
+    lambda_mass: float = 0.05,
     **kwargs: Any,
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Execute definitive three-tier benchmark comparison across Data-Driven, Input-Guided, and Dual-Guided models.
@@ -560,10 +561,12 @@ def run_deep_learning_benchmark(
     storm_rollouts["Tier 1 (Data-Driven)"] = p_storm_t1
     storm_rollouts["LSTM"] = p_storm_t1
 
+    effective_lr_pg = lr_pg if lr_pg is not None else lr
+
     # --- Tier 2 (Input-Guided): PG-LSTM (Physical Features + Pure MSE) ---
     model_t2 = PhysicsGuidedLSTM(input_dim=len(data_phys["feature_cols"]), hidden_dim=int(hidden_dim * 1.5), num_layers=2, dropout=0.10)
     model_t2, loss_t2 = train_neural_model(
-        model_t2, data_phys["x_train"], data_phys["y_train"], epochs=epochs, lr=lr, batch_size=batch_size, device=device
+        model_t2, data_phys["x_train"], data_phys["y_train"], epochs=epochs, lr=effective_lr_pg, batch_size=batch_size, device=device
     )
     m_t2, p_test_t2, p_full_t2 = evaluate_dual_horizon(model_t2, data_phys, device=device)
     p_storm_t2, _, _ = simulate_storm_rollout(
@@ -605,7 +608,7 @@ def run_deep_learning_benchmark(
 
     model_t3 = PhysicsGuidedLSTM(input_dim=len(data_phys["feature_cols"]), hidden_dim=int(hidden_dim * 1.5), num_layers=2, dropout=0.10)
     model_t3, loss_t3 = train_neural_model(
-        model_t3, data_phys["x_train"], data_phys["y_train"], epochs=epochs, lr=lr, batch_size=batch_size,
+        model_t3, data_phys["x_train"], data_phys["y_train"], epochs=epochs, lr=effective_lr_pg, batch_size=batch_size,
         criterion=physics_criterion, device=device
     )
     m_t3, p_test_t3, p_full_t3 = evaluate_dual_horizon(model_t3, data_phys, device=device)
@@ -698,12 +701,36 @@ def generate_whitepaper_synthesis_table(
     if not df_bayesian.empty:
         for _, r in df_bayesian.iterrows():
             m_name = str(r.get("Model", ""))
-            test_r2 = float(r.get("Test R2 Score", r.get("R2 Score", 0.0)))
-            test_rmse = float(r.get("Test RMSE (m)", r.get("RMSE (m)", 0.0)))
-            r2_full = float(r.get("Full R2 Score", r.get("Full-Year R2 Score", r.get("R2 Score", test_r2))))
-            rmse_full = float(r.get("Full RMSE (m)", r.get("Full-Year RMSE (m)", r.get("RMSE (m)", test_rmse))))
+            
+            # Robustly resolve Out-of-Sample / CV / Test / In-Sample metrics
+            test_r2 = float(
+                r.get("Test R2 Score",
+                r.get("CV R2 Score",
+                r.get("In-Sample R2 Score",
+                r.get("Full R2 Score",
+                r.get("R2 Score", 0.0)))))
+            )
+            test_rmse = float(
+                r.get("Test RMSE (m)",
+                r.get("CV RMSE (m)",
+                r.get("In-Sample RMSE (m)",
+                r.get("Full RMSE (m)",
+                r.get("RMSE (m)", 0.0)))))
+            )
+            r2_full = float(
+                r.get("Full R2 Score",
+                r.get("Full-Year R2 Score",
+                r.get("In-Sample R2 Score",
+                r.get("R2 Score", test_r2))))
+            )
+            rmse_full = float(
+                r.get("Full RMSE (m)",
+                r.get("Full-Year RMSE (m)",
+                r.get("In-Sample RMSE (m)",
+                r.get("RMSE (m)", test_rmse))))
+            )
 
-            if "Yates" in m_name or "Equilibrium" in m_name and "Upsilon" not in m_name:
+            if "Yates" in m_name or ("Equilibrium" in m_name and "Upsilon" not in m_name):
                 benchmark_class = "Analytical / Equilibrium"
                 paradigm = "Equilibrium Analytical"
                 uq_profile = "Deterministic / 94% HDI"

@@ -911,39 +911,36 @@ def run_benchmark_model_comparison(
     df_test = df.iloc[split_idx:].copy() if has_holdout else df.copy()
 
     # Resolve target columns
-    if target_col in df.columns:
-        y_obs_train = df_train[target_col].values
-        y_true_train = (
-            df_train["shoreline_pos_true_m"].values
-            if target_col == "shoreline_pos_obs_m" and "shoreline_pos_true_m" in df_train.columns
-            else df_train[target_col].values
-        )
-        y_obs_test = df_test[target_col].values if has_holdout else y_obs_train
-        y_true_test = (
-            df_test["shoreline_pos_true_m"].values
-            if target_col == "shoreline_pos_obs_m" and has_holdout and "shoreline_pos_true_m" in df_test.columns
-            else (df_test[target_col].values if has_holdout else y_true_train)
-        )
-        y_obs_full = df[target_col].values
-        y_true_full = (
-            df["shoreline_pos_true_m"].values
-            if target_col == "shoreline_pos_obs_m" and "shoreline_pos_true_m" in df.columns
-            else df[target_col].values
-        )
-    elif "shoreline_pos_obs_m" in df.columns:
-        y_obs_train = df_train["shoreline_pos_obs_m"].values
-        y_true_train = df_train["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df_train.columns else y_obs_train
-        y_obs_test = df_test["shoreline_pos_obs_m"].values if has_holdout else y_obs_train
-        y_true_test = df_test["shoreline_pos_true_m"].values if (has_holdout and "shoreline_pos_true_m" in df_test.columns) else y_obs_test
-        y_obs_full = df["shoreline_pos_obs_m"].values
-        y_true_full = df["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df.columns else y_obs_full
-    else:
-        y_obs_train = df_train["shoreline_change_rate_mh"].values
-        y_true_train = df_train["shoreline_change_rate_mh"].values
-        y_obs_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_obs_train
-        y_true_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_true_train
-        y_obs_full = df["shoreline_change_rate_mh"].values
-        y_true_full = df["shoreline_change_rate_mh"].values
+    if target_col is None or target_col not in df.columns:
+        if "surveyed_delta_x_m" in df.columns:
+            target_col = "surveyed_delta_x_m"
+        elif "shoreline_pos_obs_m" in df.columns:
+            target_col = "shoreline_pos_obs_m"
+        elif "shoreline_change_rate_mh" in df.columns:
+            target_col = "shoreline_change_rate_mh"
+        elif "delta_x_m" in df.columns:
+            target_col = "delta_x_m"
+        else:
+            target_col = df.columns[0]
+
+    y_obs_train = df_train[target_col].values
+    y_true_train = (
+        df_train["shoreline_pos_true_m"].values
+        if target_col == "shoreline_pos_obs_m" and "shoreline_pos_true_m" in df_train.columns
+        else df_train[target_col].values
+    )
+    y_obs_test = df_test[target_col].values if has_holdout else y_obs_train
+    y_true_test = (
+        df_test["shoreline_pos_true_m"].values
+        if target_col == "shoreline_pos_obs_m" and has_holdout and "shoreline_pos_true_m" in df_test.columns
+        else (df_test[target_col].values if has_holdout else y_true_train)
+    )
+    y_obs_full = df[target_col].values
+    y_true_full = (
+        df["shoreline_pos_true_m"].values
+        if target_col == "shoreline_pos_obs_m" and "shoreline_pos_true_m" in df.columns
+        else df[target_col].values
+    )
 
     is_survey_data = "antecedent_upsilon_memory" in df.columns or "surveyed_delta_x_m" in df.columns
     effective_max_lag = min(48, max(2, len(df_train) // 4)) if len(df_train) < 60 else 48
