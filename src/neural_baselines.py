@@ -152,6 +152,7 @@ class PhysicsGuidedLoss(nn.Module):
         log_upsilon_col_idx: Optional[int] = 5,
         upsilon_threshold_z: float = 0.0,
         max_delta_x_z: float = 3.0,
+        dynamic_batch_scaling: bool = True,
     ):
         super().__init__()
         self.lambda_mono = lambda_mono
@@ -160,6 +161,7 @@ class PhysicsGuidedLoss(nn.Module):
         self.log_upsilon_col_idx = log_upsilon_col_idx
         self.upsilon_threshold_z = upsilon_threshold_z
         self.max_delta_x_z = max_delta_x_z
+        self.dynamic_batch_scaling = dynamic_batch_scaling
         self.mse = nn.MSELoss()
 
     def forward(
@@ -196,13 +198,16 @@ class PhysicsGuidedLoss(nn.Module):
         excess_jump = torch.relu(torch.abs(delta_x_pred) - self.max_delta_x_z)
         l_mass = torch.mean(excess_jump ** 2)
 
-        l_total = l_mse + (self.lambda_mono * l_mono) + (self.lambda_mass * l_mass)
+        # Dynamic batch scaling (* loss_mse.detach()) ensures physical penalties share the exact mathematical scale of baseline MSE
+        scale_factor = l_mse.detach() if self.dynamic_batch_scaling else 1.0
+
+        l_total = l_mse + (self.lambda_mono * l_mono + self.lambda_mass * l_mass) * scale_factor
 
         loss_breakdown = {
             "loss_total": float(l_total.item()),
             "loss_mse": float(l_mse.item()),
-            "loss_mono": float(l_mono.item()) if isinstance(l_mono, torch.Tensor) else float(l_mono),
-            "loss_mass": float(l_mass.item()) if isinstance(l_mass, torch.Tensor) else float(l_mass),
+            "loss_mono": float((self.lambda_mono * l_mono * scale_factor).item() if isinstance(l_mono, torch.Tensor) else 0.0),
+            "loss_mass": float((self.lambda_mass * l_mass * scale_factor).item() if isinstance(l_mass, torch.Tensor) else 0.0),
         }
         return l_total, loss_breakdown
 
@@ -217,6 +222,7 @@ def create_sliding_window_dataset(
     target_col: str = "shoreline_pos_obs_m",
     lookback: int = 24,
     train_split: float = 0.75,
+    scaler_type: str = "robust",
 ) -> Dict[str, Any]:
     """Create temporal lookback sequence windows with state feedback and train/test splits."""
     df_proc = df.copy()
@@ -243,7 +249,14 @@ def create_sliding_window_dataset(
     if split_idx <= lookback:
         split_idx = lookback + 1
 
-    scaler_x = RobustScaler()
+    scaler_type_clean = str(scaler_type).lower().strip()
+    if scaler_type_clean in ["standard", "zscore", "standardscaler"]:
+        scaler_x = StandardScaler()
+    elif scaler_type_clean in ["minmax", "min_max", "minmaxscaler"]:
+        scaler_x = MinMaxScaler(feature_range=(-1.0, 1.0))
+    else:
+        scaler_x = RobustScaler()
+
     scaler_x.fit(x_raw[:split_idx])
     x_scaled = scaler_x.transform(x_raw)
 
@@ -471,6 +484,10 @@ def run_deep_learning_benchmark(
     random_seed: int = 42,
     lambda_mono: float = 0.05,
     lambda_mass: float = 0.05,
+    ablate_raw_features: bool = True,
+    raw_scaler_type: str = "robust",
+    physics_scaler_type: str = "standard",
+    dynamic_batch_scaling: bool = True,
     **kwargs: Any,
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Execute definitive three-tier benchmark comparison across Data-Driven, Input-Guided, and Dual-Guided models.
@@ -504,13 +521,16 @@ def run_deep_learning_benchmark(
         df_aug["accretion_potential"] = (9.81 * (df_aug["tp_s"] ** 2) / (2.0 * np.pi)) / (df_aug["hs_m"] + 0.1)
 
     raw_features = ["hs_m", "tp_s", "surge_m", "wind_normal_ms", "shoreline_lag1"]
-    physics_features = raw_features + ["log_upsilon", "omega_ratio", "delta_p_dissip", "accretion_potential"]
+    if ablate_raw_features:
+        physics_features = ["log_upsilon", "omega_ratio", "delta_p_dissip", "accretion_potential", "shoreline_lag1"]
+    else:
+        physics_features = raw_features + ["log_upsilon", "omega_ratio", "delta_p_dissip", "accretion_potential"]
 
     data_raw = create_sliding_window_dataset(
-        df_aug, feature_cols=raw_features, target_col=target_col, lookback=lookback, train_split=train_split
+        df_aug, feature_cols=raw_features, target_col=target_col, lookback=lookback, train_split=train_split, scaler_type=raw_scaler_type
     )
     data_phys = create_sliding_window_dataset(
-        df_aug, feature_cols=physics_features, target_col=target_col, lookback=lookback, train_split=train_split
+        df_aug, feature_cols=physics_features, target_col=target_col, lookback=lookback, train_split=train_split, scaler_type=physics_scaler_type
     )
 
     if storm_window is not None:
@@ -594,8 +614,8 @@ def run_deep_learning_benchmark(
     storm_rollouts["PG-LSTM (Input-Guided)"] = p_storm_t2
 
     # --- Tier 3 (Dual-Guided): PG-LSTM with Physical Features + Physics-Guided Soft Loss ---
-    lag_idx = data_phys["feature_cols"].index("shoreline_lag1") if "shoreline_lag1" in data_phys["feature_cols"] else 4
-    ups_idx = data_phys["feature_cols"].index("log_upsilon") if "log_upsilon" in data_phys["feature_cols"] else 5
+    lag_idx = data_phys["feature_cols"].index("shoreline_lag1") if "shoreline_lag1" in data_phys["feature_cols"] else len(data_phys["feature_cols"]) - 1
+    ups_idx = data_phys["feature_cols"].index("log_upsilon") if "log_upsilon" in data_phys["feature_cols"] else 0
 
     physics_criterion = PhysicsGuidedLoss(
         lambda_mono=lambda_mono,
@@ -604,6 +624,7 @@ def run_deep_learning_benchmark(
         log_upsilon_col_idx=ups_idx,
         upsilon_threshold_z=0.0,
         max_delta_x_z=3.0,
+        dynamic_batch_scaling=dynamic_batch_scaling,
     )
 
     model_t3 = PhysicsGuidedLSTM(input_dim=len(data_phys["feature_cols"]), hidden_dim=int(hidden_dim * 1.5), num_layers=2, dropout=0.10)

@@ -59,7 +59,7 @@ def test_physics_guided_lstm_forward():
 
 
 def test_physics_guided_loss():
-    criterion = PhysicsGuidedLoss(lambda_mono=0.05, lambda_mass=0.05, lag_col_idx=4, log_upsilon_col_idx=5)
+    criterion = PhysicsGuidedLoss(lambda_mono=0.05, lambda_mass=0.05, lag_col_idx=4, log_upsilon_col_idx=5, dynamic_batch_scaling=True)
     batch_size = 6
     lookback = 12
     n_features = 8
@@ -77,22 +77,33 @@ def test_physics_guided_loss():
     assert "loss_mass" in breakdown
     assert breakdown["loss_total"] >= 0.0
 
+    # Also test unscaled mode
+    crit_unscaled = PhysicsGuidedLoss(lambda_mono=0.05, lambda_mass=0.05, lag_col_idx=4, log_upsilon_col_idx=5, dynamic_batch_scaling=False)
+    l_tot_unscaled, _ = crit_unscaled(preds, targets, batch_x)
+    assert not torch.isnan(l_tot_unscaled)
+
 
 def test_sliding_window_dataset(sample_dataset: pd.DataFrame):
     raw_features = ["hs_m", "tp_s", "surge_m", "wind_normal_ms"]
     lookback = 12
-    data = create_sliding_window_dataset(
-        sample_dataset, feature_cols=raw_features, target_col="shoreline_pos_obs_m", lookback=lookback, train_split=0.70
+    data_robust = create_sliding_window_dataset(
+        sample_dataset, feature_cols=raw_features, target_col="shoreline_pos_obs_m", lookback=lookback, train_split=0.70, scaler_type="robust"
     )
-    assert "x_train" in data and "x_test" in data
-    assert data["x_train"].dim() == 3
-    assert data["x_train"].size(1) == lookback
-    assert data["x_train"].size(2) == len(raw_features) + 1
+    assert "x_train" in data_robust and "x_test" in data_robust
+    assert data_robust["x_train"].dim() == 3
+    assert data_robust["x_train"].size(1) == lookback
+    assert data_robust["x_train"].size(2) == len(raw_features) + 1
+
+    data_std = create_sliding_window_dataset(
+        sample_dataset, feature_cols=raw_features, target_col="shoreline_pos_obs_m", lookback=lookback, train_split=0.70, scaler_type="standard"
+    )
+    assert data_std["x_train"].dim() == 3
 
 
 def test_run_deep_learning_benchmark_and_synthesis(sample_dataset: pd.DataFrame):
     df_results, suite_data = run_deep_learning_benchmark(
-        sample_dataset, lookback=12, train_split=0.70, epochs=2, batch_size=16, storm_duration=24, random_seed=42
+        sample_dataset, lookback=12, train_split=0.70, epochs=2, batch_size=16, storm_duration=24, random_seed=42,
+        ablate_raw_features=True, physics_scaler_type="standard"
     )
     assert isinstance(df_results, pd.DataFrame)
     assert len(df_results) == 4
