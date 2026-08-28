@@ -532,6 +532,20 @@ def run_arviz_loo_comparison(
     """
     valid_traces = {k: v for k, v in traces.items() if hasattr(v, "log_likelihood") and len(v.log_likelihood.data_vars) > 0}
     if len(valid_traces) < 2:
+        if len(valid_traces) == 1:
+            m_name, tr = next(iter(valid_traces.items()))
+            try:
+                loo_res = az.loo(tr)
+                df_single = pd.DataFrame([{
+                    "rank": 0,
+                    "elpd_loo": float(loo_res.elpd_loo),
+                    "p_loo": float(loo_res.p_loo),
+                    "se": float(loo_res.se),
+                    "weight": 1.0,
+                }], index=[m_name])
+                return df_single
+            except Exception:
+                return pd.DataFrame()
         return pd.DataFrame()
 
     try:
@@ -545,128 +559,24 @@ def run_arviz_loo_comparison(
     return df_comp
 
 
-def run_benchmark_model_comparison(
-    df: pd.DataFrame,
-    target_col: str = "shoreline_pos_obs_m",
+def _build_benchmark_candidates(
+    df_train: pd.DataFrame,
+    df_full: pd.DataFrame,
+    is_survey_data: bool,
+    target_col: str,
     use_log_upsilon: bool = True,
-    train_split: float = 0.75,
-    draws: int = 1000,
-    tune: int = 800,
-    chains: int = 4,
-    cores: int = 1,
-    random_seed: int = 42,
     include_nonlinear: bool = True,
     include_multivariate: bool = True,
     include_hybrid: bool = True,
-    compute_loo: bool = True,
-) -> Tuple[pd.DataFrame, Dict[str, az.InferenceData]]:
-    """Fit and benchmark competing physical models with Out-of-Sample Temporal Holdout and ArviZ LOO-CV.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Synchronized hydrodynamic and morphodynamic observational dataset.
-    target_col : str
-        Target column name (default 'shoreline_pos_obs_m' for cumulative cross-shore position).
-        Use 'shoreline_change_rate_mh' only with lag-memory model types that can resolve
-        the near-zero hourly finite-difference signal against survey noise.
-    use_log_upsilon : bool
-        Whether to use log10(Upsilon) as the primary forcing input (default True).
-        Υ spans ~3 orders of magnitude; log-transformation stabilises the predictor
-        variance and prevents Bayesian linear models from converging to beta ≈ 0.
-    train_split : float
-        Chronological training split fraction (default 0.75, giving 75% train, 25% out-of-sample test).
-        Set to 1.0 for full-series training without holdout split.
-    draws : int
-        Number of MCMC draws per chain.
-    tune : int
-        Number of tuning / warmup steps per chain.
-    chains : int
-        Number of Markov chains (default 4).
-    cores : int
-        Number of CPU cores for sampling.
-    random_seed : int
-        Random seed for reproducibility.
-    include_nonlinear : bool
-        Whether to include non-linear polynomial benchmark variants.
-    include_multivariate : bool
-        Whether to include the unconstrained multivariate baseline.
-    include_hybrid : bool
-        Whether to include the physics-anchored hybrid model.
-    compute_loo : bool
-        Whether to compute ArviZ PSIS-LOO-CV cross-validation and model comparison ranking.
-
-    Returns
-    -------
-    comparison_df : pd.DataFrame
-        Ranked comparison table with Out-of-Sample Test metrics, In-Sample metrics, LOO-CV statistics, and R-hat.
-    traces : dict
-        Fitted ArviZ InferenceData traces for each candidate model.
-    """
-    n_total = len(df)
-    if train_split < 1.0:
-        split_idx = int(n_total * train_split)
-        if n_total > 100 and split_idx <= 24:
-            split_idx = n_total
-        elif n_total <= 100 and (split_idx < 3 or n_total - split_idx < 1):
-            split_idx = n_total
-    else:
-        split_idx = n_total
-
-    has_holdout = split_idx < n_total
-    df_train = df.iloc[:split_idx].copy()
-    df_test = df.iloc[split_idx:].copy() if has_holdout else df.copy()
-
-    # Resolve target columns.
-    # Priority: (1) exact target_col if present, (2) shoreline_pos_obs_m / shoreline_pos_true_m
-    # (position-based, the safe default for linear Bayesian models), (3) shoreline_change_rate_mh
-    # as a last resort when only rate data is available.
-    if target_col in df_train.columns:
-        y_obs_train = df_train[target_col].values
-        y_true_train = (
-            df_train["shoreline_pos_true_m"].values
-            if target_col == "shoreline_pos_obs_m" and "shoreline_pos_true_m" in df_train.columns
-            else df_train[target_col].values
-        )
-        y_obs_test = df_test[target_col].values if has_holdout else y_obs_train
-        y_true_test = (
-            df_test["shoreline_pos_true_m"].values
-            if target_col == "shoreline_pos_obs_m" and has_holdout and "shoreline_pos_true_m" in df_test.columns
-            else (df_test[target_col].values if has_holdout else y_true_train)
-        )
-        y_obs_full = df[target_col].values
-        y_true_full = (
-            df["shoreline_pos_true_m"].values
-            if target_col == "shoreline_pos_obs_m" and "shoreline_pos_true_m" in df.columns
-            else df[target_col].values
-        )
-    elif "shoreline_pos_obs_m" in df_train.columns:
-        # Safe position-based fallback
-        y_obs_train = df_train["shoreline_pos_obs_m"].values
-        y_true_train = df_train["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df_train.columns else y_obs_train
-        y_obs_test = df_test["shoreline_pos_obs_m"].values if has_holdout else y_obs_train
-        y_true_test = df_test["shoreline_pos_true_m"].values if (has_holdout and "shoreline_pos_true_m" in df_test.columns) else y_obs_test
-        y_obs_full = df["shoreline_pos_obs_m"].values
-        y_true_full = df["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df.columns else y_obs_full
-    else:
-        # Last resort: finite-difference rate column
-        y_obs_train = df_train["shoreline_change_rate_mh"].values
-        y_true_train = df_train["shoreline_change_rate_mh"].values
-        y_obs_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_obs_train
-        y_true_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_true_train
-        y_obs_full = df["shoreline_change_rate_mh"].values
-        y_true_full = df["shoreline_change_rate_mh"].values
-
-    is_survey_data = "antecedent_upsilon_memory" in df_train.columns or "surveyed_delta_x_m" in df_train.columns
-    effective_max_lag = min(48, max(2, len(df_train) // 4)) if len(df_train) < 60 else 48
-
+) -> Dict[str, Any]:
+    """Construct benchmark candidate dictionary for given train/full data slices."""
     if is_survey_data:
         # Survey-epoch dataset mapping
         ups_raw_train = df_train["antecedent_mean_upsilon"].values if "antecedent_mean_upsilon" in df_train.columns else df_train["antecedent_upsilon_memory"].values
-        ups_raw_full = df["antecedent_mean_upsilon"].values if "antecedent_mean_upsilon" in df.columns else df["antecedent_upsilon_memory"].values
+        ups_raw_full = df_full["antecedent_mean_upsilon"].values if "antecedent_mean_upsilon" in df_full.columns else df_full["antecedent_upsilon_memory"].values
         if use_log_upsilon:
             ups_train = df_train["antecedent_log_upsilon"].values if "antecedent_log_upsilon" in df_train.columns else np.log10(np.maximum(ups_raw_train, 1e-4))
-            ups_full = df["antecedent_log_upsilon"].values if "antecedent_log_upsilon" in df.columns else np.log10(np.maximum(ups_raw_full, 1e-4))
+            ups_full = df_full["antecedent_log_upsilon"].values if "antecedent_log_upsilon" in df_full.columns else np.log10(np.maximum(ups_raw_full, 1e-4))
             ups_label = "Unified Index (log-Upsilon)"
         else:
             ups_train = ups_raw_train
@@ -680,9 +590,9 @@ def run_benchmark_model_comparison(
             else (df_train["antecedent_peak_upsilon"].values if "antecedent_peak_upsilon" in df_train.columns else ups_train)
         )
         ups_peak_full = (
-            df["antecedent_log_peak_upsilon"].values
-            if (use_log_upsilon and "antecedent_log_peak_upsilon" in df.columns)
-            else (df["antecedent_peak_upsilon"].values if "antecedent_peak_upsilon" in df.columns else ups_full)
+            df_full["antecedent_log_peak_upsilon"].values
+            if (use_log_upsilon and "antecedent_log_peak_upsilon" in df_full.columns)
+            else (df_full["antecedent_peak_upsilon"].values if "antecedent_peak_upsilon" in df_full.columns else ups_full)
         )
         peak_label = "Unified Index (Peak-Upsilon)" if not use_log_upsilon else "Unified Index (log-Peak-Upsilon)"
 
@@ -693,17 +603,17 @@ def run_benchmark_model_comparison(
             else (df_train["antecedent_storm_work"].values if "antecedent_storm_work" in df_train.columns else ups_train)
         )
         storm_work_full = (
-            df["antecedent_log_storm_work"].values
-            if "antecedent_log_storm_work" in df.columns
-            else (df["antecedent_storm_work"].values if "antecedent_storm_work" in df.columns else ups_full)
+            df_full["antecedent_log_storm_work"].values
+            if "antecedent_log_storm_work" in df_full.columns
+            else (df_full["antecedent_storm_work"].values if "antecedent_storm_work" in df_full.columns else ups_full)
         )
 
         hs_train = df_train["antecedent_mean_hs_m"].values if "antecedent_mean_hs_m" in df_train.columns else df_train["antecedent_max_hs_m"].values
-        hs_full = df["antecedent_mean_hs_m"].values if "antecedent_mean_hs_m" in df.columns else df["antecedent_max_hs_m"].values
+        hs_full = df_full["antecedent_mean_hs_m"].values if "antecedent_mean_hs_m" in df_full.columns else df_full["antecedent_max_hs_m"].values
         p_train = df_train["antecedent_max_power_Wm"].values if "antecedent_max_power_Wm" in df_train.columns else np.zeros(len(df_train))
-        p_full = df["antecedent_max_power_Wm"].values if "antecedent_max_power_Wm" in df.columns else np.zeros(len(df))
+        p_full = df_full["antecedent_max_power_Wm"].values if "antecedent_max_power_Wm" in df_full.columns else np.zeros(len(df_full))
         omega_train = df_train["antecedent_mean_dean"].values if "antecedent_mean_dean" in df_train.columns else np.zeros(len(df_train))
-        omega_full = df["antecedent_mean_dean"].values if "antecedent_mean_dean" in df.columns else np.zeros(len(df))
+        omega_full = df_full["antecedent_mean_dean"].values if "antecedent_mean_dean" in df_full.columns else np.zeros(len(df_full))
 
         candidates: Dict[str, Any] = {
             "Mean Wave Height (Hs)": {"type": "single", "forcing": hs_train, "full_forcing": hs_full},
@@ -720,7 +630,7 @@ def run_benchmark_model_comparison(
             candidates["Signed Equilibrium Upsilon"] = {
                 "type": "single",
                 "forcing": df_train[ups_eq_col].values,
-                "full_forcing": df[ups_eq_col].values,
+                "full_forcing": df_full[ups_eq_col].values,
             }
 
         yates_col = "yates_simulated_delta_x_m" if (target_col == "surveyed_delta_x_m" or "yates_simulated_delta_x_m" in df_train.columns) else "yates_simulated_pos_m"
@@ -728,7 +638,7 @@ def run_benchmark_model_comparison(
             candidates["Yates (2009) Equilibrium"] = {
                 "type": "single",
                 "forcing": df_train[yates_col].values,
-                "full_forcing": df[yates_col].values,
+                "full_forcing": df_full[yates_col].values,
             }
 
         xbeach_col = "xbeach_simulated_delta_x_m" if (target_col == "surveyed_delta_x_m" or "xbeach_simulated_delta_x_m" in df_train.columns) else "xbeach_simulated_pos_m"
@@ -736,7 +646,7 @@ def run_benchmark_model_comparison(
             candidates["XBeach Process Model"] = {
                 "type": "single",
                 "forcing": df_train[xbeach_col].values,
-                "full_forcing": df[xbeach_col].values,
+                "full_forcing": df_full[xbeach_col].values,
             }
 
         if include_nonlinear:
@@ -778,17 +688,17 @@ def run_benchmark_model_comparison(
         # Continuous hourly dataset mapping
         if use_log_upsilon:
             ups_train = df_train["log_upsilon"].values if "log_upsilon" in df_train.columns else np.log10(np.maximum(df_train["upsilon"].values, 1e-4))
-            ups_full = df["log_upsilon"].values if "log_upsilon" in df.columns else np.log10(np.maximum(df["upsilon"].values, 1e-4))
+            ups_full = df_full["log_upsilon"].values if "log_upsilon" in df_full.columns else np.log10(np.maximum(df_full["upsilon"].values, 1e-4))
             ups_label = "Unified Index (log-Upsilon)"
         else:
             ups_train = df_train["upsilon"].values
-            ups_full = df["upsilon"].values
+            ups_full = df_full["upsilon"].values
             ups_label = "Unified Index (Upsilon)"
 
         candidates: Dict[str, Any] = {
-            "Hs (Linear)": {"type": "single", "forcing": df_train["hs_m"].values, "full_forcing": df["hs_m"].values},
-            "Wave Power P (Linear)": {"type": "single", "forcing": df_train["p_flux_Wm"].values, "full_forcing": df["p_flux_Wm"].values},
-            "Dean Number (Linear)": {"type": "single", "forcing": df_train["dean_number"].values, "full_forcing": df["dean_number"].values},
+            "Hs (Linear)": {"type": "single", "forcing": df_train["hs_m"].values, "full_forcing": df_full["hs_m"].values},
+            "Wave Power P (Linear)": {"type": "single", "forcing": df_train["p_flux_Wm"].values, "full_forcing": df_full["p_flux_Wm"].values},
+            "Dean Number (Linear)": {"type": "single", "forcing": df_train["dean_number"].values, "full_forcing": df_full["dean_number"].values},
             ups_label: {"type": "single", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon},
         }
 
@@ -796,12 +706,12 @@ def run_benchmark_model_comparison(
             candidates["Signed Index (Upsilon_signed)"] = {
                 "type": "single",
                 "forcing": df_train["signed_upsilon"].values,
-                "full_forcing": df["signed_upsilon"].values,
+                "full_forcing": df_full["signed_upsilon"].values,
             }
 
         if include_nonlinear:
             candidates["Upsilon (Non-Linear)"] = {"type": "nonlinear", "forcing": ups_train, "full_forcing": ups_full, "use_log_upsilon": use_log_upsilon}
-            candidates["Hs (Non-Linear)"] = {"type": "nonlinear", "forcing": df_train["hs_m"].values, "full_forcing": df["hs_m"].values}
+            candidates["Hs (Non-Linear)"] = {"type": "nonlinear", "forcing": df_train["hs_m"].values, "full_forcing": df_full["hs_m"].values}
 
         if include_multivariate:
             candidates["Multivariate (Hs+S+Wa+Omega)"] = {
@@ -841,67 +751,245 @@ def run_benchmark_model_comparison(
                 "accretion": df_train["accretion_potential"].values if "accretion_potential" in df_train.columns else None,
             }
 
+    return candidates
+
+
+def _build_model_from_spec(
+    spec: Dict[str, Any],
+    y_obs_train: np.ndarray,
+    name: str,
+    effective_max_lag: int,
+    use_log_upsilon: bool = True,
+) -> Tuple[Optional[pm.Model], Optional[Dict[str, Any]]]:
+    """Construct PyMC model and metadata dict for a specific candidate specification."""
+    model_type = spec["type"]
+    if model_type == "single":
+        model, meta = build_latent_memory_bayesian_model(
+            forcing=spec["forcing"],
+            delta_x_obs=y_obs_train,
+            model_name=name,
+            max_lag=effective_max_lag,
+        )
+    elif model_type == "nonlinear":
+        model, meta = build_nonlinear_response_model(
+            forcing=spec["forcing"],
+            delta_x_obs=y_obs_train,
+            model_name=name,
+            degree=3,
+        )
+    elif model_type == "multivariate":
+        model, meta = build_multivariate_linear_model(
+            forcings=spec["forcings"],
+            delta_x_obs=y_obs_train,
+            model_name=name,
+        )
+    elif model_type == "hybrid":
+        model, meta = build_physics_anchored_hybrid_model(
+            upsilon=spec["upsilon"],
+            forcings=spec["forcings"],
+            delta_x_obs=y_obs_train,
+            model_name=name,
+            max_lag=effective_max_lag,
+        )
+    elif model_type == "asymmetric":
+        model, meta = build_asymmetric_dual_regime_model(
+            hs=spec["hs"],
+            tp=spec["tp"],
+            ws=spec["ws"],
+            upsilon=spec["upsilon"],
+            delta_x_obs=y_obs_train,
+            shielding_factor=spec["shielding"],
+            accretion_potential=spec["accretion"],
+            model_name=name,
+            max_lag=effective_max_lag,
+        )
+    elif model_type == "latent_equilibrium":
+        model, meta = build_latent_equilibrium_bayesian_model(
+            forcing=spec["forcing"],
+            delta_x_obs=y_obs_train,
+            model_name=name,
+            max_lag=effective_max_lag,
+            scale_forcing=spec.get("scale_forcing", False),
+        )
+    else:
+        return None, None
+
+    meta["use_log_upsilon"] = spec.get("use_log_upsilon", use_log_upsilon)
+    return model, meta
+
+
+def run_benchmark_model_comparison(
+    df: pd.DataFrame,
+    target_col: str = "shoreline_pos_obs_m",
+    use_log_upsilon: bool = True,
+    train_split: float = 0.75,
+    eval_mode: str = "holdout",
+    n_splits: int = 4,
+    min_train_ratio: float = 0.5,
+    draws: int = 1000,
+    tune: int = 800,
+    chains: int = 4,
+    cores: int = 1,
+    random_seed: int = 42,
+    include_nonlinear: bool = True,
+    include_multivariate: bool = True,
+    include_hybrid: bool = True,
+    compute_loo: bool = True,
+    sort_by: Optional[str] = None,
+) -> Tuple[pd.DataFrame, Dict[str, az.InferenceData]]:
+    """Fit and benchmark competing physical models with PSIS-LOO-CV, Rolling-Origin CV, or Temporal Holdout.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Synchronized hydrodynamic and morphodynamic observational dataset.
+    target_col : str
+        Target column name (default 'shoreline_pos_obs_m' for cumulative cross-shore position).
+        Use 'shoreline_change_rate_mh' or 'surveyed_delta_x_m' for differential inter-survey displacement.
+    use_log_upsilon : bool
+        Whether to use log10(Upsilon) as the primary forcing input (default True).
+    train_split : float
+        Chronological training split fraction (default 0.75, giving 75% train, 25% out-of-sample test).
+        Ignored if eval_mode is 'loo' or 'rolling_origin'.
+    eval_mode : str
+        Evaluation paradigm:
+        - 'holdout': Single chronological train/test split at train_split fraction.
+        - 'loo': Full-series Bayesian training with ArviZ PSIS-LOO-CV as the primary ranking criterion.
+        - 'rolling_origin': Walk-Forward / Expanding Window Temporal CV across n_splits horizons.
+    n_splits : int
+        Number of walk-forward temporal folds when eval_mode='rolling_origin' (default 4).
+    min_train_ratio : float
+        Initial training window ratio for walk-forward CV (default 0.5, i.e., 50% history).
+    draws : int
+        Number of MCMC draws per chain.
+    tune : int
+        Number of tuning / warmup steps per chain.
+    chains : int
+        Number of Markov chains (default 4).
+    cores : int
+        Number of CPU cores for sampling.
+    random_seed : int
+        Random seed for reproducibility.
+    include_nonlinear : bool
+        Whether to include non-linear polynomial benchmark variants.
+    include_multivariate : bool
+        Whether to include the unconstrained multivariate baseline.
+    include_hybrid : bool
+        Whether to include the physics-anchored hybrid model.
+    compute_loo : bool
+        Whether to compute ArviZ PSIS-LOO-CV cross-validation and model comparison ranking.
+    sort_by : str, optional
+        Column name to sort the final ranking table by. Auto-selected if None:
+        - 'ELPD LOO' for eval_mode='loo'
+        - 'CV RMSE (m)' for eval_mode='rolling_origin'
+        - 'Test RMSE (m)' for eval_mode='holdout'
+
+    Returns
+    -------
+    comparison_df : pd.DataFrame
+        Ranked comparison table with CV/Test metrics, In-Sample metrics, LOO-CV statistics, and R-hat.
+    traces : dict
+        Fitted ArviZ InferenceData traces for each candidate model.
+    """
+    n_total = len(df)
+    eval_mode = eval_mode.lower().strip()
+    if eval_mode not in ["holdout", "loo", "rolling_origin"]:
+        eval_mode = "holdout"
+
+    if eval_mode == "loo" or train_split >= 1.0:
+        split_idx = n_total
+        has_holdout = False
+    else:
+        split_idx = int(n_total * train_split)
+        if n_total > 100 and split_idx <= 24:
+            split_idx = n_total
+        elif n_total <= 100 and (split_idx < 3 or n_total - split_idx < 1):
+            split_idx = n_total
+        has_holdout = split_idx < n_total
+
+    df_train = df.iloc[:split_idx].copy()
+    df_test = df.iloc[split_idx:].copy() if has_holdout else df.copy()
+
+    # Resolve target columns
+    if target_col in df.columns:
+        y_obs_train = df_train[target_col].values
+        y_true_train = (
+            df_train["shoreline_pos_true_m"].values
+            if target_col == "shoreline_pos_obs_m" and "shoreline_pos_true_m" in df_train.columns
+            else df_train[target_col].values
+        )
+        y_obs_test = df_test[target_col].values if has_holdout else y_obs_train
+        y_true_test = (
+            df_test["shoreline_pos_true_m"].values
+            if target_col == "shoreline_pos_obs_m" and has_holdout and "shoreline_pos_true_m" in df_test.columns
+            else (df_test[target_col].values if has_holdout else y_true_train)
+        )
+        y_obs_full = df[target_col].values
+        y_true_full = (
+            df["shoreline_pos_true_m"].values
+            if target_col == "shoreline_pos_obs_m" and "shoreline_pos_true_m" in df.columns
+            else df[target_col].values
+        )
+    elif "shoreline_pos_obs_m" in df.columns:
+        y_obs_train = df_train["shoreline_pos_obs_m"].values
+        y_true_train = df_train["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df_train.columns else y_obs_train
+        y_obs_test = df_test["shoreline_pos_obs_m"].values if has_holdout else y_obs_train
+        y_true_test = df_test["shoreline_pos_true_m"].values if (has_holdout and "shoreline_pos_true_m" in df_test.columns) else y_obs_test
+        y_obs_full = df["shoreline_pos_obs_m"].values
+        y_true_full = df["shoreline_pos_true_m"].values if "shoreline_pos_true_m" in df.columns else y_obs_full
+    else:
+        y_obs_train = df_train["shoreline_change_rate_mh"].values
+        y_true_train = df_train["shoreline_change_rate_mh"].values
+        y_obs_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_obs_train
+        y_true_test = df_test["shoreline_change_rate_mh"].values if has_holdout else y_true_train
+        y_obs_full = df["shoreline_change_rate_mh"].values
+        y_true_full = df["shoreline_change_rate_mh"].values
+
+    is_survey_data = "antecedent_upsilon_memory" in df.columns or "surveyed_delta_x_m" in df.columns
+    effective_max_lag = min(48, max(2, len(df_train) // 4)) if len(df_train) < 60 else 48
+
+    candidates = _build_benchmark_candidates(
+        df_train=df_train,
+        df_full=df,
+        is_survey_data=is_survey_data,
+        target_col=target_col,
+        use_log_upsilon=use_log_upsilon,
+        include_nonlinear=include_nonlinear,
+        include_multivariate=include_multivariate,
+        include_hybrid=include_hybrid,
+    )
+
+    # If rolling origin temporal CV is requested, calculate expanding window cuts
+    rolling_folds = []
+    if eval_mode == "rolling_origin":
+        min_train_len = max(4, int(n_total * min_train_ratio))
+        test_indices = np.arange(min_train_len, n_total)
+        if len(test_indices) >= n_splits:
+            fold_test_splits = np.array_split(test_indices, n_splits)
+            for f_test in fold_test_splits:
+                if len(f_test) > 0:
+                    f_train_end = f_test[0]
+                    rolling_folds.append((f_train_end, f_test))
+
     traces: Dict[str, az.InferenceData] = {}
     model_metas: Dict[str, Dict[str, Any]] = {}
     metrics_list = []
 
     for name, spec in candidates.items():
         model_type = spec["type"]
-
-        if model_type == "single":
-            model, meta = build_latent_memory_bayesian_model(
-                forcing=spec["forcing"],
-                delta_x_obs=y_obs_train,
-                model_name=name,
-                max_lag=effective_max_lag,
-            )
-        elif model_type == "nonlinear":
-            model, meta = build_nonlinear_response_model(
-                forcing=spec["forcing"],
-                delta_x_obs=y_obs_train,
-                model_name=name,
-                degree=3,
-            )
-        elif model_type == "multivariate":
-            model, meta = build_multivariate_linear_model(
-                forcings=spec["forcings"],
-                delta_x_obs=y_obs_train,
-                model_name=name,
-            )
-        elif model_type == "hybrid":
-            model, meta = build_physics_anchored_hybrid_model(
-                upsilon=spec["upsilon"],
-                forcings=spec["forcings"],
-                delta_x_obs=y_obs_train,
-                model_name=name,
-                max_lag=effective_max_lag,
-            )
-        elif model_type == "asymmetric":
-            model, meta = build_asymmetric_dual_regime_model(
-                hs=spec["hs"],
-                tp=spec["tp"],
-                ws=spec["ws"],
-                upsilon=spec["upsilon"],
-                delta_x_obs=y_obs_train,
-                shielding_factor=spec["shielding"],
-                accretion_potential=spec["accretion"],
-                model_name=name,
-                max_lag=effective_max_lag,
-            )
-        elif model_type == "latent_equilibrium":
-            model, meta = build_latent_equilibrium_bayesian_model(
-                forcing=spec["forcing"],
-                delta_x_obs=y_obs_train,
-                model_name=name,
-                max_lag=effective_max_lag,
-                scale_forcing=spec.get("scale_forcing", False),
-            )
-        else:
+        model, meta = _build_model_from_spec(
+            spec=spec,
+            y_obs_train=y_obs_train,
+            name=name,
+            effective_max_lag=effective_max_lag,
+            use_log_upsilon=use_log_upsilon,
+        )
+        if model is None or meta is None:
             continue
 
-        meta["use_log_upsilon"] = spec.get("use_log_upsilon", use_log_upsilon)
         model_metas[name] = meta
 
+        # 1. Main MCMC Sampling on full or training slice
         with model:
             trace = pm.sample(
                 draws=draws,
@@ -924,7 +1012,7 @@ def run_benchmark_model_comparison(
         elif "full_upsilon" in spec:
             spec_pred = {"upsilon": spec["full_upsilon"]}
 
-        # Memory-efficient full continuous prediction across dataset (train + test holdout)
+        # Full continuous prediction across dataset
         mu_full_mean = predict_bayesian_model(
             trace=trace,
             model_type=model_type,
@@ -938,23 +1026,105 @@ def run_benchmark_model_comparison(
         import gc
         gc.collect()
 
-        mu_train_pred = mu_full_mean[:split_idx]
-        mu_test_pred = mu_full_mean[split_idx:] if has_holdout else mu_train_pred
-
-        perf_train = evaluate_model_performance(y_true=y_true_train, y_pred=mu_train_pred, y_baseline=np.zeros(len(y_true_train)))
-        perf_test = evaluate_model_performance(y_true=y_true_test, y_pred=mu_test_pred, y_baseline=np.zeros(len(y_true_test)))
-        perf_full = evaluate_model_performance(y_true=y_true_full, y_pred=mu_full_mean, y_baseline=np.zeros(len(y_true_full)))
-
-        # Convergence diagnostics
-        avail_vars = [v for v in ["gamma", "beta_forcing", "beta_upsilon", "alpha", "sigma", "k_eros", "k_accrete", "omega_crit"] if v in trace.posterior]
-        post_rhat = float(az.summary(trace, var_names=avail_vars)["r_hat"].max()) if avail_vars else 1.0
-
+        # 2. Performance metrics based on eval_mode
         row: Dict[str, Any] = {
             "Model": name,
             "Type": model_type,
         }
 
-        if has_holdout:
+        if eval_mode == "rolling_origin" and len(rolling_folds) >= 2:
+            # Execute walk-forward cross-validation folds
+            cv_preds = []
+            cv_actuals = []
+            fold_rmses = []
+            fold_r2s = []
+
+            for f_train_end, f_test_idx in rolling_folds:
+                df_f_train = df.iloc[:f_train_end].copy()
+                df_f_test = df.iloc[f_test_idx].copy()
+                y_f_train = y_obs_full[:f_train_end]
+                y_f_test = y_true_full[f_test_idx]
+
+                f_cand = _build_benchmark_candidates(
+                    df_train=df_f_train,
+                    df_full=df.iloc[:f_test_idx[-1] + 1],
+                    is_survey_data=is_survey_data,
+                    target_col=target_col,
+                    use_log_upsilon=use_log_upsilon,
+                    include_nonlinear=include_nonlinear,
+                    include_multivariate=include_multivariate,
+                    include_hybrid=include_hybrid,
+                )
+                if name not in f_cand:
+                    continue
+
+                f_spec = f_cand[name]
+                f_lag = min(48, max(2, len(df_f_train) // 4)) if len(df_f_train) < 60 else 48
+                f_model, f_meta = _build_model_from_spec(f_spec, y_f_train, f"{name}_f", f_lag, use_log_upsilon)
+                if f_model is None:
+                    continue
+
+                with f_model:
+                    f_trace = pm.sample(
+                        draws=max(400, draws // 2),
+                        tune=max(300, tune // 2),
+                        chains=max(2, chains // 2),
+                        cores=cores,
+                        target_accept=0.90,
+                        random_seed=random_seed,
+                        progressbar=False,
+                        return_inferencedata=True,
+                    )
+
+                f_spec_pred = None
+                if "full_forcing" in f_spec:
+                    f_spec_pred = {"forcing": f_spec["full_forcing"]}
+                elif "full_upsilon" in f_spec:
+                    f_spec_pred = {"upsilon": f_spec["full_upsilon"]}
+
+                f_mu = predict_bayesian_model(
+                    trace=f_trace,
+                    model_type=model_type,
+                    meta=f_meta,
+                    df=df.iloc[:f_test_idx[-1] + 1],
+                    spec=f_spec_pred,
+                    return_samples=False,
+                    random_seed=random_seed,
+                )
+                f_pred_test = f_mu[f_test_idx]
+                cv_preds.extend(f_pred_test)
+                cv_actuals.extend(y_f_test)
+
+                f_perf = evaluate_model_performance(y_true=y_f_test, y_pred=f_pred_test)
+                fold_rmses.append(f_perf["RMSE (m)"])
+                fold_r2s.append(f_perf["R2 Score"])
+
+            if cv_preds:
+                cv_overall = evaluate_model_performance(y_true=np.array(cv_actuals), y_pred=np.array(cv_preds))
+                row["CV RMSE (m)"] = cv_overall["RMSE (m)"]
+                row["CV R2 Score"] = cv_overall["R2 Score"]
+                row["CV BSS"] = cv_overall["Brier Skill Score (BSS)"]
+                row["Fold RMSE (std)"] = float(np.std(fold_rmses))
+                row["Fold R2 (std)"] = float(np.std(fold_r2s))
+
+            perf_full = evaluate_model_performance(y_true=y_true_full, y_pred=mu_full_mean)
+            row["Full RMSE (m)"] = perf_full["RMSE (m)"]
+            row["Full R2 Score"] = perf_full["R2 Score"]
+
+        elif eval_mode == "loo" or not has_holdout:
+            perf_full = evaluate_model_performance(y_true=y_true_full, y_pred=mu_full_mean)
+            row["In-Sample RMSE (m)"] = perf_full["RMSE (m)"]
+            row["In-Sample R2 Score"] = perf_full["R2 Score"]
+            row["In-Sample BSS"] = perf_full["Brier Skill Score (BSS)"]
+
+        else:
+            # Standard holdout split evaluation
+            mu_train_pred = mu_full_mean[:split_idx]
+            mu_test_pred = mu_full_mean[split_idx:]
+            perf_train = evaluate_model_performance(y_true=y_true_train, y_pred=mu_train_pred)
+            perf_test = evaluate_model_performance(y_true=y_true_test, y_pred=mu_test_pred)
+            perf_full = evaluate_model_performance(y_true=y_true_full, y_pred=mu_full_mean)
+
             row["Test RMSE (m)"] = perf_test["RMSE (m)"]
             row["Test R2 Score"] = perf_test["R2 Score"]
             row["Test BSS"] = perf_test["Brier Skill Score (BSS)"]
@@ -962,23 +1132,17 @@ def run_benchmark_model_comparison(
             row["Train R2 Score"] = perf_train["R2 Score"]
             row["Full RMSE (m)"] = perf_full["RMSE (m)"]
             row["Full R2 Score"] = perf_full["R2 Score"]
-        else:
-            row["Test RMSE (m)"] = perf_train["RMSE (m)"]
-            row["Test R2 Score"] = perf_train["R2 Score"]
-            row["Test BSS"] = perf_train["Brier Skill Score (BSS)"]
-            row["Train RMSE (m)"] = perf_train["RMSE (m)"]
-            row["Train R2 Score"] = perf_train["R2 Score"]
-            row["RMSE (m)"] = perf_train["RMSE (m)"]
-            row["R2 Score"] = perf_train["R2 Score"]
-            row["BSS"] = perf_train["Brier Skill Score (BSS)"]
 
+        # Convergence diagnostics
+        avail_vars = [v for v in ["gamma", "beta_forcing", "beta_upsilon", "alpha", "sigma", "k_eros", "k_accrete", "omega_crit"] if v in trace.posterior]
+        post_rhat = float(az.summary(trace, var_names=avail_vars)["r_hat"].max()) if avail_vars else 1.0
         row["Max R-hat"] = post_rhat
         if "gamma" in trace.posterior:
             row["E[gamma]"] = float(trace.posterior["gamma"].mean())
 
         metrics_list.append(row)
 
-    # Compute Leave-One-Out Cross-Validation (LOO-CV) comparison table
+    # 3. Compute Leave-One-Out Cross-Validation (LOO-CV) comparison table
     loo_df = pd.DataFrame()
     if compute_loo and len(traces) >= 2:
         try:
@@ -989,12 +1153,14 @@ def run_benchmark_model_comparison(
                     if m_name in loo_df.index:
                         r["LOO Rank"] = int(loo_df.loc[m_name, "rank"])
                         r["ELPD LOO"] = float(loo_df.loc[m_name, "elpd_loo"])
+                        if "se" in loo_df.columns:
+                            r["SE ELPD"] = float(loo_df.loc[m_name, "se"])
                         r["p_LOO"] = float(loo_df.loc[m_name, "p_loo"])
                         r["LOO Weight"] = float(loo_df.loc[m_name, "weight"])
         except Exception:
             pass
 
-    # Provide aliasing for both naming styles across traces and model_metas
+    # Aliasing for both naming styles across traces and model_metas
     for ups_key in ["Unified Index (log-Upsilon)", "Unified Index (Upsilon)"]:
         if ups_key in traces:
             traces["Upsilon (Linear)"] = traces[ups_key]
@@ -1010,15 +1176,26 @@ def run_benchmark_model_comparison(
             model_metas["Unified Index (Upsilon)"] = model_metas["Upsilon (Linear)"]
 
     comparison_df = pd.DataFrame(metrics_list)
-    if "Test RMSE (m)" in comparison_df.columns:
+
+    # Determine sorting order
+    if sort_by is not None and sort_by in comparison_df.columns:
+        ascending = not (sort_by in ["ELPD LOO", "LOO Weight", "CV R2 Score", "Test R2 Score", "In-Sample R2 Score", "Full R2 Score"])
+        comparison_df = comparison_df.sort_values(by=sort_by, ascending=ascending).reset_index(drop=True)
+    elif eval_mode == "loo" and "ELPD LOO" in comparison_df.columns:
+        comparison_df = comparison_df.sort_values(by="ELPD LOO", ascending=False).reset_index(drop=True)
+    elif eval_mode == "rolling_origin" and "CV RMSE (m)" in comparison_df.columns:
+        comparison_df = comparison_df.sort_values(by="CV RMSE (m)", ascending=True).reset_index(drop=True)
+    elif "Test RMSE (m)" in comparison_df.columns:
         comparison_df = comparison_df.sort_values(by="Test RMSE (m)", ascending=True).reset_index(drop=True)
-    elif "RMSE (m)" in comparison_df.columns:
-        comparison_df = comparison_df.sort_values(by="RMSE (m)", ascending=True).reset_index(drop=True)
+    elif "In-Sample RMSE (m)" in comparison_df.columns:
+        comparison_df = comparison_df.sort_values(by="In-Sample RMSE (m)", ascending=True).reset_index(drop=True)
 
     comparison_df.attrs["loo_comparison"] = loo_df
+    comparison_df.attrs["eval_mode"] = eval_mode
     comparison_df.attrs["train_split"] = train_split
     comparison_df.attrs["split_idx"] = split_idx
     comparison_df.attrs["model_metas"] = model_metas
+    comparison_df.attrs["n_splits"] = n_splits
 
     return comparison_df, traces
 
