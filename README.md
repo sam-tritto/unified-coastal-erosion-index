@@ -183,7 +183,7 @@ flowchart TD
 
 Evaluated across three operational horizons:
 1. **Horizon 1 (1-Hour Nowcast):** Real-time sensor assimilation ($R^2 \approx 0.971$).
-2. **Horizon 2 (72-Hour Storm Rollout):** Closed-loop recursive forward rollout during Hurricane Ian landfall ($\text{RMSE} = 0.239\text{ m}$).
+2. **Horizon 2 (72-Hour Extreme Storm Gouging Forward Rollout - Site Peak Hazard Event):** Closed-loop recursive forward rollout during peak hazard storm event ($\text{RMSE} = 0.239\text{ m}$).
 3. **Horizon 3 (365-Day Hindcast):** Continuous un-anchored annual forward simulation ($N = 8,760\text{ hrs}$).
 
 ---

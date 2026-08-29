@@ -468,6 +468,167 @@ def evaluate_dual_horizon(
 # Definitive Three-Tier Deep Learning Benchmark Suite
 # ==============================================================================
 
+SITE_STORM_CATALOG: Dict[str, Dict[str, str]] = {
+    "DUCK_NC": {
+        "event_name": "Hurricane Ian (Sept/Oct 2022)",
+        "start": "2022-09-30 00:00:00",
+        "regime": "Tropical Cyclone / Storm Surge",
+    },
+    "NARRABEEN_AUS": {
+        "event_name": "Major East Coast Low (ECL)",
+        "start": "2022-07-04 00:00:00",
+        "regime": "Embayed Beach Rotation / SE Swell",
+    },
+    "OAHU_NORTH_SHORE_HI": {
+        "event_name": "Peak Winter North Pacific Swell",
+        "start": "2023-01-22 00:00:00",
+        "regime": "High-Period Groundswell",
+    },
+    "TORREY_PINES_CA": {
+        "event_name": "Pacific Winter Storm / Atmospheric River",
+        "start": "2023-01-05 00:00:00",
+        "regime": "Narrow-Shelf Wave Shoaling",
+    },
+    "TRUC_VERT_FRANCE": {
+        "event_name": "Bay of Biscay Extratropical Cyclone",
+        "start": "2023-11-02 00:00:00",
+        "regime": "Macrotidal Storm Surge & Swash Smearing",
+    },
+}
+
+
+def resolve_site_storm_window(
+    df: pd.DataFrame,
+    site: Optional[str] = None,
+    train_split: float = 0.75,
+    lookback: int = 24,
+    storm_window: Optional[Tuple[str, str]] = None,
+    storm_start_idx: Optional[int] = None,
+) -> Tuple[int, Dict[str, str]]:
+    """Dynamically resolve the Section 5 Horizon 2 storm window per site.
+
+    Option A: Automated Peak Energy Window (Fully Programmatic)
+              Finds center timestamp t* corresponding to maximum compound forcing
+              (peak Upsilon or peak Hs * Surge) in the out-of-sample test split.
+    Option B: Site-Specific Event Dictionary (Publication-Grade Rigor)
+              Uses curated lookup of canonical events (SITE_STORM_CATALOG) if
+              matched and date is present in the dataset.
+    """
+    event_info: Dict[str, str] = {
+        "event_name": "Site Peak Hazard Event",
+        "start": "",
+        "regime": "Extreme Storm Forcing",
+        "horizon_title": "Horizon 2: 72-Hour Extreme Storm Gouging Forward Rollout (Site Peak Hazard Event)",
+    }
+
+    # 1. Explicit index override
+    if storm_start_idx is not None:
+        idx_val = max(lookback + 1, min(int(storm_start_idx), max(lookback + 1, len(df) - 72)))
+        event_info["start"] = str(df.index[idx_val]) if len(df) > idx_val else ""
+        return idx_val, event_info
+
+    # 2. Explicit window tuple override
+    if storm_window is not None:
+        try:
+            w_start = pd.to_datetime(storm_window[0])
+            idx_loc = df.index.get_indexer([w_start], method="nearest")[0]
+            idx_val = max(lookback + 1, min(int(idx_loc), max(lookback + 1, len(df) - 72)))
+            event_info["start"] = str(df.index[idx_val])
+            return idx_val, event_info
+        except Exception:
+            pass
+
+    # 3. Detect site key
+    site_key = None
+    if site:
+        site_key = site.upper().strip()
+    elif "site" in df.columns and len(df["site"]) > 0 and pd.notna(df["site"].iloc[0]):
+        site_key = str(df["site"].iloc[0]).upper().strip()
+    elif hasattr(df, "attrs") and isinstance(df.attrs, dict) and df.attrs.get("site"):
+        site_key = str(df.attrs["site"]).upper().strip()
+    elif "site_name" in df.columns and len(df["site_name"]) > 0:
+        sname = str(df["site_name"].iloc[0]).lower()
+        if "duck" in sname:
+            site_key = "DUCK_NC"
+        elif "narrabeen" in sname:
+            site_key = "NARRABEEN_AUS"
+        elif "oahu" in sname or "waimea" in sname:
+            site_key = "OAHU_NORTH_SHORE_HI"
+        elif "torrey" in sname:
+            site_key = "TORREY_PINES_CA"
+        elif "truc" in sname:
+            site_key = "TRUC_VERT_FRANCE"
+
+    KEY_ALIAS = {
+        "DUCK": "DUCK_NC",
+        "DUCK_NC": "DUCK_NC",
+        "NARRABEEN": "NARRABEEN_AUS",
+        "NARRABEEN_AUS": "NARRABEEN_AUS",
+        "OAHU": "OAHU_NORTH_SHORE_HI",
+        "OAHU_NORTH_SHORE": "OAHU_NORTH_SHORE_HI",
+        "OAHU_NORTH_SHORE_HI": "OAHU_NORTH_SHORE_HI",
+        "TORREY": "TORREY_PINES_CA",
+        "TORREY_PINES": "TORREY_PINES_CA",
+        "TORREY_PINES_CA": "TORREY_PINES_CA",
+        "TRUC_VERT": "TRUC_VERT_FRANCE",
+        "TRUC_VERT_FRANCE": "TRUC_VERT_FRANCE",
+    }
+    if site_key in KEY_ALIAS:
+        site_key = KEY_ALIAS[site_key]
+
+    # Check Catalog (Option B)
+    if site_key and site_key in SITE_STORM_CATALOG:
+        cat = SITE_STORM_CATALOG[site_key]
+        try:
+            cat_start = pd.to_datetime(cat["start"])
+            if isinstance(df.index, pd.DatetimeIndex):
+                if df.index.min() <= cat_start <= df.index.max():
+                    loc = df.index.get_indexer([cat_start], method="nearest")[0]
+                    resolved_idx = max(lookback + 1, min(int(loc), max(lookback + 1, len(df) - 72)))
+                    event_info.update({
+                        "event_name": cat["event_name"],
+                        "start": str(df.index[resolved_idx]),
+                        "regime": cat["regime"],
+                    })
+                    return resolved_idx, event_info
+        except Exception:
+            pass
+
+    # Option A: Automated Peak Energy Window (Fully Programmatic)
+    # Find peak compound forcing in out-of-sample test split
+    test_start_i = int(train_split * len(df))
+    test_df = df.iloc[test_start_i:] if len(df) > test_start_i else df
+
+    if "upsilon" in test_df.columns:
+        peak_idx_val = test_df["upsilon"].idxmax()
+    elif "log_upsilon" in test_df.columns:
+        peak_idx_val = test_df["log_upsilon"].idxmax()
+    elif "hs_m" in test_df.columns and "surge_m" in test_df.columns:
+        peak_idx_val = (test_df["hs_m"] * test_df["surge_m"]).idxmax()
+    elif "hs_m" in test_df.columns:
+        peak_idx_val = test_df["hs_m"].idxmax()
+    else:
+        peak_idx_val = test_df.index[len(test_df) // 2] if len(test_df) > 0 else df.index[0]
+
+    try:
+        if isinstance(df.index, pd.DatetimeIndex) and isinstance(peak_idx_val, (pd.Timestamp, str)):
+            peak_int = df.index.get_indexer([pd.to_datetime(peak_idx_val)], method="nearest")[0]
+        else:
+            peak_int = df.index.get_loc(peak_idx_val)
+            if not isinstance(peak_int, int):
+                peak_int = peak_int.start if hasattr(peak_int, "start") else test_start_i
+    except Exception:
+        peak_int = test_start_i + len(test_df) // 2
+
+    resolved_idx = max(lookback + 1, min(int(peak_int - 24), max(lookback + 1, len(df) - 72)))
+    event_info.update({
+        "event_name": f"Site Peak Hazard Event ({site_key or 'Automated Peak'})",
+        "start": str(df.index[resolved_idx]) if len(df) > resolved_idx else "",
+        "regime": "Automated Out-of-Sample Peak Compound Forcing",
+    })
+    return resolved_idx, event_info
+
+
 def run_deep_learning_benchmark(
     df: pd.DataFrame,
     lookback: int = 24,
@@ -481,6 +642,7 @@ def run_deep_learning_benchmark(
     storm_start_idx: Optional[int] = None,
     storm_duration: int = 72,
     storm_window: Optional[Tuple[str, str]] = None,
+    site: Optional[str] = None,
     random_seed: int = 42,
     lambda_mono: float = 0.05,
     lambda_mass: float = 0.05,
@@ -533,17 +695,14 @@ def run_deep_learning_benchmark(
         df_aug, feature_cols=physics_features, target_col=target_col, lookback=lookback, train_split=train_split, scaler_type=physics_scaler_type
     )
 
-    if storm_window is not None:
-        try:
-            w_start = pd.to_datetime(storm_window[0])
-            idx_loc = df_aug.index.get_indexer([w_start], method="nearest")[0]
-            storm_start_idx = max(lookback + 1, idx_loc)
-        except Exception:
-            pass
-
-    if storm_start_idx is None:
-        peak_idx = int(np.argmax(df_aug["hs_m"].values))
-        storm_start_idx = max(lookback + 1, peak_idx - 24)
+    storm_start_idx, storm_event_info = resolve_site_storm_window(
+        df=df_aug,
+        site=site or kwargs.get("site"),
+        train_split=train_split,
+        lookback=lookback,
+        storm_window=storm_window,
+        storm_start_idx=storm_start_idx,
+    )
 
     results: List[Dict[str, Any]] = []
     trained_models: Dict[str, Any] = {}
@@ -699,6 +858,8 @@ def run_deep_learning_benchmark(
         "time_full": data_raw["time_all"],
         "y_true_test": data_raw["y_true_test_unscaled"],
         "y_true_full": data_raw["y_true_full_unscaled"],
+        "storm_event_info": storm_event_info,
+        "horizon_2_title": storm_event_info["horizon_title"],
         "loss_histories": {
             "Tier 1 (Data-Driven)": loss_t1,
             "Tier 2 (Input-Guided)": loss_t2,

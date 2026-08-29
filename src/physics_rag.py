@@ -92,6 +92,14 @@ class PhysicsQuerySpec(BaseModel):
         default=None,
         description="Target numerical values to synthesize an explicit query vector (e.g. {'hs_m': 4.5, 'tp_s': 14.0, 'surge_m': 1.0})."
     )
+    site_id: Optional[str] = Field(
+        default=None,
+        description="Target site identifier for pre-filtering (e.g. duck_nc, narrabeen_aus, oahu_north_shore_hi, torrey_pines_ca, truc_vert_france)."
+    )
+    geomorphic_regime: Optional[str] = Field(
+        default=None,
+        description="Geomorphic coastal regime tag for pre-filtering (e.g. macrotidal, microtidal, embayed, reef, narrow_shelf)."
+    )
     target_state: Optional[str] = Field(
         default=None,
         description="Canonical reference state name (State_ExtremeStormPeak, State_CalmFairWeather, State_PostStormRecovery, State_LongPeriodSwell, Breaker_Spilling, etc.)"
@@ -158,10 +166,38 @@ class PhysicsQueryParser:
             "high_vuln": False,
             "low_vuln": False,
             "focus": None,
+            "site_id": None,
+            "geomorphic_regime": None,
             "filters": {},
             "target_state": None,
             "target_synthetic_values": None,
         }
+
+        # Check site & geomorphic regime keywords for dynamic vector pre-filtering
+        SITE_KEYWORDS = {
+            "truc vert": {"site_id": "truc_vert_france", "geomorphic_regime": "macrotidal"},
+            "france": {"site_id": "truc_vert_france", "geomorphic_regime": "macrotidal"},
+            "macrotidal": {"site_id": "truc_vert_france", "geomorphic_regime": "macrotidal"},
+            "biscay": {"site_id": "truc_vert_france", "geomorphic_regime": "macrotidal"},
+            "narrabeen": {"site_id": "narrabeen_aus", "geomorphic_regime": "embayed"},
+            "australia": {"site_id": "narrabeen_aus", "geomorphic_regime": "embayed"},
+            "embayed": {"site_id": "narrabeen_aus", "geomorphic_regime": "embayed"},
+            "oahu": {"site_id": "oahu_north_shore_hi", "geomorphic_regime": "reef"},
+            "hawaii": {"site_id": "oahu_north_shore_hi", "geomorphic_regime": "reef"},
+            "fringing reef": {"site_id": "oahu_north_shore_hi", "geomorphic_regime": "reef"},
+            "torrey": {"site_id": "torrey_pines_ca", "geomorphic_regime": "narrow_shelf"},
+            "california": {"site_id": "torrey_pines_ca", "geomorphic_regime": "narrow_shelf"},
+            "narrow shelf": {"site_id": "torrey_pines_ca", "geomorphic_regime": "narrow_shelf"},
+            "duck": {"site_id": "duck_nc", "geomorphic_regime": "microtidal"},
+            "microtidal": {"site_id": "duck_nc", "geomorphic_regime": "microtidal"},
+        }
+        for kw, specs in SITE_KEYWORDS.items():
+            if kw in text:
+                parsed["site_id"] = specs["site_id"]
+                parsed["geomorphic_regime"] = specs["geomorphic_regime"]
+                parsed["filters"]["site_id"] = specs["site_id"]
+                parsed["filters"]["geomorphic_regime"] = specs["geomorphic_regime"]
+                break
 
         # Check breaker regime keywords
         for kw, specs in cls.REGIME_KEYWORDS.items():
@@ -365,6 +401,8 @@ Guidelines:
             query_recovery_timeframe=parsed_dict.get("query_recovery_timeframe"),
             target_state=parsed_dict.get("target_state"),
             focus=parsed_dict.get("focus"),
+            site_id=parsed_dict.get("site_id"),
+            geomorphic_regime=parsed_dict.get("geomorphic_regime"),
             hs_min=filters.get("hs_min"),
             hs_max=filters.get("hs_max"),
             tp_min=filters.get("tp_min"),
@@ -907,6 +945,16 @@ class PhysicsRAG:
             except Exception:
                 pass
 
+        # Dynamic site_id & geomorphic_regime pre-filtering
+        if spec.site_id and "site" in self.df.columns:
+            site_mask = (self.df["site"].astype(str).str.lower() == spec.site_id.lower())
+            if np.any(mask & site_mask):
+                mask = mask & site_mask
+        if spec.geomorphic_regime and "geomorphic_regime" in self.df.columns:
+            regime_mask = (self.df["geomorphic_regime"].astype(str).str.lower() == spec.geomorphic_regime.lower())
+            if np.any(mask & regime_mask):
+                mask = mask & regime_mask
+
         # Fallback if filters are overly restrictive (return all candidates)
         if not np.any(mask):
             mask = np.ones(len(self.df), dtype=bool)
@@ -1332,6 +1380,41 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
                 self.con.register("parent_sensors", self.df)
         return parquet_path
 
+    def export_partitioned_parent_parquet(self, output_dir: str = "data") -> Dict[str, str]:
+        """Save site-partitioned multi-channel parent time-series datasets to local Apache Parquet files.
+
+        Saves files as data/{site}_sensors.parquet (e.g., data/duck_nc_sensors.parquet,
+        data/truc_vert_france_sensors.parquet) and registers site views in DuckDB.
+        """
+        os.makedirs(output_dir, exist_ok=True)
+        partition_paths: Dict[str, str] = {}
+
+        if "site" in self.df.columns:
+            sites = self.df["site"].unique()
+        else:
+            sites = ["duck_nc"]
+
+        for site_key in sites:
+            s_key = str(site_key).lower()
+            target_path = os.path.join(output_dir, f"{s_key}_sensors.parquet")
+            site_sub_df = self.df[self.df["site"] == site_key] if "site" in self.df.columns else self.df
+
+            try:
+                if self.con is not None and duckdb is not None:
+                    self.con.register(f"sub_df_{s_key}", site_sub_df)
+                    self.con.execute(f"COPY sub_df_{s_key} TO '{target_path}' (FORMAT PARQUET)")
+                    self.con.execute(f"CREATE OR REPLACE VIEW {s_key}_sensors AS SELECT * FROM '{target_path}'")
+                else:
+                    site_sub_df.to_parquet(target_path, index=False)
+            except Exception:
+                try:
+                    site_sub_df.to_parquet(target_path, index=False)
+                except Exception:
+                    pass
+            partition_paths[s_key] = target_path
+
+        return partition_paths
+
     @classmethod
     def from_dataset(
         cls,
@@ -1366,6 +1449,7 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
         pre_window_hours: Optional[float] = None,
         post_window_hours: Optional[float] = None,
         columns: Optional[List[str]] = None,
+        site_id: Optional[str] = None,
     ) -> ParentWindowContext:
         """Slice and hydrate surrounding continuous parent time-series context window using DuckDB."""
         pre_h = pre_window_hours if pre_window_hours is not None else self.default_pre_window_hours
@@ -1373,19 +1457,43 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
         ts_str = pd.to_datetime(event_timestamp).strftime("%Y-%m-%d %H:%M:%S")
         cols_sql = ", ".join(columns) if columns else "*"
 
+        # Determine site-partitioned source view or parquet file path
+        table_ref = "parent_sensors"
+        target_site = site_id
+        if not target_site and "site" in self.df.columns and match_index < len(self.df):
+            target_site = str(self.df.iloc[match_index].get("site", "")).lower()
+
+        if target_site:
+            part_path = os.path.join("data", f"{target_site.lower()}_sensors.parquet")
+            if os.path.exists(part_path):
+                table_ref = f"'{os.path.abspath(part_path)}'"
+            else:
+                table_ref = f"{target_site.lower()}_sensors"
+
         parent_df = pd.DataFrame()
         if self.con is not None and duckdb is not None:
             try:
                 query = f"""
                     SELECT {cols_sql}
-                    FROM parent_sensors
+                    FROM {table_ref}
                     WHERE CAST(timestamp AS TIMESTAMP) BETWEEN CAST('{ts_str}' AS TIMESTAMP) - INTERVAL '{pre_h} HOUR'
                                                           AND CAST('{ts_str}' AS TIMESTAMP) + INTERVAL '{post_h} HOUR'
                     ORDER BY timestamp ASC
                 """
                 parent_df = self.con.execute(query).df()
             except Exception:
-                parent_df = pd.DataFrame()
+                try:
+                    # Fallback to main parent_sensors view
+                    query = f"""
+                        SELECT {cols_sql}
+                        FROM parent_sensors
+                        WHERE CAST(timestamp AS TIMESTAMP) BETWEEN CAST('{ts_str}' AS TIMESTAMP) - INTERVAL '{pre_h} HOUR'
+                                                              AND CAST('{ts_str}' AS TIMESTAMP) + INTERVAL '{post_h} HOUR'
+                        ORDER BY timestamp ASC
+                    """
+                    parent_df = self.con.execute(query).df()
+                except Exception:
+                    parent_df = pd.DataFrame()
 
         if parent_df.empty:
             # Fallback pure-pandas slicing

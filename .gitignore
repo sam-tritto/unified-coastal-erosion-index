@@ -26,6 +26,7 @@ data/cache/
 
 *.pdf
 *.html
+*.parquet
 
 data/oahu_dissipation_check.png
 data/duck_sensors.parquet

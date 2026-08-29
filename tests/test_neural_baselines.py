@@ -17,6 +17,8 @@ from src.neural_baselines import (
     simulate_storm_rollout,
     run_deep_learning_benchmark,
     generate_whitepaper_synthesis_table,
+    resolve_site_storm_window,
+    SITE_STORM_CATALOG,
 )
 
 
@@ -129,3 +131,23 @@ def test_run_deep_learning_benchmark_and_synthesis(sample_dataset: pd.DataFrame)
     assert "Paradigm" in df_synth.columns
     assert "Analytical / Equilibrium" in df_synth["Benchmark Class"].values
     assert "Process-Based" in df_synth["Benchmark Class"].values
+
+
+def test_resolve_site_storm_window(sample_dataset: pd.DataFrame):
+    # 1. Option B: Catalog site resolution
+    idx_duck, info_duck = resolve_site_storm_window(sample_dataset, site="DUCK_NC")
+    assert isinstance(idx_duck, int)
+    assert info_duck["event_name"] == "Hurricane Ian (Sept/Oct 2022)"
+    assert "Horizon 2:" in info_duck["horizon_title"]
+
+    # 2. Option A: Automated peak energy window on test split
+    idx_auto, info_auto = resolve_site_storm_window(sample_dataset, site="UNKNOWN_SITE")
+    assert isinstance(idx_auto, int)
+    assert "Site Peak Hazard Event" in info_auto["event_name"]
+
+    # 3. Test catalog keys presence
+    assert "NARRABEEN_AUS" in SITE_STORM_CATALOG
+    assert "OAHU_NORTH_SHORE_HI" in SITE_STORM_CATALOG
+    assert "TORREY_PINES_CA" in SITE_STORM_CATALOG
+    assert "TRUC_VERT_FRANCE" in SITE_STORM_CATALOG
+
