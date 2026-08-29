@@ -1866,9 +1866,19 @@ def load_field_survey_validation_dataset(
         df_hydro = df_hydro[0]
 
     df_surveys = load_site_field_surveys(site=site, transect_id=transect_id, transect_index=transect_index)
+    # Ensure timezone compatibility
+    if df_hydro.index.tz is not None and df_surveys.index.tz is None:
+        df_surveys.index = df_surveys.index.tz_localize("UTC")
+    elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
+        df_surveys.index = df_surveys.index.tz_convert(None)
+
     # Filter surveys to match hydrodynamic timeframe
     t_min, t_max = df_hydro.index.min(), df_hydro.index.max()
-    df_surveys_matched = df_surveys.loc[t_min:t_max]
+    try:
+        df_surveys_matched = df_surveys.loc[t_min:t_max]
+    except Exception:
+        df_surveys_matched = df_surveys
+
     if df_surveys_matched.empty:
         df_surveys_matched = df_surveys
 
@@ -1950,7 +1960,9 @@ def load_dataset(
 def export_unified_feature_engineered_datasets(
     sites: Optional[list[str]] = None,
     output_dirs: Tuple[str, ...] = ("data/processed", "data"),
-    year: int = 2022,
+    year: Optional[int] = None,
+    start_year: int = 2020,
+    end_year: int = 2024,
 ) -> Dict[str, pd.DataFrame]:
     """Generate and export unified, clean feature-engineered parquet datasets for all 5 open-ocean sandy sites."""
     import os
@@ -1969,15 +1981,22 @@ def export_unified_feature_engineered_datasets(
 
     for site_key in sites:
         site_clean = site_key.lower()
-        # Ingest/Load base dataset
-        df_base, _ = load_annual_dataset(year=year, site=site_clean, morph_model="xbeach", try_live_api=False)
+        # Ingest/Load base dataset (multi-year 2020-2024 or single year)
+        if year is not None:
+            df_base, _ = load_annual_dataset(year=year, site=site_clean, morph_model="xbeach", try_live_api=False)
+        else:
+            df_base, _ = load_multi_year_dataset(
+                site=site_clean, start_year=start_year, end_year=end_year, morph_model="xbeach", try_live_api=False
+            )
         
         # Ensure UTC timezone alignment
         if not isinstance(df_base.index, pd.DatetimeIndex):
             if "timestamp" in df_base.columns:
                 df_base.index = pd.to_datetime(df_base["timestamp"], utc=True)
             else:
-                df_base.index = pd.date_range(f"{year}-01-01 00:00:00", f"{year}-12-31 23:00:00", freq="1h", tz="UTC")
+                s_yr = year if year is not None else start_year
+                e_yr = year if year is not None else end_year
+                df_base.index = pd.date_range(f"{s_yr}-01-01 00:00:00", f"{e_yr}-12-31 23:00:00", freq="1h", tz="UTC")
         elif df_base.index.tz is None:
             df_base.index = df_base.index.tz_localize("UTC")
         
