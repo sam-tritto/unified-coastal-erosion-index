@@ -1496,6 +1496,93 @@ compute_excess_vulnerability_index = compute_excess_upsilon
 
 
 
+def compute_tier1_base_upsilon(
+    hs: Union[float, np.ndarray],
+    tp: Union[float, np.ndarray],
+    surge: Union[float, np.ndarray],
+    ws: Union[float, np.ndarray],
+    tan_beta: Union[float, np.ndarray] = 0.08,
+    hs_exponent: float = 2.5,
+    s_ref: float = 1.0,
+    rho: float = RHO_WATER,
+    g: float = G_CONST,
+    tau: float = TAU_CONST,
+) -> Union[float, np.ndarray]:
+    """Compute Tier 1 (Base Upsilon) using wave power flux core and surge residual elevation."""
+    hs_arr = np.maximum(np.asarray(hs, dtype=float), 0.01)
+    tp_arr = np.maximum(np.asarray(tp, dtype=float), 0.1)
+    surge_arr = np.maximum(np.asarray(surge, dtype=float), 0.0)
+    tan_beta_arr = np.asarray(tan_beta, dtype=float)
+    ws_arr = np.maximum(np.asarray(ws, dtype=float), 1e-5)
+
+    prefactor = (rho * (g ** 1.5)) / (16.0 * (tau ** 1.5))
+    wave_sed_core = ((hs_arr ** hs_exponent) * tp_arr) / ws_arr
+    twl_surge = 1.0 + (surge_arr / max(s_ref, 1e-3))
+    return prefactor * tan_beta_arr * wave_sed_core * twl_surge
+
+
+def compute_tier2_infragravity_upsilon(
+    hs: Union[float, np.ndarray],
+    tp: Union[float, np.ndarray],
+    surge: Union[float, np.ndarray],
+    ws: Union[float, np.ndarray],
+    tan_beta: Union[float, np.ndarray] = 0.08,
+    hs_exponent: float = 2.5,
+    s_ref: float = 1.0,
+    r_ref: float = 2.0,
+    rho: float = RHO_WATER,
+    g: float = G_CONST,
+    tau: float = TAU_CONST,
+) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
+    """Compute Tier 2 (Infragravity Upsilon) adding Stockdon et al. (2006) IG runup proxy (R_IG = 0.06 * sqrt(H0 * L0))."""
+    hs_arr = np.maximum(np.asarray(hs, dtype=float), 0.01)
+    tp_arr = np.maximum(np.asarray(tp, dtype=float), 0.1)
+    surge_arr = np.maximum(np.asarray(surge, dtype=float), 0.0)
+    tan_beta_arr = np.asarray(tan_beta, dtype=float)
+    ws_arr = np.maximum(np.asarray(ws, dtype=float), 1e-5)
+
+    l0 = compute_deepwater_wavelength(tp_arr, g=g, tau=tau)
+    r_ig = 0.06 * np.sqrt(hs_arr * l0)
+
+    prefactor = (rho * (g ** 1.5)) / (16.0 * (tau ** 1.5))
+    wave_sed_core = ((hs_arr ** hs_exponent) * tp_arr) / ws_arr
+    twl_ig = 1.0 + (surge_arr / max(s_ref, 1e-3)) + (r_ig / max(r_ref, 1e-3))
+    upsilon_tier2 = prefactor * tan_beta_arr * wave_sed_core * twl_ig
+    return upsilon_tier2, r_ig
+
+
+def compute_tier3_alongshore_upsilon(
+    upsilon_tier2: Union[float, np.ndarray],
+    hs: Union[float, np.ndarray],
+    tp: Union[float, np.ndarray],
+    wave_dir_deg: Union[float, np.ndarray],
+    shore_normal_deg: float = 70.0,
+    rho: float = RHO_WATER,
+    g: float = G_CONST,
+    tau: float = TAU_CONST,
+) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
+    """Compute Tier 3 (Alongshore Radiation Stress Upsilon) adding 1D wave power gradient leakage penalty P_l = 0.5 * P_flux * sin(2 * alpha_b)."""
+    p_flux = compute_wave_energy_flux(hs, tp, rho=rho, g=g, tau=tau)
+    alpha_b = np.radians(np.asarray(wave_dir_deg, dtype=float) - float(shore_normal_deg))
+    p_l = 0.5 * p_flux * np.sin(2.0 * alpha_b)
+    leakage_penalty = 1.0 + 0.5 * np.abs(np.sin(2.0 * alpha_b))
+    upsilon_tier3 = np.asarray(upsilon_tier2, dtype=float) * leakage_penalty
+    return upsilon_tier3, p_l
+
+
+def compute_tier4_directional_spread_upsilon(
+    upsilon_tier3: Union[float, np.ndarray],
+    sigma_theta_deg: Union[float, np.ndarray],
+    sigma_ref_deg: float = 30.0,
+    focus_gamma: float = 0.5,
+) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
+    """Compute Tier 4 (Directional Focusing Upsilon) applying groundswell collimation multiplier K_focus = (sigma_ref / max(sigma_theta, 1.0))^gamma."""
+    sigma_arr = np.maximum(np.asarray(sigma_theta_deg, dtype=float), 1.0)
+    k_focus = (float(sigma_ref_deg) / sigma_arr) ** float(focus_gamma)
+    upsilon_tier4 = np.asarray(upsilon_tier3, dtype=float) * k_focus
+    return upsilon_tier4, k_focus
+
+
 def compute_unified_coastal_vulnerability_index(
     hs: Union[float, np.ndarray],
     tp: Union[float, np.ndarray],
@@ -1503,6 +1590,7 @@ def compute_unified_coastal_vulnerability_index(
     wind_speed: Union[float, np.ndarray],
     wind_dir_deg: Union[float, np.ndarray],
     wave_dir_deg: Optional[Union[float, np.ndarray]] = None,
+    directional_spread_deg: Optional[Union[float, np.ndarray]] = None,
     tide: Optional[Union[float, np.ndarray]] = None,
     tide_range_m: Optional[Union[float, np.ndarray]] = None,
     water_temp_c: Optional[Union[float, np.ndarray]] = None,
@@ -1862,16 +1950,69 @@ def compute_unified_coastal_vulnerability_index(
     upsilon_diseq = compute_upsilon_disequilibrium(upsilon, upsilon_eq=eq_series)
     signed_eq_rate = compute_signed_equilibrium_rate(upsilon, upsilon_eq=eq_series)
     
+    # Calculate explicit Tier 1 to 4 Physical Complexity Progression
+    u_t1 = compute_tier1_base_upsilon(
+        hs=hs_eff,
+        tp=tp_arr,
+        surge=surge_arr,
+        ws=ws,
+        tan_beta=tan_beta_arr,
+        hs_exponent=n_exp,
+        s_ref=s_ref,
+        rho=rho,
+        g=g,
+        tau=tau,
+    )
+
+    u_t2, r_ig = compute_tier2_infragravity_upsilon(
+        hs=hs_eff,
+        tp=tp_arr,
+        surge=surge_arr,
+        ws=ws,
+        tan_beta=tan_beta_arr,
+        hs_exponent=n_exp,
+        s_ref=s_ref,
+        r_ref=r_ref,
+        rho=rho,
+        g=g,
+        tau=tau,
+    )
+
+    u_t3, p_l = compute_tier3_alongshore_upsilon(
+        upsilon_tier2=u_t2,
+        hs=hs_eff,
+        tp=tp_arr,
+        wave_dir_deg=w_dir_arr,
+        shore_normal_deg=eff_shore_normal,
+        rho=rho,
+        g=g,
+        tau=tau,
+    )
+
+    if directional_spread_deg is not None:
+        sigma_theta_arr = np.broadcast_to(np.asarray(directional_spread_deg, dtype=float), hs_arr.shape) if not np.isscalar(directional_spread_deg) else np.full_like(hs_arr, float(directional_spread_deg))
+    else:
+        # Physical proxy for wave spreading angle (deg) based on peak period Tp: long swell ~8-15 deg, short wind sea ~35-45 deg
+        sigma_theta_arr = np.maximum(5.0, 35.0 * np.exp(-(tp_arr - 4.0) / 8.0) + 8.0)
+
+    u_t4, k_focus = compute_tier4_directional_spread_upsilon(
+        upsilon_tier3=u_t3,
+        sigma_theta_deg=sigma_theta_arr,
+    )
+
     df_out = pd.DataFrame({
         "hs_m": hs_arr,
         "tp_s": tp_arr,
         "surge_m": surge_arr,
         "runup_r2_m": r_2,
+        "runup_r_ig_m": r_ig,
         "total_water_level_m": surge_arr + r_2,
         "wind_speed_ms": wind_speed,
         "wind_dir_deg": wind_dir_deg,
         "wind_normal_ms": w_a,
         "wave_dir_deg": w_dir_arr,
+        "directional_spread_deg": sigma_theta_arr,
+        "k_focus": k_focus,
         "tide_range_m": tr_arr,
         "tide_m": tide_arr,
         "psi_tide": psi_tide,
@@ -1879,6 +2020,7 @@ def compute_unified_coastal_vulnerability_index(
         "psi_tide_phase": psi_phase,
         "psi_dir": psi_dir,
         "phi_longshore": phi_longshore,
+        "p_l_alongshore_Wm": p_l,
         "y_alongshore_m": y_coord_arr,
         "phi_rot_gradient": phi_rot_gradient,
         "delta_x_rot_proxy": delta_x_rot_proxy,
@@ -1897,6 +2039,10 @@ def compute_unified_coastal_vulnerability_index(
         "shielding_factor": shielding,
         "accretion_potential": accretion_pot,
         "signed_upsilon": signed_upsilon,
+        "upsilon_tier1": u_t1,
+        "upsilon_tier2": u_t2,
+        "upsilon_tier3": u_t3,
+        "upsilon_tier4": u_t4,
         "upsilon_eq": eq_series if isinstance(eq_series, np.ndarray) else np.full_like(hs_arr, float(eq_series)),
         "upsilon_diseq": upsilon_diseq,
         "signed_equilibrium_rate": signed_eq_rate,

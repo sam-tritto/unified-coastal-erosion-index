@@ -1416,6 +1416,35 @@ def test_unified_index_alongshore_embayment_integration():
     assert df_south["delta_x_rot_proxy"].iloc[0] < 0.0
 
 
+def test_simulate_shorefor_evolution():
+    from src.data import simulate_shorefor_evolution
+    hs = np.array([1.0, 2.5, 4.0, 1.5, 1.0])
+    tp = np.array([8.0, 10.0, 14.0, 9.0, 8.0])
+    x_pos, x_obs = simulate_shorefor_evolution(hs, tp, w_s_ms=0.045, random_seed=42)
+    assert len(x_pos) == len(hs)
+    assert len(x_obs) == len(hs)
+    assert np.all(np.isfinite(x_pos))
+    assert np.all(np.isfinite(x_obs))
+
+
+def test_evaluate_cross_paradigm_walk_forward_cv():
+    from src.models import evaluate_cross_paradigm_walk_forward_cv
+    df_synthesis, df_folds = evaluate_cross_paradigm_walk_forward_cv(
+        sites=["duck_nc"],
+        n_splits=2,
+        draws=20,
+        tune=20,
+        chains=2,
+        random_seed=42,
+    )
+    assert not df_synthesis.empty
+    assert not df_folds.empty
+    assert "Out-of-Sample Mean R2" in df_synthesis.columns
+    assert "Inter-Fold R2 Std Dev (σ_R2)" in df_synthesis.columns
+    assert "Brier Skill Score (BSS)" in df_synthesis.columns
+
+
+
 
 
 

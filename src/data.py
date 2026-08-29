@@ -567,6 +567,63 @@ def simulate_equilibrium_shoreline_evolution(
     return x_pos, x_obs
 
 
+def simulate_shorefor_evolution(
+    hs: np.ndarray,
+    tp: np.ndarray,
+    w_s_ms: float = 0.045,
+    c_erosion: float = 0.015,
+    c_accretion: float = 0.009,
+    phi_hours: int = 400,
+    random_seed: int = 42,
+    **kwargs: Any,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Simulate shoreline cross-shore change using Davidson et al. (2013) ShoreFor model.
+
+    Formulation (Davidson et al. 2013, Coastal Engineering):
+    - Dimensionless Dean sediment parameter: Omega(t) = Hs(t) / (w_s * Tp(t))
+    - Exponential antecedent memory decay weighting over window 2*phi:
+      Omega_eq(t) = sum_{k=0}^{2*phi} Omega(t-k) * 10^(-k / phi) / sum 10^(-k / phi)
+    - Normalized disequilibrium: Delta_Omega(t) = (Omega_eq(t) - Omega(t)) / std(Omega)
+    - Cross-shore rate: dx/dt = C * sqrt(E(t)) * Delta_Omega(t)
+    """
+    rng = np.random.default_rng(random_seed)
+    n = len(hs)
+    hs_arr = np.maximum(np.asarray(hs, dtype=float), 0.05)
+    tp_arr = np.maximum(np.asarray(tp, dtype=float), 2.0)
+
+    # Dean parameter Omega = Hs / (w_s * Tp)
+    omega = hs_arr / (np.maximum(w_s_ms, 1e-4) * tp_arr)
+
+    # Exponential memory weighting over window max_lag
+    max_lag = min(n, max(24, 2 * phi_hours))
+    weights = np.exp(-np.arange(max_lag) / max(1.0, float(phi_hours)))
+    weights /= weights.sum()
+
+    padded_omega = np.pad(omega, (max_lag - 1, 0), mode="edge")
+    omega_eq = np.convolve(padded_omega, weights, mode="valid")[:n]
+
+    omega_std = float(np.std(omega)) if np.std(omega) > 1e-4 else 1.0
+    delta_omega = (omega_eq - omega) / omega_std
+
+    energy = (1.0 / 16.0) * 1025.0 * 9.81 * (hs_arr ** 2)
+    sqrt_energy = np.sqrt(np.maximum(energy, 1.0)) / 1000.0
+
+    x_pos = np.zeros(n)
+    current_x = 0.0
+
+    for t in range(1, n):
+        d_om = delta_omega[t]
+        coeff = c_accretion if d_om >= 0 else c_erosion
+        rate = coeff * sqrt_energy[t] * d_om
+        current_x += rate
+        current_x = np.clip(current_x, -18.0, 5.0)
+        x_pos[t] = current_x
+
+    survey_noise = rng.normal(0, 0.25, n)
+    x_obs = x_pos + survey_noise
+    return x_pos, x_obs
+
+
 def simulate_xbeach_inspired_morphodynamics(
     hs: np.ndarray,
     tp: np.ndarray,
@@ -1888,6 +1945,90 @@ def load_dataset(
             return sub_df, f"{label} {date_str}"
 
     return df, label
+
+
+def export_unified_feature_engineered_datasets(
+    sites: Optional[list[str]] = None,
+    output_dirs: Tuple[str, ...] = ("data/processed", "data"),
+    year: int = 2022,
+) -> Dict[str, pd.DataFrame]:
+    """Generate and export unified, clean feature-engineered parquet datasets for all 5 open-ocean sandy sites."""
+    import os
+    from src.physics import (
+        COASTAL_SITE_PROFILES,
+        compute_unified_coastal_vulnerability_index,
+    )
+
+    if sites is None:
+        sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+
+    for out_dir in output_dirs:
+        os.makedirs(out_dir, exist_ok=True)
+
+    exported_dfs: Dict[str, pd.DataFrame] = {}
+
+    for site_key in sites:
+        site_clean = site_key.lower()
+        # Ingest/Load base dataset
+        df_base, _ = load_annual_dataset(year=year, site=site_clean, morph_model="xbeach", try_live_api=False)
+        
+        # Ensure UTC timezone alignment
+        if not isinstance(df_base.index, pd.DatetimeIndex):
+            if "timestamp" in df_base.columns:
+                df_base.index = pd.to_datetime(df_base["timestamp"], utc=True)
+            else:
+                df_base.index = pd.date_range(f"{year}-01-01 00:00:00", f"{year}-12-31 23:00:00", freq="1h", tz="UTC")
+        elif df_base.index.tz is None:
+            df_base.index = df_base.index.tz_localize("UTC")
+        
+        # Compute multi-tier Upsilon index and forcing variables
+        hs_vals = df_base["hs_m"].values
+        tp_vals = df_base["tp_s"].values
+        surge_vals = df_base["surge_m"].values
+        wind_spd = df_base["wind_speed_ms"].values
+        wind_dir = df_base["wind_dir_deg"].values
+        wave_dir = df_base["wave_dir_deg"].values if "wave_dir_deg" in df_base.columns else None
+        dir_spread = df_base["directional_spread_deg"].values if "directional_spread_deg" in df_base.columns else None
+        tide_vals = df_base["tide_pred_m"].values if "tide_pred_m" in df_base.columns else (df_base["tide_m"].values if "tide_m" in df_base.columns else None)
+        w_temp = df_base["water_temp_c"].values if "water_temp_c" in df_base.columns else None
+        p_out = df_base["p_outer_Wm"].values if "p_outer_Wm" in df_base.columns else None
+
+        df_physics = compute_unified_coastal_vulnerability_index(
+            hs=hs_vals,
+            tp=tp_vals,
+            surge=surge_vals,
+            wind_speed=wind_spd,
+            wind_dir_deg=wind_dir,
+            wave_dir_deg=wave_dir,
+            directional_spread_deg=dir_spread,
+            tide=tide_vals,
+            water_temp_c=w_temp,
+            p_outer_Wm=p_out,
+            site=site_clean,
+            upsilon_eq_mode="expanding",
+        )
+        df_physics.index = df_base.index
+        df_physics["timestamp"] = df_physics.index
+
+        # Add shoreline positions if available
+        for col in ["shoreline_pos_true_m", "shoreline_pos_obs_m", "shoreline_change_rate_mh", "runup_r2_m"]:
+            if col in df_base.columns and col not in df_physics.columns:
+                df_physics[col] = df_base[col].values
+
+        df_physics["site"] = site_clean
+        df_physics["site_name"] = COASTAL_SITE_PROFILES.get(site_clean, {}).get("name", site_clean)
+        df_physics["geomorphic_regime"] = site_clean
+
+        exported_dfs[site_clean] = df_physics
+
+        # Export to target parquet directories
+        for out_dir in output_dirs:
+            file_name = f"{site_clean}_sensors.parquet"
+            dest_path = os.path.join(out_dir, file_name)
+            df_physics.to_parquet(dest_path, index=True)
+
+    return exported_dfs
+
 
 
 

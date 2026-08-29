@@ -67,3 +67,28 @@ def test_load_dataset_parameterized_dispatcher():
     assert not df_slice.empty
     assert df_slice.index.min() >= pd.Timestamp("2022-06-01")
     assert df_slice.index.max() <= pd.Timestamp("2022-08-31 23:59:59")
+
+
+def test_export_unified_feature_engineered_datasets(tmp_path):
+    """Verify exporting clean parquet datasets across all 5 sites with 4 physical tiers."""
+    from src.data import export_unified_feature_engineered_datasets
+    
+    out_dir = str(tmp_path / "processed")
+    sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+    res = export_unified_feature_engineered_datasets(sites=sites, output_dirs=(out_dir,), year=2022)
+    
+    assert len(res) == 5
+    for s in sites:
+        assert s in res
+        df = res[s]
+        assert not df.empty
+        assert "upsilon_tier1" in df.columns
+        assert "upsilon_tier2" in df.columns
+        assert "upsilon_tier3" in df.columns
+        assert "upsilon_tier4" in df.columns
+        assert "dean_number" in df.columns
+        assert "directional_spread_deg" in df.columns
+        assert "p_l_alongshore_Wm" in df.columns
+        assert "runup_r_ig_m" in df.columns
+        assert df["site"].iloc[0] == s
+
