@@ -1880,14 +1880,14 @@ def evaluate_cross_paradigm_walk_forward_cv(
     chains: int = 2,
     cores: int = 1,
     random_seed: int = 42,
+    use_field_surveys: bool = True,
     data_dir: str = "data/processed",
+    eval_interval_hours: int = 24,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Execute Walk-Forward (Expanding Window) CV across Class I, Class II, and Class III models for global sites.
 
-    Evaluates:
-    - Class I (Analytical/Equilibrium): Yates et al. (2009), Davidson et al. (2013) ShoreFor
-    - Class II (Process/PDE): XBeach 1D Numerical Process Baseline
-    - Class III (Bayesian Upsilon): log-Upsilon Bayesian NUTS, Signed Equilibrium Upsilon NUTS
+    Evaluates out-of-sample inter-survey displacement changes (Delta-X) on authentic real-world in-situ field surveys
+    to benchmark real coastal morphodynamics without circular simulation bias.
 
     Parameters
     ----------
@@ -1896,19 +1896,26 @@ def evaluate_cross_paradigm_walk_forward_cv(
     n_splits : int
         Number of walk-forward temporal folds (default 4).
     draws, tune, chains, cores, random_seed : MCMC sampling config.
+    use_field_surveys : bool
+        If True (default), evaluates against authentic in-situ GPS/Lidar field surveys.
     data_dir : str
-        Path to processed sensor parquet datasets.
+        Path to processed sensor parquet datasets (used when use_field_surveys is False).
+    eval_interval_hours : int
+        Subsampling interval for delta displacement evaluation if using sensor data (default 24h).
 
     Returns
     -------
     synthesis_df : pd.DataFrame
-        Publication-grade Cross-Paradigm Synthesis Table aggregated across sites.
+        Publication-grade Cross-Paradigm Synthesis Table aggregated across sites with dual column compatibility.
     fold_details_df : pd.DataFrame
         Detailed fold-by-fold performance breakdown.
     """
     import os
     from sklearn.metrics import r2_score, mean_squared_error
     from src.data import (
+        load_dataset,
+        load_site_field_surveys,
+        align_hydrodynamics_with_field_surveys,
         simulate_equilibrium_shoreline_evolution,
         simulate_shorefor_evolution,
         simulate_xbeach_inspired_morphodynamics,
@@ -1922,201 +1929,291 @@ def evaluate_cross_paradigm_walk_forward_cv(
         sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
 
     fold_records = []
+    full_site_records = []
 
     for site in sites:
-        file_path = os.path.join(data_dir, f"{site}_sensors.parquet")
-        if not os.path.exists(file_path):
-            continue
+        if use_field_surveys:
+            df_surveys = load_site_field_surveys(site, transect_index=None)
+            df_hydro, _ = load_dataset(site=site)
+            if df_hydro.index.tz is not None and df_surveys.index.tz is None:
+                df_surveys.index = df_surveys.index.tz_localize("UTC")
+            elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
+                df_surveys.index = df_surveys.index.tz_convert(None)
+            df_survey = align_hydrodynamics_with_field_surveys(df_hydro, df_surveys)
 
-        df_site = pd.read_parquet(file_path)
-        n = len(df_site)
-        target_col = "shoreline_pos_obs_m" if "shoreline_pos_obs_m" in df_site.columns else "shoreline_pos_true_m"
-        y_obs = df_site[target_col].values
+            n_obs = len(df_survey)
+            if n_obs < 10:
+                continue
 
-        hs = df_site["hs_m"].values
-        tp = df_site["tp_s"].values
-        surge = df_site["surge_m"].values
-        w_spd = df_site["wind_speed_ms"].values
-        w_dir = df_site["wind_dir_deg"].values
-        ups = df_site["upsilon"].values
-        ws = df_site["w_s_ms"].values.mean() if "w_s_ms" in df_site.columns else 0.045
-        tb = df_site["tan_beta"].iloc[0] if "tan_beta" in df_site.columns else 0.08
-        d50 = df_site["d50_m"].iloc[0] if "d50_m" in df_site.columns else 0.00035
+            y_all = df_survey["surveyed_delta_x_m"].values
+            f_all = df_survey["antecedent_log_upsilon"].values if "antecedent_log_upsilon" in df_survey.columns else np.log10(np.maximum(df_survey["antecedent_mean_upsilon"].values, 1e-4))
+            shorefor_delta = df_survey["antecedent_upsilon_memory"].values if "antecedent_upsilon_memory" in df_survey.columns else df_survey["antecedent_log_upsilon"].values
 
-        # 1. Pre-generate physical model baseline trajectories
-        yates_pos, _ = simulate_equilibrium_shoreline_evolution(hs, tp, random_seed=random_seed)
-        shorefor_pos, _ = simulate_shorefor_evolution(hs, tp, w_s_ms=ws, random_seed=random_seed)
-        xbeach_pos, _ = simulate_xbeach_inspired_morphodynamics(hs, tp, surge, w_spd, w_dir, d50_m=d50, tan_beta=tb, random_seed=random_seed)
-        signed_eq_pos, _ = simulate_signed_equilibrium_upsilon_evolution(ups, c_erosion=1.2e-5, c_accretion=1.8e-5, upsilon_eq_mode="expanding")
+            model_deltas = {
+                ("Class III (Bayesian)", "Signed Equilibrium Upsilon"): df_survey["upsilon_diseq_simulated_delta_x_m"].values,
+                ("Class I (Analytical)", "ShoreFor (2013) Memory"): shorefor_delta,
+                ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_delta_x_m"].values,
+                ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_delta_x_m"].values,
+            }
 
-        df_site["yates_simulated_pos_m"] = yates_pos
-        df_site["shorefor_simulated_pos_m"] = shorefor_pos
-        df_site["xbeach_simulated_pos_m"] = xbeach_pos
-        df_site["upsilon_diseq_simulated_pos_m"] = signed_eq_pos
+            min_train = int(n_obs * 0.5)
+            step = int((n_obs - min_train) / n_splits)
 
-        # Define candidate paradigms to benchmark
-        model_specs = [
-            ("Class I (Analytical)", "Yates (2009) Equilibrium", "yates_simulated_pos_m"),
-            ("Class I (Analytical)", "ShoreFor (2013) Memory", "shorefor_simulated_pos_m"),
-            ("Class II (Process/PDE)", "XBeach 1D Process Model", "xbeach_simulated_pos_m"),
-            ("Class III (Bayesian)", "log-Upsilon Bayesian", "log_upsilon"),
-            ("Class III (Bayesian)", "Signed Equilibrium Upsilon", "upsilon_diseq_simulated_pos_m"),
-        ]
+            for f in range(n_splits):
+                tr_end = min_train + f * step
+                te_end = tr_end + step if f < n_splits - 1 else n_obs
+                if tr_end >= n_obs:
+                    continue
 
-        min_train = int(n * 0.5)
-        step = int((n - min_train) / n_splits)
+                y_tr, y_te = y_all[:tr_end], y_all[tr_end:te_end]
+                if len(y_te) == 0:
+                    continue
 
-        for f in range(n_splits):
-            train_end = min_train + f * step
-            test_end = train_end + step if f < n_splits - 1 else n
+                var_base = max(np.mean((y_te - np.mean(y_tr)) ** 2), 1e-6)
 
-            y_tr = y_obs[:train_end]
-            y_te = y_obs[train_end:test_end]
-
-            hs_tr, hs_te = hs[:train_end], hs[train_end:test_end]
-            tp_tr, tp_te = tp[:train_end], tp[train_end:test_end]
-            ups_tr, ups_te = ups[:train_end], ups[train_end:test_end]
-            surge_tr, surge_te = surge[:train_end], surge[train_end:test_end]
-            w_spd_tr, w_spd_te = w_spd[:train_end], w_spd[train_end:test_end]
-            w_dir_tr, w_dir_te = w_dir[:train_end], w_dir[train_end:test_end]
-
-            var_base = max(np.mean((y_te - y_tr[-1]) ** 2), 1e-6)
-            var_target = max(np.var(y_te), 1e-6)
-
-            # Causal out-of-sample forward rollouts initialized at boundary anchor Y_obs[train_end - 1]
-            anchor_x = y_tr[-1]
-
-            # 1. Class III: Signed Equilibrium Upsilon (Scaled for Site Upsilon Magnitude)
-            ups_eq_val = float(np.median(ups_tr))
-            ups_std_tr = float(np.std(ups_tr)) if np.std(ups_tr) > 1e-4 else 1.0
-            scale_fac = max(ups_std_tr / 2500.0, 0.1)
-            c_e_opt, c_a_opt = 1.2e-5 / scale_fac, 1.8e-5 / scale_fac
-
-            p_te_seq, _ = simulate_signed_equilibrium_upsilon_evolution(
-                ups_te,
-                c_erosion=c_e_opt,
-                c_accretion=c_a_opt,
-                upsilon_eq=ups_eq_val,
-                initial_x=anchor_x,
-                upsilon_eq_mode="expanding",
-            )
-
-            # 2. Class I: Yates et al. (2009) Equilibrium (Causal Out-of-Sample Rollout)
-            p_te_yates_raw, _ = simulate_equilibrium_shoreline_evolution(hs_te, tp_te, random_seed=random_seed)
-            p_te_yates = anchor_x + (p_te_yates_raw - p_te_yates_raw[0])
-
-            # 3. Class I: Davidson et al. (2013) ShoreFor (Causal Out-of-Sample Rollout)
-            shorefor_te_raw, _ = simulate_shorefor_evolution(hs_te, tp_te, w_s_ms=ws, random_seed=random_seed)
-            p_te_shorefor = anchor_x + (shorefor_te_raw - shorefor_te_raw[0])
-
-            # 4. Class II: XBeach 1D Process Model (Causal Out-of-Sample Rollout)
-            xb_pos_te_raw, _ = simulate_xbeach_inspired_morphodynamics(
-                hs_te, tp_te, surge_te, w_spd_te, w_dir_te, d50_m=d50, tan_beta=tb, random_seed=random_seed
-            )
-            p_te_xb = anchor_x + (xb_pos_te_raw - xb_pos_te_raw[0])
-
-            # 5. Class III: Bayesian Latent Memory Kernel (Upsilon) via PyMC NUTS MCMC Sampling
-            mem_k = 720  # 30-day latent memory horizon
-            decay = np.exp(-np.arange(mem_k) / (mem_k / 4.0))
-            decay /= decay.sum()
-            log_ups_padded = np.pad(df_site["log_upsilon"].values, (mem_k - 1, 0), mode="edge")
-            log_ups_mem = np.convolve(log_ups_padded, decay, mode="valid")[:n]
-            mem_tr = log_ups_mem[:train_end]
-            mem_te = log_ups_mem[train_end:test_end]
-
-            # Subsample historical window for efficient PyMC NUTS Hamiltonian Monte Carlo sampling
-            sub_step = max(1, len(mem_tr) // 1200)
-            m_tr_sub = mem_tr[::sub_step]
-            y_tr_sub = y_tr[::sub_step]
-
-            with pm.Model() as bayes_model:
-                alpha = pm.Normal("alpha", mu=float(np.mean(y_tr_sub)), sigma=10.0)
-                beta = pm.Normal("beta_forcing", mu=0.0, sigma=10.0)
-                sigma = pm.HalfNormal("sigma", sigma=5.0)
-                nu = pm.Gamma("nu_offset", alpha=2, beta=0.1) + 2.0
-
-                mu_t = alpha + beta * m_tr_sub
-                pm.StudentT("obs", nu=nu, mu=mu_t, sigma=sigma, observed=y_tr_sub)
-
-                trace = pm.sample(
-                    draws=draws,
-                    tune=tune,
-                    chains=chains,
-                    cores=cores,
-                    target_accept=0.90,
-                    progressbar=False,
-                    random_seed=random_seed,
+                max_lag_f = min(12, tr_end)
+                bayes_m, bayes_meta = build_latent_memory_bayesian_model(
+                    forcing=f_all[:tr_end],
+                    delta_x_obs=y_tr,
+                    model_name="Bayesian Latent Memory Kernel (Upsilon)",
+                    max_lag=max_lag_f,
+                    scale_forcing=True,
                 )
+                with bayes_m:
+                    tr = pm.sample(
+                        draws=draws,
+                        tune=tune,
+                        chains=chains,
+                        cores=cores,
+                        progressbar=False,
+                        random_seed=random_seed,
+                    )
 
-            a_post = float(trace.posterior["alpha"].values.mean())
-            b_post = float(trace.posterior["beta_forcing"].values.mean())
-            p_te_bayesian = a_post + b_post * mem_te
+                gamma_p = float(tr.posterior["gamma"].values.mean())
+                alpha_p = float(tr.posterior["alpha"].values.mean())
+                beta_p = float(tr.posterior["beta_forcing"].values.mean())
 
-            model_evals = [
-                ("Class III (Bayesian)", "Bayesian Latent Memory Kernel (Upsilon)", p_te_bayesian),
-                ("Class III (Bayesian)", "Signed Equilibrium Upsilon", p_te_seq),
-                ("Class I (Analytical)", "Yates (2009) Equilibrium", p_te_yates),
-                ("Class I (Analytical)", "ShoreFor (2013) Memory", p_te_shorefor),
-                ("Class II (Process/PDE)", "XBeach 1D Process Model", p_te_xb),
-            ]
+                f_sc = (f_all - bayes_meta["f_mean"]) / bayes_meta["f_std"]
+                k_v = np.arange(max_lag_f, dtype=float)
+                w_p = (gamma_p ** k_v) / np.sum(gamma_p ** k_v)
+                lag_m = create_lag_matrix(f_sc, max_lag=max_lag_f)
+                eff_s = lag_m @ w_p
+                dy_pred_bayes = alpha_p + beta_p * eff_s[tr_end:te_end]
 
-            for p_class, m_name, p_te in model_evals:
-                mse_pred = float(mean_squared_error(y_te, p_te))
-                rmse = float(np.sqrt(mse_pred))
-                r2 = float(r2_score(y_te, p_te))
-                bss = float(1.0 - (mse_pred / var_base))
+                eval_list = [("Class III (Bayesian)", "Bayesian Latent Memory Kernel (Upsilon)", dy_pred_bayes, None)]
+                for (p_c, m_n), d_raw in model_deltas.items():
+                    eval_list.append((p_c, m_n, d_raw[tr_end:te_end], d_raw[:tr_end]))
 
-                # Pearson correlation coefficient
-                if np.std(p_te) > 1e-6 and np.std(y_te) > 1e-6:
-                    r_corr = float(np.corrcoef(y_te, p_te)[0, 1])
+                for p_class, m_name, dp_te, dp_tr_raw in eval_list:
+                    if dp_tr_raw is not None and np.std(dp_tr_raw) > 1e-6:
+                        slope, intercept = np.polyfit(dp_tr_raw, y_tr, 1)
+                        dp_te = slope * dp_te + intercept
+
+                    mse_val = float(mean_squared_error(y_te, dp_te))
+                    rmse_val = float(np.sqrt(mse_val))
+                    r2_val = float(r2_score(y_te, dp_te))
+                    bss_val = float(1.0 - (mse_val / var_base))
+                    r_corr = float(np.corrcoef(y_te, dp_te)[0, 1]) if (len(y_te) > 1 and np.std(dp_te) > 1e-6 and np.std(y_te) > 1e-6) else 0.0
+
+                    fold_records.append({
+                        "Site": site,
+                        "Site Name": COASTAL_SITE_PROFILES.get(site, {}).get("name", site),
+                        "Paradigm Class": p_class,
+                        "Paradigm": p_class,
+                        "Model Name": m_name,
+                        "Model": m_name,
+                        "Fold": f + 1,
+                        "Fold RMSE (m)": rmse_val,
+                        "Fold RMSE": rmse_val,
+                        "Fold R2 Score": r2_val,
+                        "Fold R2": r2_val,
+                        "Fold BSS": bss_val,
+                        "Fold Pearson r": r_corr,
+                    })
+
+            for p_class, m_name, _, _ in eval_list:
+                if m_name == "Bayesian Latent Memory Kernel (Upsilon)":
+                    bayes_m_full, bayes_meta_full = build_latent_memory_bayesian_model(
+                        forcing=f_all,
+                        delta_x_obs=y_all,
+                        model_name="Bayesian Latent Memory Kernel (Upsilon)",
+                        max_lag=12,
+                        scale_forcing=True,
+                    )
+                    with bayes_m_full:
+                        tr_f = pm.sample(draws=200, tune=150, chains=1, cores=1, progressbar=False, random_seed=random_seed)
+                    gamma_f = float(tr_f.posterior["gamma"].values.mean())
+                    alpha_f = float(tr_f.posterior["alpha"].values.mean())
+                    beta_f = float(tr_f.posterior["beta_forcing"].values.mean())
+                    f_sc_f = (f_all - bayes_meta_full["f_mean"]) / bayes_meta_full["f_std"]
+                    k_v_f = np.arange(12, dtype=float)
+                    w_f = (gamma_f ** k_v_f) / np.sum(gamma_f ** k_v_f)
+                    dp_full = alpha_f + beta_f * (create_lag_matrix(f_sc_f, max_lag=12) @ w_f)
                 else:
-                    r_corr = 0.0
+                    dp_raw = model_deltas[(p_class, m_name)]
+                    if np.std(dp_raw) > 1e-6:
+                        s_f, i_f = np.polyfit(dp_raw, y_all, 1)
+                        dp_full = s_f * dp_raw + i_f
+                    else:
+                        dp_full = dp_raw
 
-                fold_records.append({
+                full_site_records.append({
                     "Site": site,
-                    "Site Name": COASTAL_SITE_PROFILES.get(site, {}).get("name", site),
-                    "Paradigm": p_class,
-                    "Model": m_name,
-                    "Fold": f + 1,
-                    "Train End (hrs)": train_end,
-                    "Test End (hrs)": test_end,
-                    "Fold R2": r2,
-                    "Fold RMSE (m)": rmse,
-                    "Fold Pearson r": r_corr,
-                    "Fold BSS": bss,
+                    "Paradigm Class": p_class,
+                    "Model Name": m_name,
+                    "Full RMSE (m)": float(np.sqrt(mean_squared_error(y_all, dp_full))),
+                    "Full R2 Score": float(r2_score(y_all, dp_full)),
                 })
+        else:
+            file_path = os.path.join(data_dir, f"{site}_sensors.parquet")
+            if not os.path.exists(file_path):
+                continue
+
+            df_site = pd.read_parquet(file_path)
+            n = len(df_site)
+            target_col = "shoreline_pos_obs_m" if "shoreline_pos_obs_m" in df_site.columns else "shoreline_pos_true_m"
+            y_obs = df_site[target_col].values
+            log_ups_all = df_site["log_upsilon"].values if "log_upsilon" in df_site.columns else np.log10(np.maximum(df_site["upsilon"].values, 1e-4))
+
+            hs = df_site["hs_m"].values
+            tp = df_site["tp_s"].values
+            surge = df_site["surge_m"].values
+            w_spd = df_site["wind_speed_ms"].values
+            w_dir = df_site["wind_dir_deg"].values
+            ups = df_site["upsilon"].values
+            ws = df_site["w_s_ms"].values.mean() if "w_s_ms" in df_site.columns else 0.045
+            tb = df_site["tan_beta"].iloc[0] if "tan_beta" in df_site.columns else 0.08
+            d50 = df_site["d50_m"].iloc[0] if "d50_m" in df_site.columns else 0.00035
+
+            yates_pos_all, _ = simulate_equilibrium_shoreline_evolution(hs, tp, random_seed=random_seed)
+            shorefor_pos_all, _ = simulate_shorefor_evolution(hs, tp, w_s_ms=ws, random_seed=random_seed)
+            xbeach_pos_all, _ = simulate_xbeach_inspired_morphodynamics(hs, tp, surge, w_spd, w_dir, d50_m=d50, tan_beta=tb, random_seed=random_seed)
+            signed_eq_pos_all, _ = simulate_signed_equilibrium_upsilon_evolution(ups, c_erosion=1.2e-5, c_accretion=1.8e-5, upsilon_eq_mode="expanding")
+
+            interval = max(1, eval_interval_hours)
+            y_sub = y_obs[::interval]
+            log_ups_sub = log_ups_all[::interval]
+            dy_all = np.diff(y_sub)
+            f_sub = log_ups_sub[:-1]
+            n_pts = len(dy_all)
+
+            min_train = int(n_pts * 0.5)
+            step = int((n_pts - min_train) / n_splits)
+
+            for f in range(n_splits):
+                train_end = min_train + f * step
+                test_end = train_end + step if f < n_splits - 1 else n_pts
+
+                dy_tr = dy_all[:train_end]
+                dy_te = dy_all[train_end:test_end]
+                var_base = max(np.mean((dy_te - np.mean(dy_tr)) ** 2), 1e-6)
+
+                max_lag_fold = min(14, train_end)
+                bayes_m, bayes_meta = build_latent_memory_bayesian_model(
+                    forcing=f_sub[:train_end],
+                    delta_x_obs=dy_tr,
+                    model_name="Bayesian Latent Memory Kernel (Upsilon)",
+                    max_lag=max_lag_fold,
+                    scale_forcing=True,
+                )
+                with bayes_m:
+                    tr = pm.sample(
+                        draws=draws,
+                        tune=tune,
+                        chains=chains,
+                        cores=cores,
+                        target_accept=0.90,
+                        progressbar=False,
+                        random_seed=random_seed,
+                    )
+
+                gamma_p = float(tr.posterior["gamma"].values.mean())
+                alpha_p = float(tr.posterior["alpha"].values.mean())
+                beta_p = float(tr.posterior["beta_forcing"].values.mean())
+
+                f_sc = (f_sub - bayes_meta["f_mean"]) / bayes_meta["f_std"]
+                k_v = np.arange(max_lag_fold, dtype=float)
+                w_p = (gamma_p ** k_v) / np.sum(gamma_p ** k_v)
+                lag_m = create_lag_matrix(f_sc, max_lag=max_lag_fold)
+                eff_s = lag_m @ w_p
+                dy_pred_bayes = alpha_p + beta_p * eff_s[train_end:test_end]
+
+                p_evals = [
+                    ("Class III (Bayesian)", "Bayesian Latent Memory Kernel (Upsilon)", dy_pred_bayes, None),
+                    ("Class III (Bayesian)", "Signed Equilibrium Upsilon", np.diff(signed_eq_pos_all[::interval])[train_end:test_end], np.diff(signed_eq_pos_all[::interval])[:train_end]),
+                    ("Class I (Analytical)", "Yates (2009) Equilibrium", np.diff(yates_pos_all[::interval])[train_end:test_end], np.diff(yates_pos_all[::interval])[:train_end]),
+                    ("Class I (Analytical)", "ShoreFor (2013) Memory", np.diff(shorefor_pos_all[::interval])[train_end:test_end], np.diff(shorefor_pos_all[::interval])[:train_end]),
+                    ("Class II (Process/PDE)", "XBeach 1D Process Model", np.diff(xbeach_pos_all[::interval])[train_end:test_end], np.diff(xbeach_pos_all[::interval])[:train_end]),
+                ]
+
+                for p_class, m_name, dp_te, dp_tr_raw in p_evals:
+                    if dp_tr_raw is not None and np.std(dp_tr_raw) > 1e-6:
+                        slope, intercept = np.polyfit(dp_tr_raw, dy_tr, 1)
+                        dp_te = slope * dp_te + intercept
+
+                    mse_val = float(mean_squared_error(dy_te, dp_te))
+                    rmse_val = float(np.sqrt(mse_val))
+                    r2_val = float(r2_score(dy_te, dp_te))
+                    bss_val = float(1.0 - (mse_val / var_base))
+                    r_corr = float(np.corrcoef(dy_te, dp_te)[0, 1]) if np.std(dp_te) > 1e-6 and np.std(dy_te) > 1e-6 else 0.0
+
+                    fold_records.append({
+                        "Site": site,
+                        "Site Name": COASTAL_SITE_PROFILES.get(site, {}).get("name", site),
+                        "Paradigm Class": p_class,
+                        "Paradigm": p_class,
+                        "Model Name": m_name,
+                        "Model": m_name,
+                        "Fold": f + 1,
+                        "Fold RMSE (m)": rmse_val,
+                        "Fold RMSE": rmse_val,
+                        "Fold R2 Score": r2_val,
+                        "Fold R2": r2_val,
+                        "Fold BSS": bss_val,
+                        "Fold Pearson r": r_corr,
+                    })
 
     df_folds = pd.DataFrame(fold_records)
+    df_full_site = pd.DataFrame(full_site_records)
 
     # Standardized Cross-Paradigm Synthesis Table
     summary_rows = []
-    grouped = df_folds.groupby(["Paradigm", "Model"])
+    grouped = df_folds.groupby(["Paradigm Class", "Model Name"])
     for (p_class, m_name), grp in grouped:
-        r2_mean = float(grp["Fold R2"].mean())
-        r2_std = float(grp["Fold R2"].std())
-        rmse_mean = float(grp["Fold RMSE (m)"].mean())
-        r_mean = float(grp["Fold Pearson r"].mean())
-        bss_mean = float(grp["Fold BSS"].mean())
+        cv_rmse = float(grp["Fold RMSE (m)"].mean())
+        cv_r2 = float(grp["Fold R2 Score"].mean())
+        cv_bss = float(grp["Fold BSS"].mean())
+        rmse_std = float(grp["Fold RMSE (m)"].std())
+        r2_std = float(grp["Fold R2 Score"].std())
+        cv_corr = float(grp["Fold Pearson r"].mean())
+
+        full_grp = df_full_site[(df_full_site["Paradigm Class"] == p_class) & (df_full_site["Model Name"] == m_name)]
+        full_rmse = float(full_grp["Full RMSE (m)"].mean()) if not full_grp.empty else cv_rmse
+        full_r2 = float(full_grp["Full R2 Score"].mean()) if not full_grp.empty else cv_r2
 
         summary_rows.append({
             "Paradigm Class": p_class,
             "Model Name": m_name,
-            "Out-of-Sample Mean R2": r2_mean,
+            "CV RMSE (m)": cv_rmse,
+            "CV R2 Score": cv_r2,
+            "CV BSS": cv_bss,
+            "Fold RMSE (std)": rmse_std,
+            "Fold R2 (std)": r2_std,
+            "Full RMSE (m)": full_rmse,
+            "Full R2 Score": full_r2,
+            "CV Pearson r": cv_corr,
+            # Dual Compatibility Aliases
+            "Out-of-Sample Mean R2": cv_r2,
             "Inter-Fold R2 Std Dev (σ_R2)": r2_std,
-            "Mean Out-of-Sample RMSE (m)": rmse_mean,
-            "Out-of-Sample Mean Pearson r": r_mean,
-            "Brier Skill Score (BSS)": bss_mean,
+            "Mean Out-of-Sample RMSE (m)": cv_rmse,
+            "Out-of-Sample Mean Pearson r": cv_corr,
+            "Brier Skill Score (BSS)": cv_bss,
             "Evaluated Sites": len(grp["Site"].unique()),
             "Total CV Folds": len(grp),
         })
 
-    df_synthesis = pd.DataFrame(summary_rows).sort_values(by="Out-of-Sample Mean R2", ascending=False).reset_index(drop=True)
+    df_synthesis = pd.DataFrame(summary_rows).sort_values(by="CV R2 Score", ascending=False).reset_index(drop=True)
     df_synthesis.attrs["sites"] = sites
     df_synthesis.attrs["n_splits"] = n_splits
 
     return df_synthesis, df_folds
-
-
-
-
-

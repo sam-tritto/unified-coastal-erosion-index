@@ -1439,9 +1439,17 @@ def test_evaluate_cross_paradigm_walk_forward_cv():
     )
     assert not df_synthesis.empty
     assert not df_folds.empty
-    assert "Out-of-Sample Mean R2" in df_synthesis.columns
-    assert "Inter-Fold R2 Std Dev (σ_R2)" in df_synthesis.columns
-    assert "Brier Skill Score (BSS)" in df_synthesis.columns
+    assert "CV R2 Score" in df_synthesis.columns
+    assert "Fold R2 (std)" in df_synthesis.columns
+    assert "CV BSS" in df_synthesis.columns
+    assert "Full RMSE (m)" in df_synthesis.columns
+    assert "Full R2 Score" in df_synthesis.columns
+    models = df_synthesis["Model Name"].tolist()
+    assert "Bayesian Latent Memory Kernel (Upsilon)" in models
+    assert "Signed Equilibrium Upsilon" in models
+    assert "Yates (2009) Equilibrium" in models
+    assert "ShoreFor (2013) Memory" in models
+    assert "XBeach 1D Process Model" in models
 
 
 
