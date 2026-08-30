@@ -2015,7 +2015,7 @@ def evaluate_cross_paradigm_walk_forward_cv(
             )
             p_te_xb = anchor_x + (xb_pos_te_raw - xb_pos_te_raw[0])
 
-            # 5. Class III: Bayesian Latent Memory Kernel (Upsilon)
+            # 5. Class III: Bayesian Latent Memory Kernel (Upsilon) via PyMC NUTS MCMC Sampling
             mem_k = 720  # 30-day latent memory horizon
             decay = np.exp(-np.arange(mem_k) / (mem_k / 4.0))
             decay /= decay.sum()
@@ -2023,11 +2023,34 @@ def evaluate_cross_paradigm_walk_forward_cv(
             log_ups_mem = np.convolve(log_ups_padded, decay, mode="valid")[:n]
             mem_tr = log_ups_mem[:train_end]
             mem_te = log_ups_mem[train_end:test_end]
-            if np.std(mem_tr) > 1e-6:
-                slope_m, intercept_m = np.polyfit(mem_tr, y_tr, 1)
-                p_te_bayesian = slope_m * mem_te + intercept_m
-            else:
-                p_te_bayesian = anchor_x + (mem_te - mem_te[0])
+
+            # Subsample historical window for efficient PyMC NUTS Hamiltonian Monte Carlo sampling
+            sub_step = max(1, len(mem_tr) // 1200)
+            m_tr_sub = mem_tr[::sub_step]
+            y_tr_sub = y_tr[::sub_step]
+
+            with pm.Model() as bayes_model:
+                alpha = pm.Normal("alpha", mu=float(np.mean(y_tr_sub)), sigma=10.0)
+                beta = pm.Normal("beta_forcing", mu=0.0, sigma=10.0)
+                sigma = pm.HalfNormal("sigma", sigma=5.0)
+                nu = pm.Gamma("nu_offset", alpha=2, beta=0.1) + 2.0
+
+                mu_t = alpha + beta * m_tr_sub
+                pm.StudentT("obs", nu=nu, mu=mu_t, sigma=sigma, observed=y_tr_sub)
+
+                trace = pm.sample(
+                    draws=draws,
+                    tune=tune,
+                    chains=chains,
+                    cores=cores,
+                    target_accept=0.90,
+                    progressbar=False,
+                    random_seed=random_seed,
+                )
+
+            a_post = float(trace.posterior["alpha"].values.mean())
+            b_post = float(trace.posterior["beta_forcing"].values.mean())
+            p_te_bayesian = a_post + b_post * mem_te
 
             model_evals = [
                 ("Class III (Bayesian)", "Bayesian Latent Memory Kernel (Upsilon)", p_te_bayesian),
