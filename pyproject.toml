@@ -3,7 +3,7 @@ name = "unified-coastal-vulnerability-index"
 version = "0.1.0"
 description = "Unified Physics-Informed Coastal Vulnerability Index (Upsilon) & Embeddings"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.24.0",
     "pandas>=2.0.0",
@@ -28,6 +28,8 @@ dependencies = [
     "netcdf4>=1.7.3",
     "duckdb>=1.5.5",
     "pyarrow>=25.0.1",
+    "shap>=0.49.1",
+    "bxai>=0.1.4",
 ]
 
 [build-system]

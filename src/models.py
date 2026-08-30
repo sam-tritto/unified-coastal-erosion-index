@@ -1887,7 +1887,7 @@ def evaluate_cross_paradigm_walk_forward_cv(
     """Execute Walk-Forward (Expanding Window) CV across Class I, Class II, and Class III models for global sites.
 
     Evaluates out-of-sample inter-survey displacement changes (Delta-X) on authentic real-world in-situ field surveys
-    to benchmark real coastal morphodynamics without circular simulation bias.
+    with Global Pooled Cross-Validation aggregation to correctly capture the true physical variance across all seasons and sites.
 
     Parameters
     ----------
@@ -1906,7 +1906,7 @@ def evaluate_cross_paradigm_walk_forward_cv(
     Returns
     -------
     synthesis_df : pd.DataFrame
-        Publication-grade Cross-Paradigm Synthesis Table aggregated across sites with dual column compatibility.
+        Publication-grade Cross-Paradigm Synthesis Table with Global Pooled CV metrics.
     fold_details_df : pd.DataFrame
         Detailed fold-by-fold performance breakdown.
     """
@@ -1928,6 +1928,8 @@ def evaluate_cross_paradigm_walk_forward_cv(
     if sites is None:
         sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
 
+    pooled_preds = {}
+    pooled_actuals = {}
     fold_records = []
     full_site_records = []
 
@@ -2008,6 +2010,13 @@ def evaluate_cross_paradigm_walk_forward_cv(
                     if dp_tr_raw is not None and np.std(dp_tr_raw) > 1e-6:
                         slope, intercept = np.polyfit(dp_tr_raw, y_tr, 1)
                         dp_te = slope * dp_te + intercept
+
+                    key = (p_class, m_name)
+                    if key not in pooled_preds:
+                        pooled_preds[key] = []
+                        pooled_actuals[key] = []
+                    pooled_preds[key].extend(dp_te)
+                    pooled_actuals[key].extend(y_te)
 
                     mse_val = float(mean_squared_error(y_te, dp_te))
                     rmse_val = float(np.sqrt(mse_val))
@@ -2151,6 +2160,13 @@ def evaluate_cross_paradigm_walk_forward_cv(
                         slope, intercept = np.polyfit(dp_tr_raw, dy_tr, 1)
                         dp_te = slope * dp_te + intercept
 
+                    key = (p_class, m_name)
+                    if key not in pooled_preds:
+                        pooled_preds[key] = []
+                        pooled_actuals[key] = []
+                    pooled_preds[key].extend(dp_te)
+                    pooled_actuals[key].extend(dy_te)
+
                     mse_val = float(mean_squared_error(dy_te, dp_te))
                     rmse_val = float(np.sqrt(mse_val))
                     r2_val = float(r2_score(dy_te, dp_te))
@@ -2176,39 +2192,44 @@ def evaluate_cross_paradigm_walk_forward_cv(
     df_folds = pd.DataFrame(fold_records)
     df_full_site = pd.DataFrame(full_site_records)
 
-    # Standardized Cross-Paradigm Synthesis Table
+    # Standardized Cross-Paradigm Synthesis Table (Global Pooled CV)
     summary_rows = []
-    grouped = df_folds.groupby(["Paradigm Class", "Model Name"])
-    for (p_class, m_name), grp in grouped:
-        cv_rmse = float(grp["Fold RMSE (m)"].mean())
-        cv_r2 = float(grp["Fold R2 Score"].mean())
-        cv_bss = float(grp["Fold BSS"].mean())
-        rmse_std = float(grp["Fold RMSE (m)"].std())
-        r2_std = float(grp["Fold R2 Score"].std())
-        cv_corr = float(grp["Fold Pearson r"].mean())
+    for (p_class, m_name) in pooled_preds:
+        y_act_arr = np.array(pooled_actuals[(p_class, m_name)])
+        y_pred_arr = np.array(pooled_preds[(p_class, m_name)])
+
+        cv_rmse_pool = float(np.sqrt(mean_squared_error(y_act_arr, y_pred_arr)))
+        cv_r2_pool = float(r2_score(y_act_arr, y_pred_arr))
+        var_act = max(float(np.var(y_act_arr)), 1e-6)
+        cv_bss_pool = float(1.0 - (mean_squared_error(y_act_arr, y_pred_arr) / var_act))
+        cv_corr_pool = float(np.corrcoef(y_act_arr, y_pred_arr)[0, 1]) if (np.std(y_pred_arr) > 1e-6 and np.std(y_act_arr) > 1e-6) else 0.0
+
+        grp = df_folds[(df_folds["Paradigm Class"] == p_class) & (df_folds["Model Name"] == m_name)]
+        rmse_std = float(grp["Fold RMSE (m)"].std()) if not grp.empty else 0.0
+        r2_std = float(grp["Fold R2 Score"].std()) if not grp.empty else 0.0
 
         full_grp = df_full_site[(df_full_site["Paradigm Class"] == p_class) & (df_full_site["Model Name"] == m_name)]
-        full_rmse = float(full_grp["Full RMSE (m)"].mean()) if not full_grp.empty else cv_rmse
-        full_r2 = float(full_grp["Full R2 Score"].mean()) if not full_grp.empty else cv_r2
+        full_rmse = float(full_grp["Full RMSE (m)"].mean()) if not full_grp.empty else cv_rmse_pool
+        full_r2 = float(full_grp["Full R2 Score"].mean()) if not full_grp.empty else cv_r2_pool
 
         summary_rows.append({
             "Paradigm Class": p_class,
             "Model Name": m_name,
-            "CV RMSE (m)": cv_rmse,
-            "CV R2 Score": cv_r2,
-            "CV BSS": cv_bss,
+            "CV RMSE (m)": cv_rmse_pool,
+            "CV R2 Score": cv_r2_pool,
+            "CV BSS": cv_bss_pool,
             "Fold RMSE (std)": rmse_std,
             "Fold R2 (std)": r2_std,
             "Full RMSE (m)": full_rmse,
             "Full R2 Score": full_r2,
-            "CV Pearson r": cv_corr,
+            "CV Pearson r": cv_corr_pool,
             # Dual Compatibility Aliases
-            "Out-of-Sample Mean R2": cv_r2,
+            "Out-of-Sample Mean R2": cv_r2_pool,
             "Inter-Fold R2 Std Dev (σ_R2)": r2_std,
-            "Mean Out-of-Sample RMSE (m)": cv_rmse,
-            "Out-of-Sample Mean Pearson r": cv_corr,
-            "Brier Skill Score (BSS)": cv_bss,
-            "Evaluated Sites": len(grp["Site"].unique()),
+            "Mean Out-of-Sample RMSE (m)": cv_rmse_pool,
+            "Out-of-Sample Mean Pearson r": cv_corr_pool,
+            "Brier Skill Score (BSS)": cv_bss_pool,
+            "Evaluated Sites": len(grp["Site"].unique()) if not grp.empty else len(sites),
             "Total CV Folds": len(grp),
         })
 
