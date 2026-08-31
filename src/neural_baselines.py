@@ -94,6 +94,11 @@ class CoastalLSTM(nn.Module):
         final_step = lstm_out[:, -1, :]
         return self.head(final_step).squeeze(-1)
 
+    def extract_features(self, x: torch.Tensor) -> torch.Tensor:
+        """Extract recurrent latent hidden state representation (batch_size, hidden_dim)."""
+        lstm_out, _ = self.lstm(x)
+        return lstm_out[:, -1, :]
+
 
 class PhysicsGuidedLSTM(nn.Module):
     """Physics-Guided Neural Network (PG-LSTM) augmented with Upsilon, Dean Number, and Wave Dissipation."""
@@ -124,6 +129,11 @@ class PhysicsGuidedLSTM(nn.Module):
         lstm_out, _ = self.lstm(x)
         final_step = lstm_out[:, -1, :]
         return self.fc_residual(final_step).squeeze(-1)
+
+    def extract_features(self, x: torch.Tensor) -> torch.Tensor:
+        """Extract physics-guided latent hidden representation (batch_size, hidden_dim)."""
+        lstm_out, _ = self.lstm(x)
+        return lstm_out[:, -1, :]
 
 
 class PhysicsGuidedLoss(nn.Module):

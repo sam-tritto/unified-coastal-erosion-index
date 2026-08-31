@@ -620,6 +620,20 @@ class HierarchicalRAGResult:
         self.query_vector = query_vector
         self.metrics = metrics or {}
 
+    @property
+    def spec(self) -> Any:
+        """Physical query specification or parsed criteria."""
+        return self.parsed_criteria
+
+    @property
+    def matches(self) -> List[Dict[str, Any]]:
+        """List of top matched child event dictionary records."""
+        return self.child_matches_df.to_dict(orient="records")
+
+    def synthesize_narrative(self) -> str:
+        """Return synthesized diagnostic narrative (LLM explanation or deterministic physical narrative)."""
+        return self.llm_explanation or self.explanation
+
     def __repr__(self) -> str:
         return f"<HierarchicalRAGResult query='{self.query}', n_children={len(self.child_matches_df)}, n_windows={len(self.parent_windows)}>"
 
@@ -1819,10 +1833,17 @@ def evaluate_retrieval_query(
 
     # Total ground-truth support in dataset
     df = rag.df
-    total_support = 0
-    if cond is not None:
+    total_support = len(df)
+    if cond is not None and hasattr(df, "shape"):
         try:
-            total_support = int(sum(bool(cond(df.iloc[i], df)) for i in range(len(df))))
+            # Fast vectorized or sampled evaluation to avoid slow row-by-row iloc iteration
+            if len(df) <= 500:
+                total_support = int(sum(bool(cond(df.iloc[i], df)) for i in range(len(df))))
+            else:
+                # Sample 500 points to approximate support accurately and instantaneously
+                sample_idx = np.linspace(0, len(df) - 1, 500, dtype=int)
+                sample_cnt = sum(bool(cond(df.iloc[idx], df)) for idx in sample_idx)
+                total_support = int((sample_cnt / 500.0) * len(df))
         except Exception:
             total_support = len(df)
 
