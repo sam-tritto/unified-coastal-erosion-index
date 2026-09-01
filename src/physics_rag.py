@@ -1076,39 +1076,27 @@ class PhysicsRAG:
         min_similarity: float = -1.0,
         use_llm_parser: bool = True,
         use_llm_synthesis: bool = True,
+        spec: Optional[PhysicsQuerySpec] = None,
+        target_synthetic_values: Optional[Dict[str, float]] = None,
+        **kwargs: Any,
     ) -> PhysicsRAGResult:
-        """Execute a natural language query against coastal dataset & latent embeddings (Suggestion 8).
-
-        Parameters
-        ----------
-        query_text : str
-            Natural language query (e.g. 'Show spilling breakers during storm',
-            'Find waves over 4m with long period swell and surge > 0.8m',
-            'Find post-storm beach recovery phases and recovery timeframes',
-            'Show active storm erosion above critical threshold ignoring background noise').
-        top_k : int
-            Maximum number of instances to return.
-        min_similarity : float
-            Cosine similarity cutoff.
-        use_llm_parser : bool
-            Whether to attempt Gemini Flash structured query parsing.
-        use_llm_synthesis : bool
-            Whether to attempt Gemini Flash narrative synthesis.
-
-        Returns
-        -------
-        PhysicsRAGResult
-            Object containing matching DataFrame, similarities, explanation, criteria, and recovery analytics.
-        """
+        """Execute a natural language query against coastal dataset & latent embeddings (Suggestion 8)."""
         # 1. Parse natural language into structured physical intent
-        if use_llm_parser:
-            spec = GeminiPhysicsQueryParser.parse(
-                query_text=query_text,
-                model_name=self.model_name,
-                api_key=self.api_key,
-            )
-        else:
-            spec = GeminiPhysicsQueryParser._fallback_parse(query_text)
+        if spec is None:
+            if target_synthetic_values is not None:
+                spec = PhysicsQuerySpec(
+                    raw_query=query_text,
+                    intent_summary=f"Target parameter query for '{query_text}'",
+                    target_synthetic_values=target_synthetic_values,
+                )
+            elif use_llm_parser:
+                spec = GeminiPhysicsQueryParser.parse(
+                    query_text=query_text,
+                    model_name=self.model_name,
+                    api_key=self.api_key,
+                )
+            else:
+                spec = GeminiPhysicsQueryParser._fallback_parse(query_text)
 
         # 2. Build target query embedding vector
         query_vec = self._build_query_vector(spec)
@@ -1620,6 +1608,7 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
             min_similarity=min_similarity,
             use_llm_parser=use_llm_parser,
             use_llm_synthesis=False,  # We perform multi-scale hierarchical synthesis below
+            **kwargs,
         )
 
         child_df = base_res.matches_df
@@ -1848,11 +1837,15 @@ def evaluate_retrieval_query(
             total_support = len(df)
 
     # Execute RAG query
+    target_synth = query_spec_or_text.get("target_synthetic_values") if isinstance(query_spec_or_text, dict) else None
+    spec_override = query_spec_or_text.get("spec") if isinstance(query_spec_or_text, dict) else None
     rag_res = rag.query(
         query_text=query_str,
         top_k=k,
         use_llm_parser=use_llm_parser,
         use_llm_synthesis=False,
+        spec=spec_override,
+        target_synthetic_values=target_synth,
     )
 
     matches_df = rag_res.matches_df

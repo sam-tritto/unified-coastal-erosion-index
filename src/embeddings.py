@@ -673,6 +673,7 @@ def synthesize_target_physics_vector(
         "temp": "water_temp_c", "water_temp_c": "water_temp_c",
         "slope": "tan_beta", "tan_beta": "tan_beta",
         "ws": "w_s_ms", "w_s_ms": "w_s_ms",
+        "dissip": "delta_p_dissip", "delta_p_dissip": "delta_p_dissip", "bar_dissipation": "delta_p_dissip", "reef_dissipation": "delta_p_dissip",
     }
     
     for k, v in target_params.items():
@@ -696,6 +697,10 @@ def synthesize_target_physics_vector(
             tan_beta=baseline["tan_beta"],
             hs_exponent=hs_exp,
         )
+        synth_df["delta_p_dissip"] = baseline["delta_p_dissip"]
+        synth_df["tan_beta"] = baseline["tan_beta"]
+        synth_df["w_s_ms"] = baseline["w_s_ms"]
+
     except Exception:
         hs = baseline["hs_m"]
         tp = max(baseline["tp_s"], 0.5)
