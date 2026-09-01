@@ -1237,15 +1237,17 @@ def simulate_signed_equilibrium_upsilon_evolution(
 
     min_x, max_x = x_bounds
 
+    init_base = float(upsilon_eq) if (isinstance(upsilon_eq, (int, float)) and b_eq == 2500.0) else b_eq
+
     # Precompute causal equilibrium array if expanding/trailing mode
     eq_series: Optional[np.ndarray] = None
     if isinstance(upsilon_eq, np.ndarray) and len(upsilon_eq) == n:
         eq_series = upsilon_eq
     elif upsilon_eq_mode in ["expanding", "expanding_window"] or (isinstance(upsilon_eq, str) and upsilon_eq == "expanding"):
-        eq_series = compute_expanding_window_equilibrium(ups_arr, window_hours=None, min_periods=min_periods, initial_baseline=b_eq)
+        eq_series = compute_expanding_window_equilibrium(ups_arr, window_hours=None, min_periods=min_periods, initial_baseline=init_base)
     elif upsilon_eq_mode in ["trailing", "trailing_3yr", "trailing_window"] or (isinstance(upsilon_eq, str) and "trailing" in upsilon_eq):
         w_h = window_hours if window_hours is not None else (3 * 365 * 24)
-        eq_series = compute_expanding_window_equilibrium(ups_arr, window_hours=w_h, min_periods=min_periods, initial_baseline=b_eq)
+        eq_series = compute_expanding_window_equilibrium(ups_arr, window_hours=w_h, min_periods=min_periods, initial_baseline=init_base)
 
     for t in range(1, n):
         u = ups_arr[t]
