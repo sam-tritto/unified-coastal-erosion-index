@@ -59,6 +59,7 @@ from src.models import (
     build_physics_anchored_hybrid_model,
     build_asymmetric_dual_regime_model,
     build_learnable_exponent_bayesian_model,
+    run_hs_exponent_sensitivity_analysis,
     compute_antecedent_memory_forcing,
     evaluate_model_performance,
     predict_bayesian_model,
@@ -415,6 +416,27 @@ def test_learnable_exponent_bayesian_model():
     assert np.all(post_exp >= 1.0)
     assert np.all(post_exp <= 3.0)
     assert len(post_exp) == 100
+
+
+def test_hs_exponent_sensitivity_analysis():
+    """Verify systematic sensitivity analysis over fixed and learnable exponents."""
+    df = generate_frf_duck_hurricane_ian_dataset().iloc[:40]
+    df_comp, traces = run_hs_exponent_sensitivity_analysis(
+        df=df,
+        exponents=(1.5, 2.5),
+        max_lag=6,
+        draws=30,
+        tune=30,
+        chains=2,
+        include_learnable=True,
+        random_seed=42,
+    )
+    assert "fixed_n_1.5" in traces
+    assert "fixed_n_2.5" in traces
+    assert "learnable_n" in traces
+    assert len(traces) == 3
+    assert not df_comp.empty
+    assert "elpd_loo" in df_comp.columns or "rank" in df_comp.columns
 
 
 def test_twl_surge_and_runup_amplification():

@@ -1683,6 +1683,132 @@ def build_learnable_exponent_bayesian_model(
     return model, meta
 
 
+def run_hs_exponent_sensitivity_analysis(
+    df: pd.DataFrame,
+    exponents: Sequence[float] = (1.5, 2.0, 2.5, 3.0),
+    target_col: str = "shoreline_pos_obs_m",
+    max_lag: int = 24,
+    draws: int = 1000,
+    tune: int = 500,
+    chains: int = 2,
+    include_learnable: bool = True,
+    random_seed: int = 42,
+) -> Tuple[pd.DataFrame, Dict[str, az.InferenceData]]:
+    """Run systematic sensitivity analysis over wave height exponents n in Hs^n.
+
+    Fits Bayesian latent memory models for each candidate fixed exponent n in exponents alongside
+    the fully learnable exponent model, computes PSIS-LOO-CV ELPD via ArviZ,
+    and returns a comparison ranking table justifying the optimal exponent.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset containing hydrodynamic columns (hs_m/hs, tp_s/tp, surge_m/surge, etc.) and target observations.
+    exponents : sequence of float
+        Candidate fixed exponents n in Hs^n (default: 1.5, 2.0, 2.5, 3.0).
+    target_col : str
+        Observed target column in df (e.g., 'shoreline_pos_obs_m' or 'delta_x').
+    max_lag : int
+        Maximum antecedent memory lag hours.
+    draws : int
+        Number of MCMC draws.
+    tune : int
+        Number of MCMC tuning steps.
+    chains : int
+        Number of MCMC chains.
+    include_learnable : bool
+        Whether to include the fully learnable exponent model in the comparison.
+    random_seed : int
+        Random seed for sampling reproducibility.
+
+    Returns
+    -------
+    df_comp : pd.DataFrame
+        ArviZ model comparison table with ELPD, p_loo, and LOO weights.
+    traces : dict
+        Fitted MCMC traces for each candidate exponent configuration.
+    """
+    from src.physics import compute_unified_coastal_vulnerability_index
+
+    hs = df["hs_m"].values if "hs_m" in df.columns else df["hs"].values
+    tp = df["tp_s"].values if "tp_s" in df.columns else df["tp"].values
+    surge = df["surge_m"].values if "surge_m" in df.columns else (df["surge"].values if "surge" in df.columns else np.zeros(len(df)))
+    wind_spd = df["wind_speed_ms"].values if "wind_speed_ms" in df.columns else (df["wind_speed"].values if "wind_speed" in df.columns else np.zeros(len(df)))
+    wind_dir = df["wind_dir_deg"].values if "wind_dir_deg" in df.columns else (df["wind_dir"].values if "wind_dir" in df.columns else np.full(len(df), 70.0))
+    d50 = df["d50_mm"].values if "d50_mm" in df.columns else 0.2
+    tan_beta = df["tan_beta"].values if "tan_beta" in df.columns else 0.08
+    y_obs = df[target_col].values if target_col in df.columns else df["delta_x_obs"].values
+
+    traces: Dict[str, az.InferenceData] = {}
+
+    for n_exp in exponents:
+        m_name = f"fixed_n_{n_exp:.1f}"
+        df_phys = compute_unified_coastal_vulnerability_index(
+            hs=hs,
+            tp=tp,
+            surge=surge,
+            wind_speed=wind_spd,
+            wind_dir_deg=wind_dir,
+            d50=d50,
+            tan_beta=tan_beta,
+            hs_exponent=n_exp,
+        )
+        forcing = df_phys["upsilon"].values
+        model, meta = build_latent_memory_bayesian_model(
+            forcing=forcing,
+            delta_x_obs=y_obs,
+            model_name=m_name,
+            max_lag=max_lag,
+        )
+        trace = fit_bayesian_model(
+            model=model,
+            draws=draws,
+            tune=tune,
+            chains=chains,
+            random_seed=random_seed,
+        )
+        traces[m_name] = trace
+
+    if include_learnable:
+        m_name = "learnable_n"
+        df_base = compute_unified_coastal_vulnerability_index(
+            hs=hs,
+            tp=tp,
+            surge=surge,
+            wind_speed=wind_spd,
+            wind_dir_deg=wind_dir,
+            d50=d50,
+            tan_beta=tan_beta,
+            hs_exponent=2.5,
+        )
+        learn_model, learn_meta = build_learnable_exponent_bayesian_model(
+            hs=hs,
+            tp=tp,
+            ws=df_base["w_s_ms"].values,
+            surge=surge,
+            runup=df_base["runup_r2_m"].values,
+            wind_normal=df_base["wind_normal_ms"].values,
+            delta_x_obs=y_obs,
+            tan_beta=tan_beta,
+            model_name=m_name,
+            max_lag=max_lag,
+            exponent_prior="uniform",
+            lower_bound=1.0,
+            upper_bound=3.0,
+        )
+        trace_learn = fit_bayesian_model(
+            model=learn_model,
+            draws=draws,
+            tune=tune,
+            chains=chains,
+            random_seed=random_seed,
+        )
+        traces[m_name] = trace_learn
+
+    df_comp = run_arviz_loo_comparison(traces, ic="loo")
+    return df_comp, traces
+
+
 def build_latent_equilibrium_bayesian_model(
     forcing: np.ndarray,
     delta_x_obs: np.ndarray,
