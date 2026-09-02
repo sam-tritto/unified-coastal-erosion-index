@@ -1927,6 +1927,10 @@ def evaluate_cross_paradigm_walk_forward_cv(
     pooled_actuals = {}
     pooled_pos_preds = {}
     pooled_pos_actuals = {}
+    pooled_norm_preds = {}
+    pooled_norm_actuals = {}
+    pooled_norm_pos_preds = {}
+    pooled_norm_pos_actuals = {}
     fold_records = []
     full_site_records = []
 
@@ -1950,6 +1954,9 @@ def evaluate_cross_paradigm_walk_forward_cv(
             )
             f_all = df_survey["antecedent_log_upsilon"].values if "antecedent_log_upsilon" in df_survey.columns else np.log10(np.maximum(df_survey["antecedent_mean_upsilon"].values, 1e-4))
             shorefor_delta = df_survey["antecedent_upsilon_memory"].values if "antecedent_upsilon_memory" in df_survey.columns else df_survey["antecedent_log_upsilon"].values
+
+            sigma_site_dy = max(float(np.std(y_all)), 1e-4)
+            sigma_site_pos = max(float(np.std(pos_all)), 1e-4)
 
             model_deltas = {
                 ("Class III (Bayesian)", "Signed Equilibrium Upsilon"): df_survey["upsilon_diseq_simulated_delta_x_m"].values,
@@ -2037,10 +2044,19 @@ def evaluate_cross_paradigm_walk_forward_cv(
                         pooled_actuals[key] = []
                         pooled_pos_preds[key] = []
                         pooled_pos_actuals[key] = []
+                        pooled_norm_preds[key] = []
+                        pooled_norm_actuals[key] = []
+                        pooled_norm_pos_preds[key] = []
+                        pooled_norm_pos_actuals[key] = []
                     pooled_preds[key].extend(dp_te)
                     pooled_actuals[key].extend(y_te)
                     pooled_pos_preds[key].extend(pos_pred_te)
                     pooled_pos_actuals[key].extend(pos_actual_te)
+                    # Standardized per-site arrays
+                    pooled_norm_preds[key].extend(dp_te / sigma_site_dy)
+                    pooled_norm_actuals[key].extend(y_te / sigma_site_dy)
+                    pooled_norm_pos_preds[key].extend(pos_pred_te / sigma_site_pos)
+                    pooled_norm_pos_actuals[key].extend(pos_actual_te / sigma_site_pos)
 
                     # Step delta metrics
                     mse_val = float(mean_squared_error(y_te, dp_te))
@@ -2077,6 +2093,11 @@ def evaluate_cross_paradigm_walk_forward_cv(
                         "Fold Pos R2 Score": pos_r2,
                         "Fold Pos BSS": pos_bss,
                         "Fold Pos Pearson r": pos_corr,
+                        # Per-Site Normalization Metadata
+                        "Site Std Δx (m)": sigma_site_dy,
+                        "Site Std Pos (m)": sigma_site_pos,
+                        "Fold Norm Δx RMSE": rmse_val / sigma_site_dy,
+                        "Fold Norm Pos RMSE": pos_rmse / sigma_site_pos,
                     })
 
             for p_class, m_name, _, _ in eval_list:
@@ -2158,6 +2179,9 @@ def evaluate_cross_paradigm_walk_forward_cv(
             pos_all = y_sub[1:]
             n_pts = len(dy_all)
 
+            sigma_site_dy = max(float(np.std(dy_all)), 1e-4)
+            sigma_site_pos = max(float(np.std(pos_all)), 1e-4)
+
             min_train = int(n_pts * 0.5)
             step = int((n_pts - min_train) / n_splits)
 
@@ -2223,10 +2247,19 @@ def evaluate_cross_paradigm_walk_forward_cv(
                         pooled_actuals[key] = []
                         pooled_pos_preds[key] = []
                         pooled_pos_actuals[key] = []
+                        pooled_norm_preds[key] = []
+                        pooled_norm_actuals[key] = []
+                        pooled_norm_pos_preds[key] = []
+                        pooled_norm_pos_actuals[key] = []
                     pooled_preds[key].extend(dp_te)
                     pooled_actuals[key].extend(dy_te)
                     pooled_pos_preds[key].extend(pos_pred_te)
                     pooled_pos_actuals[key].extend(pos_actual_te)
+                    # Standardized per-site arrays
+                    pooled_norm_preds[key].extend(dp_te / sigma_site_dy)
+                    pooled_norm_actuals[key].extend(dy_te / sigma_site_dy)
+                    pooled_norm_pos_preds[key].extend(pos_pred_te / sigma_site_pos)
+                    pooled_norm_pos_actuals[key].extend(pos_actual_te / sigma_site_pos)
 
                     mse_val = float(mean_squared_error(dy_te, dp_te))
                     rmse_val = float(np.sqrt(mse_val))
@@ -2259,6 +2292,10 @@ def evaluate_cross_paradigm_walk_forward_cv(
                         "Fold Pos R2 Score": pos_r2,
                         "Fold Pos BSS": pos_bss,
                         "Fold Pos Pearson r": pos_corr,
+                        "Site Std Δx (m)": sigma_site_dy,
+                        "Site Std Pos (m)": sigma_site_pos,
+                        "Fold Norm Δx RMSE": rmse_val / sigma_site_dy,
+                        "Fold Norm Pos RMSE": pos_rmse / sigma_site_pos,
                     })
 
     df_folds = pd.DataFrame(fold_records)
@@ -2271,6 +2308,11 @@ def evaluate_cross_paradigm_walk_forward_cv(
         y_pred_arr = np.array(pooled_preds[(p_class, m_name)])
         pos_act_arr = np.array(pooled_pos_actuals[(p_class, m_name)])
         pos_pred_arr = np.array(pooled_pos_preds[(p_class, m_name)])
+
+        y_norm_act = np.array(pooled_norm_actuals[(p_class, m_name)])
+        y_norm_pred = np.array(pooled_norm_preds[(p_class, m_name)])
+        pos_norm_act = np.array(pooled_norm_pos_actuals[(p_class, m_name)])
+        pos_norm_pred = np.array(pooled_norm_pos_preds[(p_class, m_name)])
 
         # Step Delta Metrics (Δx)
         cv_rmse_pool = float(np.sqrt(mean_squared_error(y_act_arr, y_pred_arr)))
@@ -2286,11 +2328,26 @@ def evaluate_cross_paradigm_walk_forward_cv(
         cv_pos_bss_pool = float(1.0 - (mean_squared_error(pos_act_arr, pos_pred_arr) / var_pos_act))
         cv_pos_corr_pool = float(np.corrcoef(pos_act_arr, pos_pred_arr)[0, 1]) if (np.std(pos_pred_arr) > 1e-6 and np.std(pos_act_arr) > 1e-6) else 0.0
 
+        # Standardized Per-Site Normalized Metrics
+        norm_cv_r2 = float(r2_score(y_norm_act, y_norm_pred))
+        norm_cv_rmse = float(np.sqrt(mean_squared_error(y_norm_act, y_norm_pred)))
+        var_norm_act = max(float(np.var(y_norm_act)), 1e-6)
+        norm_cv_bss = float(1.0 - (mean_squared_error(y_norm_act, y_norm_pred) / var_norm_act))
+
+        norm_pos_r2 = float(r2_score(pos_norm_act, pos_norm_pred))
+        norm_pos_rmse = float(np.sqrt(mean_squared_error(pos_norm_act, pos_norm_pred)))
+        var_norm_pos_act = max(float(np.var(pos_norm_act)), 1e-6)
+        norm_pos_bss = float(1.0 - (mean_squared_error(pos_norm_act, pos_norm_pred) / var_norm_pos_act))
+        norm_pos_corr = float(np.corrcoef(pos_norm_act, pos_norm_pred)[0, 1]) if (np.std(pos_norm_pred) > 1e-6 and np.std(pos_norm_act) > 1e-6) else 0.0
+
         grp = df_folds[(df_folds["Paradigm Class"] == p_class) & (df_folds["Model Name"] == m_name)]
         rmse_std = float(grp["Fold RMSE (m)"].std()) if not grp.empty else 0.0
         r2_std = float(grp["Fold R2 Score"].std()) if not grp.empty else 0.0
         pos_rmse_std = float(grp["Fold Pos RMSE (m)"].std()) if not grp.empty and "Fold Pos RMSE (m)" in grp.columns else 0.0
         pos_r2_std = float(grp["Fold Pos R2 Score"].std()) if not grp.empty and "Fold Pos R2 Score" in grp.columns else 0.0
+
+        site_avg_r2 = float(grp.groupby("Site")["Fold R2 Score"].mean().mean()) if not grp.empty else cv_r2_pool
+        site_avg_pos_r2 = float(grp.groupby("Site")["Fold Pos R2 Score"].mean().mean()) if not grp.empty and "Fold Pos R2 Score" in grp.columns else cv_pos_r2_pool
 
         full_grp = df_full_site[(df_full_site["Paradigm Class"] == p_class) & (df_full_site["Model Name"] == m_name)]
         full_rmse = float(full_grp["Full RMSE (m)"].mean()) if not full_grp.empty else cv_rmse_pool
@@ -2301,6 +2358,16 @@ def evaluate_cross_paradigm_walk_forward_cv(
         summary_rows.append({
             "Paradigm Class": p_class,
             "Model Name": m_name,
+            # Standardized Per-Site Normalized Global Skill
+            "Normalized CV R2 (Δx)": norm_cv_r2,
+            "Normalized CV RMSE (Δx)": norm_cv_rmse,
+            "Normalized CV BSS (Δx)": norm_cv_bss,
+            "Normalized Position CV R2": norm_pos_r2,
+            "Normalized Position CV RMSE": norm_pos_rmse,
+            "Normalized Position CV Pearson r": norm_pos_corr,
+            "Normalized Position CV BSS": norm_pos_bss,
+            "Site-Averaged R2 (Δx)": site_avg_r2,
+            "Site-Averaged Pos R2": site_avg_pos_r2,
             # Position-Level Performance Metrics (x_t)
             "Position CV R2 Score": cv_pos_r2_pool,
             "Position CV RMSE (m)": cv_pos_rmse_pool,
