@@ -1739,7 +1739,12 @@ def align_hydrodynamics_with_field_surveys(
         exact_pos = df_hydro.index.get_indexer([surv_t], method="nearest")[0]
         prev_pos = df_hydro.index.get_indexer([prev_time], method="nearest")[0] if prev_time is not None else max(0, exact_pos - 24)
 
-        ups_mem_val = float(ups_memory_full[exact_pos]) if exact_pos < len(ups_memory_full) else float(sub_hydro["upsilon"].mean())
+        ups_mem_inst = float(ups_memory_full[exact_pos]) if exact_pos < len(ups_memory_full) else float(sub_hydro["upsilon"].mean())
+        if prev_pos < exact_pos:
+            ups_mem_val = float(np.mean(ups_memory_full[prev_pos : exact_pos + 1]))
+        else:
+            ups_mem_val = ups_mem_inst
+
         ups_diseq_delta = float(ups_diseq_full[exact_pos] - ups_diseq_full[prev_pos]) if exact_pos < len(ups_diseq_full) and prev_pos < len(ups_diseq_full) else 0.0
         ups_diseq_pos = float(ups_diseq_full[exact_pos]) if exact_pos < len(ups_diseq_full) else 0.0
         yates_delta = float(yates_full[exact_pos] - yates_full[prev_pos]) if exact_pos < len(yates_full) and prev_pos < len(yates_full) else 0.0
@@ -1804,6 +1809,7 @@ def align_hydrodynamics_with_field_surveys(
             "antecedent_signed_equilibrium_rate": float(sub_hydro["signed_equilibrium_rate"].mean()) if "signed_equilibrium_rate" in sub_hydro.columns else (mean_ups - 2500.0) * -1.2e-5,
             "antecedent_log_upsilon": log_ups_mean,
             "antecedent_upsilon_memory": ups_mem_val,
+            "antecedent_instantaneous_upsilon_memory": ups_mem_inst,
             "antecedent_cum_upsilon": cum_ups,
             "antecedent_max_hs_m": max_hs,
             "antecedent_mean_hs_m": mean_hs,

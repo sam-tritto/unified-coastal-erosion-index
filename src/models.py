@@ -1957,6 +1957,11 @@ def evaluate_cross_paradigm_walk_forward_cv(
                 ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_delta_x_m"].values,
                 ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_delta_x_m"].values,
             }
+            model_positions = {
+                ("Class III (Bayesian)", "Signed Equilibrium Upsilon"): df_survey["upsilon_diseq_simulated_pos_m"].values,
+                ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_pos_m"].values,
+                ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_pos_m"].values,
+            }
 
             min_train = int(n_obs * 0.5)
             step = int((n_obs - min_train) / n_splits)
@@ -2011,10 +2016,20 @@ def evaluate_cross_paradigm_walk_forward_cv(
                         slope, intercept = np.polyfit(dp_tr_raw, y_tr, 1)
                         dp_te = slope * dp_te + intercept
 
-                    # Cumulative shoreline position integration over test window
+                    # Cumulative shoreline position integration or calibrated trajectory over test window
                     pos_actual_te = pos_all[tr_end:te_end]
-                    pos_init = pos_all[tr_end - 1] if tr_end > 0 else 0.0
-                    pos_pred_te = pos_init + np.cumsum(dp_te)
+                    if (p_class, m_name) in model_positions:
+                        raw_pos_tr = model_positions[(p_class, m_name)][:tr_end]
+                        raw_pos_te = model_positions[(p_class, m_name)][tr_end:te_end]
+                        if np.std(raw_pos_tr) > 1e-6:
+                            slope_p, intercept_p = np.polyfit(raw_pos_tr, pos_all[:tr_end], 1)
+                            pos_pred_te = slope_p * raw_pos_te + intercept_p
+                        else:
+                            pos_init = pos_all[tr_end - 1] if tr_end > 0 else 0.0
+                            pos_pred_te = pos_init + np.cumsum(dp_te)
+                    else:
+                        pos_init = pos_all[tr_end - 1] if tr_end > 0 else 0.0
+                        pos_pred_te = pos_init + np.cumsum(dp_te)
 
                     key = (p_class, m_name)
                     if key not in pooled_preds:
@@ -2091,7 +2106,15 @@ def evaluate_cross_paradigm_walk_forward_cv(
                         dp_full = dp_raw
 
                 # Full series cumulative position
-                pos_full_pred = pos_all[0] + np.cumsum(dp_full)
+                if (p_class, m_name) in model_positions:
+                    raw_pos_full = model_positions[(p_class, m_name)]
+                    if np.std(raw_pos_full) > 1e-6:
+                        s_p_f, i_p_f = np.polyfit(raw_pos_full, pos_all, 1)
+                        pos_full_pred = s_p_f * raw_pos_full + i_p_f
+                    else:
+                        pos_full_pred = pos_all[0] + np.cumsum(dp_full)
+                else:
+                    pos_full_pred = pos_all[0] + np.cumsum(dp_full)
                 full_site_records.append({
                     "Site": site,
                     "Paradigm Class": p_class,
