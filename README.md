@@ -2,7 +2,7 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![PyMC 5.0+](https://img.shields.io/badge/PyMC-v5.0+-red.svg)](https://www.pymc.io/)
-[![Tests](https://img.shields.io/badge/pytest-86%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/pytest-91%20passed-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A physics-informed foundation framework for multi-modal coastal hydrodynamics synchronization, Bayesian morphodynamic forecasting with PyMC, continuous global dimensionless scaling, and physics-anchored latent embeddings.
@@ -151,31 +151,49 @@ The formulation is validated against real ground-truth profile surveys measured 
 
 ---
 
-## 4. Methodological Distinction: Section 4 vs. Section 4.5
+## 4. Methodological Distinction: Section 4 vs. Section 4.5 & Benchmark Refinements
 
 ```mermaid
 flowchart TD
     subgraph S4 ["Section 4: Probabilistic Bayesian Morphodynamic Modeling"]
         S4A["PyMC NUTS Hamiltonian Monte Carlo"] --> S4B["Infers Latent Memory: γ ~ Beta(5, 20)"]
-        S4B --> S4C["Heavy-Tailed Likelihood: Student-T(ν, μ, σ)"]
+        S4B --> S4C["Dynamic Heteroscedastic Likelihood: Student-T(ν, μ, σ_t)"]
         S4C --> S4D["Multi-Paradigm Evaluation: PSIS-LOO-CV / Walk-Forward CV / 75-25 Holdout"]
         S4D --> S4E["Output: 94% HDI Credible Envelopes & ELPD Model Ranking"]
     end
 
-    subgraph S45 ["Section 4.5: In-Situ Field Survey Empirical Validation"]
-        S45A["Direct Observed Surveys: N=68 (L58) & N=82 (L109)"] --> S45B["Inter-Survey Hydrodynamic Integration"]
-        S45B --> S45C["Deterministic Least-Squares & Skill Metrics"]
-        S45C --> S45D["Pearson r, Spearman ρ, R², BSS, RMSE"]
-        S45D --> S4E2["Output: Non-Parametric Signal-to-Noise Ranking"]
+    subgraph S45 ["Section 4.5: Multi-Site In-Situ Field Survey Benchmark"]
+        S45A["Direct Observed Surveys: 5 Global Sites (Duck, Narrabeen, Torrey Pines, Truc Vert, Oahu)"] --> S45B["Continuous Hourly Hydrodynamic Memory Convolution"]
+        S45B --> S45C["Multi-Timescale Tracking: Cumulative Position (x_t) & Step Changes (Δx)"]
+        S45C --> S45D["Per-Site Standardization: Δx / σ_site & x_t / σ_site"]
+        S45D --> S4E2["Output: Standardized Cross-Paradigm Synthesis Table"]
     end
 ```
 
-* **Section 4 (Bayesian Probabilistic Modeling):** Solves $\mu_t = \alpha + \beta E_t(\gamma)$ with Student-$t$ likelihood ($\nu \ge 5$). Evaluates **epistemic uncertainty quantification (UQ)** and out-of-sample generalizability across three configurable paradigms:
-  1. **PSIS-LOO-CV (`eval_mode="loo"`):** Full-series Bayesian parameter inference ranked by **Expected Log Predictive Density ($\text{ELPD}_{\text{LOO}}$)** and **LOO Stacking Weights** via ArviZ Pareto-Smoothed Importance Sampling, avoiding sample size loss on small survey records.
-  2. **Rolling-Origin Walk-Forward CV (`eval_mode="rolling_origin"`):** Sequential expanding-window temporal cross-validation evaluating pure out-of-sample skill across multiple seasons.
-  3. **Temporal Holdout (`eval_mode="holdout"`):** Chronological forward train/test split (e.g. 75/25).
-  * **Standout Performer — Signed Equilibrium $\Upsilon$:** Achieves superior out-of-sample performance across both PSIS-LOO-CV and Walk-Forward CV by modeling **bidirectional disequilibrium relaxation** ($\frac{dX}{dt} = -C_{\text{ero}}(\Upsilon - \Upsilon_{\text{eq}})^+ + C_{\text{acc}}(\Upsilon_{\text{eq}} - \Upsilon)^+$), accurately capturing destructive storm scarping ($-\Delta X$) and post-storm calm berm recovery ($+\Delta X$) without lookahead data leakage.
-* **Section 4.5 (Empirical Skill Validation):** Direct classical oceanographic correlation of antecedent forcing against observed survey-to-survey displacement $\Delta X_{\text{obs}}$. Integrating the Signed Equilibrium Formulation ($\Upsilon_{\text{diseq}} = \Upsilon - \Upsilon_{\text{eq}}$) elevates explanatory power from $R^2 \approx 0.13 \to 0.33-0.35+$, accurately predicting both destructive storm erosion and constructive post-storm berm building.
+### 4.1 Probabilistic Modeling & Dynamic Heteroscedastic Uncertainty (Approach A)
+* **Mean Trajectory:** Solves $\mu_t = \alpha + \beta E_t(\gamma)$ with robust Student-$t$ degrees of freedom ($\nu \ge 5$).
+* **Dynamic Storm-Scaled Variance ($\sigma_t$):**
+  $$\sigma_t = \sigma_{\text{base}} + \sigma_{\text{storm}} \cdot \max(0, E_t)$$
+  * **Physical Rationale:** Beach profile measurement noise during calm, low-energy swell is small ($\sigma \sim 0.1\text{--}0.3\text{m}$), whereas peak storm events exhibit large turbulent scarping variability ($\sigma \sim 2\text{--}4\text{m}$).
+  * **Benefit:** Prevents over-penalization of predictive likelihoods during fair-weather background swells while naturally widening 94% HDI uncertainty envelopes during severe storm cut.
+* **Evaluation Paradigms:**
+  1. **PSIS-LOO-CV (`eval_mode="loo"`):** Pareto-Smoothed Importance Sampling ranked by **Expected Log Predictive Density ($\text{ELPD}_{\text{LOO}}$)** and Stacking Weights.
+  2. **Rolling-Origin Walk-Forward CV (`eval_mode="rolling_origin"`):** Chronological forward expanding-window cross-validation evaluating pure out-of-sample skill without lookahead leakage.
+  3. **Temporal Holdout (`eval_mode="holdout"`):** Forward split (e.g. 75/25).
+
+### 4.2 Multi-Timescale Evaluation: Cumulative Position ($x_t$) vs. Step Changes ($\Delta x$)
+* **Step Deltas ($\Delta x_k$):** Measures high-frequency impulse response between adjacent survey epochs ($t_{k-1} \to t_k$). Due to in-situ GPS noise floors ($\sim 3\text{m}$), raw step $\Delta x$ skill is tightly bounded.
+* **Cumulative Position ($x_t = x_0 + \sum \Delta x_k$):** Tracks the multi-year shoreline trajectory, capturing long-term multi-week berm recovery and multi-seasonal equilibrium cycles ($R^2 \approx 0.06\text{--}0.10+$ on blind out-of-sample multi-site field holdouts).
+
+### 4.3 Continuous Hourly Hydrodynamic Memory Integration
+* Continuous hydrodynamic time series are convolved hourly with antecedent memory decay:
+  $$\Upsilon^*(t) = \int_0^t \Upsilon(\tau) \cdot e^{-(t-\tau)/\lambda} d\tau$$
+* Exact inter-survey forcing is computed via interval integration $\bar{\Upsilon}^*_k = \frac{1}{t_k - t_{k-1}} \int_{t_{k-1}}^{t_k} \Upsilon^*(t) dt$, completely eliminating multi-week row-lag artifacts across irregularly spaced field surveys.
+
+### 4.4 Per-Site Standardized Skill Normalization ($\sigma_{\text{site}}$)
+* To prevent high-energy, high-variance macrotidal sites (e.g., Truc Vert $\sigma \approx 9.7\text{m}$, Duck $\sigma \approx 7.5\text{m}$) from dominating global cross-validation metrics over lower-variance rotational or reef-fronted sites (Narrabeen $\sigma \approx 2.5\text{m}$, Torrey Pines $\sigma \approx 5.1\text{m}$), all test fold actuals and predictions are standardized by their site-specific natural envelope:
+  $$\Delta x_{\text{norm}} = \frac{\Delta x}{\sigma_{\text{site}, \Delta x}}, \quad x_{t, \text{norm}} = \frac{x_t}{\sigma_{\text{site}, x_t}}$$
+* The synthesis engine reports both **Dimensionless Normalized Metrics** (`Normalized Position CV R2`, `Normalized CV R2 (Δx)`) and **Site-Averaged Macro Metrics** (`Site-Averaged Pos R2`, `Site-Averaged R2 (Δx)`).
 
 ---
 
@@ -192,24 +210,28 @@ Evaluated across three operational horizons:
 
 ```
 unified-coastal-erosion-index/
-├── data/                                # Cached NOAA / USACE / CDIP survey & buoy records
+├── data/                                      # Cached NOAA / USACE / CDIP survey & buoy records
 ├── src/
-│   ├── physics.py                       # Master formulation Υ, Signed Equilibrium, Ψ_tide, Ψ_dir, Ψ_reef
-│   ├── data.py                          # Multi-modal ETL, THREDDS survey parsers, forward morphodynamics
-│   ├── models.py                        # PyMC Bayesian models, latent memory kernels, ArviZ LOO-CV
-│   ├── neural_baselines.py              # Physics-Guided LSTM, Standard LSTM, MLP benchmarks
-│   ├── embeddings.py                    # Latent space feature extraction, UMAP projections
-│   ├── physics_rag.py                   # Physics query parser & Gemini Flash RAG interface
-│   └── acquire_real_surveys.py          # USACE CHL THREDDS automated scraper
+│   ├── physics.py                             # Master formulation Υ, Signed Equilibrium, Ψ_tide, Ψ_dir, Ψ_reef
+│   ├── data.py                                # Multi-modal ETL, THREDDS survey parsers, continuous hydrodynamics
+│   ├── models.py                              # PyMC Bayesian models, heteroscedastic noise, cross-paradigm CV
+│   ├── neural_baselines.py                    # Physics-Guided LSTM, Standard LSTM, MLP benchmarks
+│   ├── embeddings.py                          # Latent space feature extraction, UMAP projections
+│   ├── physics_rag.py                         # Physics query parser & Gemini Flash RAG interface
+│   └── acquire_real_surveys.py                # USACE CHL THREDDS automated scraper
 ├── tests/
-│   ├── test_physics.py                  # Unit tests for Υ, signed equilibrium, tidal smearing, wave directionality
-│   ├── test_multi_site.py               # Cross-site geomorphology profile tests
-│   ├── test_data_pipeline.py            # Non-circular ETL pipeline tests
-│   ├── test_neural_baselines.py         # PyTorch neural training and rollout tests
-│   ├── test_physics_rag.py              # Latent vector retrieval and RAG tests
-│   └── test_field_surveys.py            # In-situ survey synchronization tests
-├── unified_coastal_vulnerability_index.ipynb # End-to-end interactive validation notebook
-├── pyproject.toml                       # Dependencies and package configuration
+│   ├── test_physics.py                        # Unit tests for Υ, heteroscedastic Bayesian models, CV engine
+│   ├── test_multi_site.py                     # Cross-site geomorphology profile tests
+│   ├── test_data_pipeline.py                  # Non-circular ETL pipeline tests
+│   ├── test_neural_baselines.py               # PyTorch neural training and rollout tests
+│   ├── test_physics_rag.py                    # Latent vector retrieval and RAG tests
+│   └── test_field_surveys.py                  # In-situ survey synchronization & skill tests
+├── 01_Unified_Feature_Engineering.ipynb       # Publication feature engineering across 5 global archetypes
+├── 02_Diagnostic_Baselines.ipynb              # Diagnostic baselines & Standardized Cross-Paradigm Table
+├── 03_SciML_Architectural_Ablation.ipynb      # 2x2 SciML Architectural Matrix & Bayesian attribution
+├── 04_Physics_RAG_Deployment.ipynb            # Universal Physics-RAG diagnostic search engine
+├── unified_coastal_vulnerability_index.ipynb   # Master end-to-end interactive validation notebook
+├── pyproject.toml                             # Dependencies and package configuration
 └── README.md
 ```
 
@@ -222,7 +244,7 @@ unified-coastal-erosion-index/
 # Install dependencies with uv
 uv sync
 
-# Run the complete test suite (86 tests)
+# Run the complete test suite (91 tests)
 uv run pytest tests/
 
 # Launch Jupyter Lab
