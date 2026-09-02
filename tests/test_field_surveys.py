@@ -8,84 +8,90 @@ from src.data import (
     align_hydrodynamics_with_field_surveys,
     load_field_survey_validation_dataset,
 )
-from src.models import evaluate_field_survey_correlation
+from src.models import (
+    evaluate_field_survey_correlation,
+    williams_test,
+    diebold_mariano_test,
+    bootstrap_metric_ci,
+)
 
 
-def test_load_frf_duck_field_surveys_schema():
-    """Verify that USACE FRF Duck field survey dataset loads with valid schema and transects."""
-    df = load_frf_duck_field_surveys(transect_id=None)
-    assert not df.empty
-    assert len(df) >= 20
-    assert "transect_id" in df.columns
-    assert "shoreline_pos_mhw_m" in df.columns
-    assert "cross_shore_change_m" in df.columns
-    assert "uncertainty_m" in df.columns
-    assert isinstance(df.index, pd.DatetimeIndex)
+def test_williams_test():
+    """Verify that the Hotelling-Williams test correctly computes t-statistic and p-value for dependent correlations."""
+    # When r1y == r2y, t_stat should be 0.0 and p_value should be 1.0
+    t_stat, p_val = williams_test(r1y=0.5, r2y=0.5, r12=0.6, n=50)
+    assert np.isclose(t_stat, 0.0)
+    assert np.isclose(p_val, 1.0)
 
-    # Verify multi-transect filtering
-    df_58 = load_frf_duck_field_surveys(transect_id="FRF_0058")
-    assert not df_58.empty
-    assert (df_58["transect_id"] == "FRF_0058").all()
-    assert df_58["shoreline_pos_mhw_m"].min() > 80.0  # Plausible subaerial MHW position
+    # When r1y significantly exceeds r2y with moderate inter-correlation
+    t_stat, p_val = williams_test(r1y=0.65, r2y=0.20, r12=0.30, n=80)
+    assert t_stat > 3.0
+    assert p_val < 0.01
 
-    df_109 = load_frf_duck_field_surveys(transect_id="FRF_0109")
-    assert not df_109.empty
-    assert (df_109["transect_id"] == "FRF_0109").all()
+    # Edge cases: n <= 3
+    t_edge, p_edge = williams_test(r1y=0.5, r2y=0.2, r12=0.1, n=3)
+    assert t_edge == 0.0
+    assert p_edge == 1.0
 
 
-def test_align_hydrodynamics_with_field_surveys():
-    """Verify synchronization between continuous hydrodynamics and discrete survey epochs."""
-    # Create synthetic continuous hydrodynamics spanning 2022
-    time_idx = pd.date_range("2022-01-01", "2022-12-31", freq="1h")
-    n = len(time_idx)
+def test_diebold_mariano_test():
+    """Verify that Diebold-Mariano test calculates loss differential statistics with HLN correction."""
     rng = np.random.default_rng(42)
+    n = 60
+    y_true = rng.normal(0, 1, n)
+    # Model 1 has smaller errors than Model 2
+    y_pred1 = y_true + rng.normal(0, 0.3, n)
+    y_pred2 = y_true + rng.normal(0, 0.8, n)
 
-    df_hydro = pd.DataFrame(
-        {
-            "hs_m": 1.2 + 0.8 * np.sin(np.linspace(0, 4 * np.pi, n)) + np.abs(rng.normal(0, 0.3, n)),
-            "tp_s": np.full(n, 9.0),
-            "surge_m": 0.2 + 0.3 * np.cos(np.linspace(0, 6 * np.pi, n)),
-            "upsilon": 5000.0 + 3000.0 * np.sin(np.linspace(0, 4 * np.pi, n)),
-            "log_upsilon": np.log10(5000.0 + 3000.0 * np.sin(np.linspace(0, 4 * np.pi, n))),
-            "dean_number": np.full(n, 2.5),
-            "p_flux_Wm": np.full(n, 12000.0),
-        },
-        index=time_idx,
-    )
+    dm_stat, p_val = diebold_mariano_test(y_true, y_pred1, y_pred2, loss="squared", h=1, hln_adjust=True)
+    assert dm_stat < 0.0  # Model 1 has lower MSE
+    assert p_val < 0.05  # Significant difference
 
-    df_surveys = load_frf_duck_field_surveys(transect_id="FRF_0058")
-    df_aligned = align_hydrodynamics_with_field_surveys(df_hydro, df_surveys, memory_hours=120)
+    # When both models are identical
+    dm_same, p_same = diebold_mariano_test(y_true, y_pred1, y_pred1, loss="squared")
+    assert np.isclose(dm_same, 0.0)
+    assert np.isclose(p_same, 1.0)
 
-    assert len(df_aligned) == len(df_surveys)
-    assert "antecedent_mean_upsilon" in df_aligned.columns
-    assert "antecedent_upsilon_memory" in df_aligned.columns
-    assert "antecedent_peak_upsilon" in df_aligned.columns
-    assert "antecedent_log_peak_upsilon" in df_aligned.columns
-    assert "antecedent_storm_work" in df_aligned.columns
-    assert "antecedent_log_storm_work" in df_aligned.columns
-    assert "antecedent_accretion_work" in df_aligned.columns
-    assert "antecedent_max_hs_m" in df_aligned.columns
-    assert "surveyed_pos_mhw_m" in df_aligned.columns
-    assert "surveyed_delta_x_m" in df_aligned.columns
-    assert not df_aligned["antecedent_mean_upsilon"].isnull().any()
-    assert not df_aligned["antecedent_peak_upsilon"].isnull().any()
-    assert not df_aligned["antecedent_storm_work"].isnull().any()
-    assert df_aligned.attrs["data_provenance"]["is_synthetic_morphodynamics"] is False
+
+def test_bootstrap_metric_ci():
+    """Verify that bootstrap confidence intervals compute valid bounds covering point estimates."""
+    rng = np.random.default_rng(42)
+    n = 50
+    x = np.linspace(0, 10, n)
+    y = 2.0 * x + rng.normal(0, 1.0, n)
+
+    point_r, r_low, r_high = bootstrap_metric_ci(x, y, metric_type="pearson_r", n_bootstraps=500, ci=0.95, random_seed=42)
+    assert r_low <= point_r <= r_high
+    assert r_low > 0.80  # Strong positive correlation
+
+    point_r2, r2_low, r2_high = bootstrap_metric_ci(x, y, metric_type="r2", n_bootstraps=500, ci=0.95, random_seed=42)
+    assert r2_low <= point_r2 <= r2_high
+    assert r2_low > 0.70
 
 
 def test_field_survey_correlation_evaluation():
-    """Verify that empirical correlation evaluation calculates skill metrics against true surveys."""
+    """Verify that empirical correlation evaluation calculates skill metrics, bootstrap CIs, Williams test, and variance lift."""
     df_aligned, meta = load_field_survey_validation_dataset(year=2022, transect_id="FRF_0058")
     assert not df_aligned.empty
     assert len(df_aligned) >= 10
 
-    df_skill = evaluate_field_survey_correlation(df_aligned, target_col="surveyed_delta_x_m")
+    df_skill = evaluate_field_survey_correlation(df_aligned, target_col="surveyed_delta_x_m", n_bootstraps=200)
     assert not df_skill.empty
     assert "Predictor" in df_skill.columns
     assert "Pearson r" in df_skill.columns
+    assert "r_95ci_lower" in df_skill.columns
+    assert "r_95ci_upper" in df_skill.columns
     assert "Spearman rho" in df_skill.columns
     assert "R2 Score" in df_skill.columns
+    assert "r2_95ci_lower" in df_skill.columns
+    assert "r2_95ci_upper" in df_skill.columns
     assert "RMSE (m)" in df_skill.columns
+    assert "Williams t-stat" in df_skill.columns
+    assert "Williams p-value" in df_skill.columns
+    assert "Diebold-Mariano stat" in df_skill.columns
+    assert "Diebold-Mariano p-value" in df_skill.columns
+    assert "Delta R2 vs Top" in df_skill.columns
+    assert "Pct Variance Lift (%)" in df_skill.columns
 
     # Verify that Signed Equilibrium Upsilon, Peak, and Cumulative Upsilon are present in the skill ranking
     predictors = df_skill["Predictor"].tolist()

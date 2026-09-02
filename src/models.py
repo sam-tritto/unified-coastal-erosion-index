@@ -1776,11 +1776,232 @@ def build_latent_equilibrium_bayesian_model(
     return model, meta
 
 
+def williams_test(
+    r1y: float,
+    r2y: float,
+    r12: float,
+    n: int,
+) -> Tuple[float, float]:
+    """Hotelling-Williams test for comparing two dependent/overlapping correlation coefficients
+    r1y and r2y sharing a common criterion variable y.
+
+    Tests H0: rho(X1, Y) = rho(X2, Y) vs H1: rho(X1, Y) != rho(X2, Y) given inter-correlation rho(X1, X2).
+
+    Parameters
+    ----------
+    r1y : float
+        Correlation between predictor 1 (e.g. Upsilon) and target y.
+    r2y : float
+        Correlation between predictor 2 (baseline competitor) and target y.
+    r12 : float
+        Inter-correlation between predictor 1 and predictor 2.
+    n : int
+        Sample size (number of survey observations).
+
+    Returns
+    -------
+    t_stat : float
+        Williams t-statistic with (n - 3) degrees of freedom.
+    p_value : float
+        Two-sided p-value.
+    """
+    from scipy import stats
+
+    if n <= 3:
+        return 0.0, 1.0
+
+    det_R = 1.0 - (r1y ** 2) - (r2y ** 2) - (r12 ** 2) + 2.0 * r1y * r2y * r12
+    det_R = max(det_R, 1e-12)
+    r_bar = (r1y + r2y) / 2.0
+
+    denom_sq = (2.0 * (n - 1) / (n - 3)) * det_R + (r_bar ** 2) * ((1.0 - r12) ** 3)
+    if denom_sq <= 0:
+        return 0.0, 1.0
+
+    denom = np.sqrt(denom_sq)
+    num = (r1y - r2y) * np.sqrt((n - 1) * (1.0 + r12))
+    t_stat = float(num / denom)
+    df = n - 3
+    p_val = float(2.0 * (1.0 - stats.t.cdf(np.abs(t_stat), df=df)))
+    return t_stat, p_val
+
+
+def diebold_mariano_test(
+    y_true: np.ndarray,
+    y_pred1: np.ndarray,
+    y_pred2: np.ndarray,
+    loss: str = "squared",
+    h: int = 1,
+    hln_adjust: bool = True,
+) -> Tuple[float, float]:
+    """Diebold-Mariano test for comparing predictive accuracy between two forecast models,
+    incorporating the Harvey-Leybourne-Newbold (HLN, 1997) small-sample correction.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+        Ground-truth target observations.
+    y_pred1 : np.ndarray
+        Model 1 predictions (e.g. Upsilon).
+    y_pred2 : np.ndarray
+        Model 2 predictions (baseline competitor).
+    loss : str
+        Loss function: 'squared' (MSE differential) or 'absolute' (MAE differential).
+    h : int
+        Forecast horizon in steps (default 1).
+    hln_adjust : bool
+        Whether to apply the Harvey-Leybourne-Newbold small-sample multiplier.
+
+    Returns
+    -------
+    dm_stat : float
+        Diebold-Mariano test statistic (negative indicates Model 1 has lower error than Model 2).
+    p_value : float
+        Two-sided p-value from Student-t distribution with (n - 1) degrees of freedom.
+    """
+    from scipy import stats
+
+    y_t = np.asarray(y_true, dtype=float)
+    p1 = np.asarray(y_pred1, dtype=float)
+    p2 = np.asarray(y_pred2, dtype=float)
+    n = len(y_t)
+    if n < 4:
+        return 0.0, 1.0
+
+    if loss == "squared":
+        d = (y_t - p1) ** 2 - (y_t - p2) ** 2
+    else:
+        d = np.abs(y_t - p1) - np.abs(y_t - p2)
+
+    d_bar = np.mean(d)
+    gamma_0 = np.var(d, ddof=1)
+    if gamma_0 < 1e-12:
+        return 0.0, 1.0
+
+    v = gamma_0 / n
+    if h > 1:
+        gamma_k_sum = 0.0
+        for k in range(1, h):
+            cov_k = np.sum((d[k:] - d_bar) * (d[:-k] - d_bar)) / n
+            gamma_k_sum += 2.0 * (1.0 - k / h) * cov_k
+        v = (gamma_0 + gamma_k_sum) / n
+        v = max(v, 1e-12)
+
+    dm_stat = float(d_bar / np.sqrt(v))
+    if hln_adjust:
+        hln_factor = np.sqrt((n + 1 - 2 * h + h * (h - 1) / n) / n)
+        dm_stat = dm_stat * float(hln_factor)
+
+    df = n - 1
+    p_val = float(2.0 * (1.0 - stats.t.cdf(np.abs(dm_stat), df=df)))
+    return dm_stat, p_val
+
+
+def bootstrap_metric_ci(
+    x: np.ndarray,
+    y: np.ndarray,
+    metric_type: str = "pearson_r",
+    n_bootstraps: int = 1000,
+    ci: float = 0.95,
+    random_seed: int = 42,
+) -> Tuple[float, float, float]:
+    """Calculate non-parametric bootstrap confidence intervals (e.g. 95% CI) for
+    correlation (Pearson r, Spearman rho), R2 score, or RMSE.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Predictor feature array or model predictions.
+    y : np.ndarray
+        Ground-truth target array.
+    metric_type : str
+        One of 'pearson_r', 'spearman_rho', 'r2', or 'rmse'.
+    n_bootstraps : int
+        Number of bootstrap resamples (default 1000).
+    ci : float
+        Confidence level (default 0.95 for 95% CI).
+    random_seed : int
+        Random generator seed for reproducibility.
+
+    Returns
+    -------
+    point_est : float
+        Point estimate on original sample.
+    ci_lower : float
+        Lower confidence bound.
+    ci_upper : float
+        Upper confidence bound.
+    """
+    from scipy import stats
+
+    x_arr = np.asarray(x, dtype=float)
+    y_arr = np.asarray(y, dtype=float)
+    n = len(x_arr)
+    if n < 4:
+        return 0.0, 0.0, 0.0
+
+    # Point estimate
+    if metric_type == "pearson_r":
+        point_est = float(stats.pearsonr(x_arr, y_arr)[0])
+    elif metric_type == "spearman_rho":
+        point_est = float(stats.spearmanr(x_arr, y_arr)[0])
+    elif metric_type == "r2":
+        slope, intercept, _, _, _ = stats.linregress(x_arr, y_arr)
+        yp = slope * x_arr + intercept
+        ss_tot = np.sum((y_arr - np.mean(y_arr)) ** 2)
+        ss_res = np.sum((y_arr - yp) ** 2)
+        point_est = float(1.0 - ss_res / max(ss_tot, 1e-8))
+    elif metric_type == "rmse":
+        slope, intercept, _, _, _ = stats.linregress(x_arr, y_arr)
+        yp = slope * x_arr + intercept
+        point_est = float(np.sqrt(np.mean((y_arr - yp) ** 2)))
+    else:
+        raise ValueError(f"Unknown metric_type: {metric_type}")
+
+    rng = np.random.default_rng(random_seed)
+    boot_vals = []
+    alpha = (1.0 - ci) / 2.0
+
+    for _ in range(n_bootstraps):
+        idx = rng.choice(n, size=n, replace=True)
+        xb = x_arr[idx]
+        yb = y_arr[idx]
+        if np.std(xb) < 1e-8 or np.std(yb) < 1e-8:
+            continue
+
+        if metric_type == "pearson_r":
+            val = stats.pearsonr(xb, yb)[0]
+        elif metric_type == "spearman_rho":
+            val = stats.spearmanr(xb, yb)[0]
+        elif metric_type == "r2":
+            slope, intercept, _, _, _ = stats.linregress(xb, yb)
+            yp = slope * xb + intercept
+            ss_tot = np.sum((yb - np.mean(yb)) ** 2)
+            ss_res = np.sum((yb - yp) ** 2)
+            val = 1.0 - ss_res / max(ss_tot, 1e-8)
+        elif metric_type == "rmse":
+            slope, intercept, _, _, _ = stats.linregress(xb, yb)
+            yp = slope * xb + intercept
+            val = np.sqrt(np.mean((yb - yp) ** 2))
+        boot_vals.append(val)
+
+    if not boot_vals:
+        return point_est, point_est, point_est
+
+    ci_lower = float(np.percentile(boot_vals, alpha * 100.0))
+    ci_upper = float(np.percentile(boot_vals, (1.0 - alpha) * 100.0))
+    return point_est, ci_lower, ci_upper
+
+
 def evaluate_field_survey_correlation(
     df_aligned_surveys: pd.DataFrame,
     target_col: str = "surveyed_delta_x_m",
+    n_bootstraps: int = 1000,
+    random_seed: int = 42,
 ) -> pd.DataFrame:
-    """Evaluate empirical correlation and predictive skill of physical forcings against in-situ ground-truth field surveys.
+    """Evaluate empirical correlation and predictive skill of physical forcings against in-situ ground-truth field surveys,
+    including 95% bootstrap confidence intervals, Williams test for dependent correlations, Diebold-Mariano forecast error
+    significance tests, and explained variance lift metrics.
 
     Parameters
     ----------
@@ -1789,12 +2010,16 @@ def evaluate_field_survey_correlation(
     target_col : str
         Target column in df_aligned_surveys ('surveyed_delta_x_m' for inter-survey change,
         or 'cumulative_displacement_m' for total cross-shore shift).
+    n_bootstraps : int
+        Number of bootstrap iterations for 95% confidence intervals (default 1000).
+    random_seed : int
+        Random seed for reproducible bootstrap sampling.
 
     Returns
     -------
     df_skill : pd.DataFrame
         Ranked skill table comparing empirical correlation (Pearson r, Spearman rho),
-        R2 score, and RMSE against true field survey observations.
+        bootstrap 95% CIs, R2 score, RMSE, Williams p-values, DM statistics, and variance lift.
     """
     from scipy import stats
 
@@ -1825,7 +2050,10 @@ def evaluate_field_survey_correlation(
         "Peak Storm Surge (max S)": "antecedent_max_surge_m",
     }
 
-    results = []
+    raw_results = []
+    x_dict = {}
+    ypred_dict = {}
+
     for label, col in predictors.items():
         if col not in df_aligned_surveys.columns:
             continue
@@ -1845,24 +2073,95 @@ def evaluate_field_survey_correlation(
         r2 = float(1.0 - (np.sum((y_true - y_pred) ** 2) / max(np.sum((y_true - np.mean(y_true)) ** 2), 1e-6)))
         bss = float(1.0 - (np.mean((y_true - y_pred) ** 2) / mse_base))
 
-        results.append({
+        # 95% Bootstrap CIs
+        _, r_ci_low, r_ci_high = bootstrap_metric_ci(x, y_true, metric_type="pearson_r", n_bootstraps=n_bootstraps, random_seed=random_seed)
+        _, rho_ci_low, rho_ci_high = bootstrap_metric_ci(x, y_true, metric_type="spearman_rho", n_bootstraps=n_bootstraps, random_seed=random_seed)
+        _, r2_ci_low, r2_ci_high = bootstrap_metric_ci(x, y_true, metric_type="r2", n_bootstraps=n_bootstraps, random_seed=random_seed)
+
+        x_dict[label] = x
+        ypred_dict[label] = y_pred
+
+        raw_results.append({
             "Predictor": label,
-            "Pearson r": r,
-            "p-value (Pearson)": p_pearson,
-            "Spearman rho": rho,
-            "p-value (Spearman)": p_spearman,
-            "R2 Score": r2,
-            "RMSE (m)": rmse,
-            "MAE (m)": mae,
-            "Brier Skill Score (BSS)": bss,
+            "Pearson r": float(r),
+            "p-value (Pearson)": float(p_pearson),
+            "r_95ci_lower": float(r_ci_low),
+            "r_95ci_upper": float(r_ci_high),
+            "Spearman rho": float(rho),
+            "p-value (Spearman)": float(p_spearman),
+            "rho_95ci_lower": float(rho_ci_low),
+            "rho_95ci_upper": float(rho_ci_high),
+            "R2 Score": float(r2),
+            "r2_95ci_lower": float(r2_ci_low),
+            "r2_95ci_upper": float(r2_ci_high),
+            "RMSE (m)": float(rmse),
+            "MAE (m)": float(mae),
+            "Brier Skill Score (BSS)": float(bss),
             "N Surveys": n,
         })
 
-    df_skill = pd.DataFrame(results)
-    if not df_skill.empty:
-        # Sort by absolute correlation with observed morphodynamics
-        df_skill["Abs_r"] = df_skill["Pearson r"].abs()
-        df_skill = df_skill.sort_values(by="Abs_r", ascending=False).drop(columns=["Abs_r"]).reset_index(drop=True)
+    df_skill = pd.DataFrame(raw_results)
+    if df_skill.empty:
+        return df_skill
+
+    # Sort by absolute correlation with observed morphodynamics
+    df_skill["Abs_r"] = df_skill["Pearson r"].abs()
+    df_skill = df_skill.sort_values(by="Abs_r", ascending=False).drop(columns=["Abs_r"]).reset_index(drop=True)
+
+    # Reference top predictor (Signed Equilibrium Upsilon if present, or rank 1)
+    top_label = "Unified Index (Signed Equilibrium dX/dt)"
+    if top_label not in x_dict:
+        top_label = df_skill["Predictor"].iloc[0]
+
+    top_x = x_dict[top_label]
+    top_ypred = ypred_dict[top_label]
+    top_r = float(df_skill.loc[df_skill["Predictor"] == top_label, "Pearson r"].iloc[0])
+    top_r2 = float(df_skill.loc[df_skill["Predictor"] == top_label, "R2 Score"].iloc[0])
+
+    williams_t_list = []
+    williams_p_list = []
+    dm_stat_list = []
+    dm_p_list = []
+    delta_r2_list = []
+    pct_lift_list = []
+
+    for _, row in df_skill.iterrows():
+        p_label = row["Predictor"]
+        p_r = row["Pearson r"]
+        p_r2 = row["R2 Score"]
+        p_x = x_dict[p_label]
+        p_ypred = ypred_dict[p_label]
+
+        if p_label == top_label:
+            williams_t_list.append(0.0)
+            williams_p_list.append(1.0)
+            dm_stat_list.append(0.0)
+            dm_p_list.append(1.0)
+            delta_r2_list.append(0.0)
+            pct_lift_list.append(0.0)
+        else:
+            # Orientation alignment for Williams test comparison
+            x_oriented = p_x if p_r * top_r >= 0 else -p_x
+            r12 = float(stats.pearsonr(top_x, x_oriented)[0])
+            t_will, p_will = williams_test(np.abs(top_r), np.abs(p_r), r12, n)
+            dm_s, p_dm = diebold_mariano_test(y_true, top_ypred, p_ypred)
+
+            delta_r2 = float(top_r2 - p_r2)
+            pct_lift = float((delta_r2 / max(p_r2, 1e-4)) * 100.0) if p_r2 > 0 else np.nan
+
+            williams_t_list.append(t_will)
+            williams_p_list.append(p_will)
+            dm_stat_list.append(dm_s)
+            dm_p_list.append(p_dm)
+            delta_r2_list.append(delta_r2)
+            pct_lift_list.append(pct_lift)
+
+    df_skill["Williams t-stat"] = williams_t_list
+    df_skill["Williams p-value"] = williams_p_list
+    df_skill["Diebold-Mariano stat"] = dm_stat_list
+    df_skill["Diebold-Mariano p-value"] = dm_p_list
+    df_skill["Delta R2 vs Top"] = delta_r2_list
+    df_skill["Pct Variance Lift (%)"] = pct_lift_list
 
     return df_skill
 
@@ -2405,3 +2704,494 @@ def evaluate_cross_paradigm_walk_forward_cv(
     df_synthesis.attrs["n_splits"] = n_splits
 
     return df_synthesis, df_folds
+
+
+def calibrate_signed_equilibrium_parameters(
+    training_data: List[pd.DataFrame],
+    initial_c_erosion: float = 1.2e-5,
+    initial_c_accretion: float = 1.8e-5,
+    upsilon_col: str = "antecedent_mean_upsilon",
+    target_col: str = "surveyed_delta_x_m",
+) -> Dict[str, float]:
+    """Calibrate Signed Equilibrium Upsilon rate coefficients (c_erosion, c_accretion) across multi-site training sets.
+
+    Fits the positive erosive and negative accretive response rates on pooled multi-site survey data:
+        Delta_X = -c_erosion * max(Upsilon - Upsilon_eq, 0) + c_accretion * max(Upsilon_eq - Upsilon, 0)
+
+    Parameters
+    ----------
+    training_data : list of pd.DataFrame
+        List of aligned survey dataframes from training sites.
+    initial_c_erosion, initial_c_accretion : float
+        Initial parameter guesses.
+    upsilon_col : str
+        Column name for Upsilon forcing.
+    target_col : str
+        Column name for surveyed cross-shore displacement.
+
+    Returns
+    -------
+    dict
+        Optimized rate coefficients and linear transfer coefficients.
+    """
+    from scipy.optimize import minimize
+
+    all_y = []
+    all_raw_delta = []
+
+    for df in training_data:
+        if df.empty or target_col not in df.columns:
+            continue
+        y_vals = df[target_col].values
+        if "upsilon_diseq_simulated_delta_x_m" in df.columns:
+            d_raw = df["upsilon_diseq_simulated_delta_x_m"].values
+        else:
+            ups = df[upsilon_col].values if upsilon_col in df.columns else np.zeros(len(df))
+            ups_eq = np.median(ups) if len(ups) > 0 else 2500.0
+            d_ero = np.maximum(ups - ups_eq, 0.0)
+            d_acc = np.maximum(ups_eq - ups, 0.0)
+            d_raw = -initial_c_erosion * d_ero + initial_c_accretion * d_acc
+        all_y.extend(y_vals)
+        all_raw_delta.extend(d_raw)
+
+    all_y = np.array(all_y)
+    all_raw_delta = np.array(all_raw_delta)
+
+    if len(all_y) < 5 or np.std(all_raw_delta) < 1e-8:
+        return {
+            "c_erosion": initial_c_erosion,
+            "c_accretion": initial_c_accretion,
+            "slope": 1.0,
+            "intercept": 0.0,
+        }
+
+    slope, intercept = np.polyfit(all_raw_delta, all_y, 1)
+    c_ero_cal = max(float(initial_c_erosion * abs(slope)), 1e-7)
+    c_acc_cal = max(float(initial_c_accretion * abs(slope)), 1e-7)
+
+    return {
+        "c_erosion": c_ero_cal,
+        "c_accretion": c_acc_cal,
+        "slope": float(slope),
+        "intercept": float(intercept),
+    }
+
+
+def evaluate_leave_one_site_out_cv(
+    sites: Optional[List[str]] = None,
+    draws: int = 300,
+    tune: int = 200,
+    chains: int = 2,
+    cores: int = 1,
+    random_seed: int = 42,
+    use_field_surveys: bool = True,
+    data_dir: str = "data/processed",
+    eval_interval_hours: int = 24,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Execute Leave-One-Site-Out (LOSO) Cross-Validation across global coastal sites.
+
+    For each held-out site (k = 1...K):
+      1. Uses the remaining K - 1 sites exclusively for training and calibration.
+      2. Calibrates Class I (Yates, ShoreFor), Class II (XBeach), and Class III (Signed Equilibrium Upsilon, Bayesian Latent Memory).
+      3. Predicts cross-shore displacement (Delta-X) and cumulative trajectory (x_t) zero-shot on the held-out site.
+      4. Evaluates both Global Default parameters and 4-Site Calibrated parameters on unseen beaches (cf. Stockdon et al. 2006).
+
+    Parameters
+    ----------
+    sites : list of str, optional
+        List of global site keys (default: all 5 sites).
+    draws, tune, chains, cores, random_seed : MCMC sampling config.
+    use_field_surveys : bool
+        If True (default), evaluates against authentic in-situ GPS/Lidar field surveys.
+    data_dir : str
+        Path to processed sensor parquet datasets (used when use_field_surveys is False).
+    eval_interval_hours : int
+        Subsampling interval for delta displacement evaluation if using sensor data (default 24h).
+
+    Returns
+    -------
+    synthesis_loso_df : pd.DataFrame
+        Publication-grade Global Pooled LOSO Synthesis Table comparing transferability across paradigms.
+    held_out_sites_df : pd.DataFrame
+        Detailed held-out site performance breakdown for every fold.
+    """
+    import os
+    from sklearn.metrics import r2_score, mean_squared_error
+    from src.data import (
+        load_dataset,
+        load_site_field_surveys,
+        align_hydrodynamics_with_field_surveys,
+        simulate_equilibrium_shoreline_evolution,
+        simulate_shorefor_evolution,
+        simulate_xbeach_inspired_morphodynamics,
+    )
+    from src.physics import (
+        COASTAL_SITE_PROFILES,
+        simulate_signed_equilibrium_upsilon_evolution,
+    )
+
+    if sites is None:
+        sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+
+    site_data = {}
+
+    for site in sites:
+        if use_field_surveys:
+            df_surveys = load_site_field_surveys(site, transect_index=None)
+            df_hydro, _ = load_dataset(site=site)
+            if df_hydro.index.tz is not None and df_surveys.index.tz is None:
+                df_surveys.index = df_surveys.index.tz_localize("UTC")
+            elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
+                df_surveys.index = df_surveys.index.tz_convert(None)
+            df_survey = align_hydrodynamics_with_field_surveys(df_hydro, df_surveys)
+
+            if len(df_survey) < 5:
+                continue
+
+            y_all = df_survey["surveyed_delta_x_m"].values
+            pos_all = df_survey["cumulative_displacement_m"].values if "cumulative_displacement_m" in df_survey.columns else (
+                df_survey["surveyed_pos_mhw_m"].values - df_survey["surveyed_pos_mhw_m"].iloc[0]
+            )
+            f_all = df_survey["antecedent_log_upsilon"].values if "antecedent_log_upsilon" in df_survey.columns else np.log10(np.maximum(df_survey["antecedent_mean_upsilon"].values, 1e-4))
+            shorefor_delta = df_survey["antecedent_upsilon_memory"].values if "antecedent_upsilon_memory" in df_survey.columns else df_survey["antecedent_log_upsilon"].values
+
+            site_data[site] = {
+                "y": y_all,
+                "pos": pos_all,
+                "forcing": f_all,
+                "df_survey": df_survey,
+                "deltas": {
+                    ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Calibrated)"): df_survey["upsilon_diseq_simulated_delta_x_m"].values,
+                    ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Global Default)"): df_survey["upsilon_diseq_simulated_delta_x_m"].values,
+                    ("Class I (Analytical)", "ShoreFor (2013) Memory"): shorefor_delta,
+                    ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_delta_x_m"].values,
+                    ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_delta_x_m"].values,
+                },
+                "positions": {
+                    ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Calibrated)"): df_survey["upsilon_diseq_simulated_pos_m"].values,
+                    ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Global Default)"): df_survey["upsilon_diseq_simulated_pos_m"].values,
+                    ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_pos_m"].values,
+                    ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_pos_m"].values,
+                }
+            }
+        else:
+            file_path = os.path.join(data_dir, f"{site}_sensors.parquet")
+            if not os.path.exists(file_path):
+                continue
+            df_site = pd.read_parquet(file_path)
+            target_col = "shoreline_pos_obs_m" if "shoreline_pos_obs_m" in df_site.columns else "shoreline_pos_true_m"
+            y_obs = df_site[target_col].values
+            log_ups_all = df_site["log_upsilon"].values if "log_upsilon" in df_site.columns else np.log10(np.maximum(df_site["upsilon"].values, 1e-4))
+
+            hs = df_site["hs_m"].values
+            tp = df_site["tp_s"].values
+            surge = df_site["surge_m"].values
+            w_spd = df_site["wind_speed_ms"].values
+            w_dir = df_site["wind_dir_deg"].values
+            ups = df_site["upsilon"].values
+            ws = df_site["w_s_ms"].values.mean() if "w_s_ms" in df_site.columns else 0.045
+            tb = df_site["tan_beta"].iloc[0] if "tan_beta" in df_site.columns else 0.08
+            d50 = df_site["d50_m"].iloc[0] if "d50_m" in df_site.columns else 0.00035
+
+            yates_pos_all, _ = simulate_equilibrium_shoreline_evolution(hs, tp, random_seed=random_seed)
+            shorefor_pos_all, _ = simulate_shorefor_evolution(hs, tp, w_s_ms=ws, random_seed=random_seed)
+            xbeach_pos_all, _ = simulate_xbeach_inspired_morphodynamics(hs, tp, surge, w_spd, w_dir, d50_m=d50, tan_beta=tb, random_seed=random_seed)
+            signed_eq_pos_all, _ = simulate_signed_equilibrium_upsilon_evolution(ups, c_erosion=1.2e-5, c_accretion=1.8e-5, upsilon_eq_mode="expanding")
+
+            interval = max(1, eval_interval_hours)
+            y_sub = y_obs[::interval]
+            log_ups_sub = log_ups_all[::interval]
+            dy_all = np.diff(y_sub)
+            f_sub = log_ups_sub[:-1]
+            pos_all = y_sub[1:]
+
+            site_data[site] = {
+                "y": dy_all,
+                "pos": pos_all,
+                "forcing": f_sub,
+                "df_survey": df_site.iloc[::interval],
+                "deltas": {
+                    ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Calibrated)"): np.diff(signed_eq_pos_all[::interval]),
+                    ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Global Default)"): np.diff(signed_eq_pos_all[::interval]),
+                    ("Class I (Analytical)", "Yates (2009) Equilibrium"): np.diff(yates_pos_all[::interval]),
+                    ("Class I (Analytical)", "ShoreFor (2013) Memory"): np.diff(shorefor_pos_all[::interval]),
+                    ("Class II (Process/PDE)", "XBeach 1D Process Model"): np.diff(xbeach_pos_all[::interval]),
+                },
+                "positions": {
+                    ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Calibrated)"): signed_eq_pos_all[::interval][1:],
+                    ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Global Default)"): signed_eq_pos_all[::interval][1:],
+                    ("Class I (Analytical)", "Yates (2009) Equilibrium"): yates_pos_all[::interval][1:],
+                    ("Class I (Analytical)", "ShoreFor (2013) Memory"): shorefor_pos_all[::interval][1:],
+                    ("Class II (Process/PDE)", "XBeach 1D Process Model"): xbeach_pos_all[::interval][1:],
+                }
+            }
+
+    active_sites = [s for s in sites if s in site_data]
+    if len(active_sites) < 2:
+        raise ValueError(f"Need at least 2 active sites with data for LOSO CV. Found: {len(active_sites)}")
+
+    pooled_preds = {}
+    pooled_actuals = {}
+    pooled_pos_preds = {}
+    pooled_pos_actuals = {}
+    pooled_norm_preds = {}
+    pooled_norm_actuals = {}
+    pooled_norm_pos_preds = {}
+    pooled_norm_pos_actuals = {}
+    held_out_records = []
+
+    # Leave-One-Site-Out Cross-Validation Loop
+    for held_out_idx, held_out_site in enumerate(active_sites):
+        training_sites = [s for s in active_sites if s != held_out_site]
+
+        # 1. Pool Training Sites
+        y_train_list = []
+        f_train_list = []
+        train_deltas_pool = {}
+        train_positions_pool = {}
+        pos_train_list = []
+
+        for tr_site in training_sites:
+            s_dict = site_data[tr_site]
+            y_train_list.extend(s_dict["y"])
+            f_train_list.extend(s_dict["forcing"])
+            pos_train_list.extend(s_dict["pos"])
+
+            for k, d_arr in s_dict["deltas"].items():
+                if k not in train_deltas_pool:
+                    train_deltas_pool[k] = []
+                train_deltas_pool[k].extend(d_arr)
+
+            for k, p_arr in s_dict["positions"].items():
+                if k not in train_positions_pool:
+                    train_positions_pool[k] = []
+                train_positions_pool[k].extend(p_arr)
+
+        y_train = np.array(y_train_list)
+        f_train = np.array(f_train_list)
+        pos_train = np.array(pos_train_list)
+
+        # Held-Out Site Data
+        ho_dict = site_data[held_out_site]
+        y_test = ho_dict["y"]
+        pos_test = ho_dict["pos"]
+        f_test = ho_dict["forcing"]
+        n_test = len(y_test)
+
+        if n_test == 0:
+            continue
+
+        sigma_site_dy = max(float(np.std(y_test)), 1e-4)
+        sigma_site_pos = max(float(np.std(pos_test)), 1e-4)
+        var_base = max(np.mean((y_test - np.mean(y_train)) ** 2), 1e-6)
+
+        # 2. Fit Bayesian Latent Memory Model on Pooled 4-Site Training Data
+        f_mean_tr = float(np.mean(f_train))
+        f_std_tr = max(float(np.std(f_train)), 1e-4)
+        max_lag_loso = 12
+
+        bayes_m, bayes_meta = build_latent_memory_bayesian_model(
+            forcing=f_train,
+            delta_x_obs=y_train,
+            model_name="Bayesian Latent Memory Kernel (Upsilon)",
+            max_lag=max_lag_loso,
+            scale_forcing=True,
+        )
+        with bayes_m:
+            tr_bayes = pm.sample(
+                draws=draws,
+                tune=tune,
+                chains=chains,
+                cores=cores,
+                target_accept=0.90,
+                progressbar=False,
+                random_seed=random_seed,
+            )
+
+        gamma_ho = float(tr_bayes.posterior["gamma"].values.mean())
+        alpha_ho = float(tr_bayes.posterior["alpha"].values.mean())
+        beta_ho = float(tr_bayes.posterior["beta_forcing"].values.mean())
+
+        # Zero-shot prediction on Held-Out Site using 4-site trained normalization & posteriors
+        f_test_sc = (f_test - f_mean_tr) / f_std_tr
+        k_vec = np.arange(max_lag_loso, dtype=float)
+        w_vec = (gamma_ho ** k_vec) / np.sum(gamma_ho ** k_vec)
+        lag_mat_test = create_lag_matrix(f_test_sc, max_lag=max_lag_loso)
+        eff_forcing_test = lag_mat_test @ w_vec
+        dy_pred_bayes = alpha_ho + beta_ho * eff_forcing_test
+
+        # Compile Model Evaluations on Held-Out Site
+        eval_models = [
+            ("Class III (Bayesian)", "Bayesian Latent Memory Kernel (Upsilon)", dy_pred_bayes, None, None),
+        ]
+
+        for (p_class, m_name), d_test_raw in ho_dict["deltas"].items():
+            d_train_raw = np.array(train_deltas_pool.get((p_class, m_name), []))
+            p_train_raw = np.array(train_positions_pool.get((p_class, m_name), [])) if (p_class, m_name) in ho_dict["positions"] else None
+            eval_models.append((p_class, m_name, d_test_raw, d_train_raw, p_train_raw))
+
+        # 3. Evaluate each model on Held-Out Site
+        for p_class, m_name, d_raw_te, d_raw_tr, p_raw_tr in eval_models:
+            is_global_default = "Global Default" in m_name
+
+            if is_global_default or d_raw_tr is None or len(d_raw_tr) == 0 or np.std(d_raw_tr) < 1e-6:
+                dp_ho = d_raw_te
+            else:
+                # 4-Site Calibrated Transfer Function (No Target Leakage)
+                slope_tr, intercept_tr = np.polyfit(d_raw_tr, y_train, 1)
+                dp_ho = slope_tr * d_raw_te + intercept_tr
+
+            # Cumulative position trajectory on Held-Out Site
+            if (p_class, m_name) in ho_dict["positions"] and not is_global_default and p_raw_tr is not None and len(p_raw_tr) > 0 and np.std(p_raw_tr) > 1e-6:
+                slope_p, intercept_p = np.polyfit(p_raw_tr, pos_train, 1)
+                pos_pred_ho = slope_p * ho_dict["positions"][(p_class, m_name)] + intercept_p
+            else:
+                pos_init = pos_test[0] if len(pos_test) > 0 else 0.0
+                pos_pred_ho = pos_init + np.cumsum(dp_ho)
+
+            # Store for Global Pooled LOSO metrics
+            key = (p_class, m_name)
+            if key not in pooled_preds:
+                pooled_preds[key] = []
+                pooled_actuals[key] = []
+                pooled_pos_preds[key] = []
+                pooled_pos_actuals[key] = []
+                pooled_norm_preds[key] = []
+                pooled_norm_actuals[key] = []
+                pooled_norm_pos_preds[key] = []
+                pooled_norm_pos_actuals[key] = []
+
+            pooled_preds[key].extend(dp_ho)
+            pooled_actuals[key].extend(y_test)
+            pooled_pos_preds[key].extend(pos_pred_ho)
+            pooled_pos_actuals[key].extend(pos_test)
+
+            pooled_norm_preds[key].extend(dp_ho / sigma_site_dy)
+            pooled_norm_actuals[key].extend(y_test / sigma_site_dy)
+            pooled_norm_pos_preds[key].extend(pos_pred_ho / sigma_site_pos)
+            pooled_norm_pos_actuals[key].extend(pos_test / sigma_site_pos)
+
+            # Differential Step Change Metrics (Delta-x)
+            mse_ho = float(mean_squared_error(y_test, dp_ho))
+            rmse_ho = float(np.sqrt(mse_ho))
+            r2_ho = float(r2_score(y_test, dp_ho))
+            bss_ho = float(1.0 - (mse_ho / var_base))
+            corr_ho = float(np.corrcoef(y_test, dp_ho)[0, 1]) if (len(y_test) > 1 and np.std(dp_ho) > 1e-6 and np.std(y_test) > 1e-6) else 0.0
+
+            # Cumulative Position Metrics (x_t)
+            pos_mse_ho = float(mean_squared_error(pos_test, pos_pred_ho))
+            pos_rmse_ho = float(np.sqrt(pos_mse_ho))
+            pos_r2_ho = float(r2_score(pos_test, pos_pred_ho)) if len(pos_test) > 1 else 0.0
+            pos_var_ho = max(float(np.var(pos_test)), 1e-6)
+            pos_bss_ho = float(1.0 - (pos_mse_ho / pos_var_ho))
+            pos_corr_ho = float(np.corrcoef(pos_test, pos_pred_ho)[0, 1]) if (len(pos_test) > 1 and np.std(pos_pred_ho) > 1e-6 and np.std(pos_test) > 1e-6) else 0.0
+
+            held_out_records.append({
+                "Held-Out Site": held_out_site,
+                "Held-Out Site Name": COASTAL_SITE_PROFILES.get(held_out_site, {}).get("name", held_out_site),
+                "Training Sites Count": len(training_sites),
+                "Paradigm Class": p_class,
+                "Model Name": m_name,
+                "Fold": held_out_idx + 1,
+                # Step Delta Metrics
+                "LOSO RMSE (m)": rmse_ho,
+                "LOSO R2 Score": r2_ho,
+                "LOSO BSS": bss_ho,
+                "LOSO Pearson r": corr_ho,
+                # Cumulative Position Metrics
+                "LOSO Pos RMSE (m)": pos_rmse_ho,
+                "LOSO Pos R2 Score": pos_r2_ho,
+                "LOSO Pos BSS": pos_bss_ho,
+                "LOSO Pos Pearson r": pos_corr_ho,
+                # Normalized Metrics
+                "Site Std Δx (m)": sigma_site_dy,
+                "Site Std Pos (m)": sigma_site_pos,
+                "LOSO Norm Δx RMSE": rmse_ho / sigma_site_dy,
+                "LOSO Norm Pos RMSE": pos_rmse_ho / sigma_site_pos,
+            })
+
+    held_out_sites_df = pd.DataFrame(held_out_records)
+
+    # 4. Global Pooled LOSO Synthesis Table across all 5 Held-Out Sites
+    summary_rows = []
+    for (p_class, m_name) in pooled_preds:
+        y_act_arr = np.array(pooled_actuals[(p_class, m_name)])
+        y_pred_arr = np.array(pooled_preds[(p_class, m_name)])
+        pos_act_arr = np.array(pooled_pos_actuals[(p_class, m_name)])
+        pos_pred_arr = np.array(pooled_pos_preds[(p_class, m_name)])
+
+        y_norm_act = np.array(pooled_norm_actuals[(p_class, m_name)])
+        y_norm_pred = np.array(pooled_norm_preds[(p_class, m_name)])
+        pos_norm_act = np.array(pooled_norm_pos_actuals[(p_class, m_name)])
+        pos_norm_pred = np.array(pooled_norm_pos_preds[(p_class, m_name)])
+
+        # Step Delta Metrics (Δx)
+        loso_rmse_pool = float(np.sqrt(mean_squared_error(y_act_arr, y_pred_arr)))
+        loso_r2_pool = float(r2_score(y_act_arr, y_pred_arr))
+        var_act = max(float(np.var(y_act_arr)), 1e-6)
+        loso_bss_pool = float(1.0 - (mean_squared_error(y_act_arr, y_pred_arr) / var_act))
+        loso_corr_pool = float(np.corrcoef(y_act_arr, y_pred_arr)[0, 1]) if (np.std(y_pred_arr) > 1e-6 and np.std(y_act_arr) > 1e-6) else 0.0
+
+        # Cumulative Position Metrics (x_t)
+        loso_pos_rmse_pool = float(np.sqrt(mean_squared_error(pos_act_arr, pos_pred_arr)))
+        loso_pos_r2_pool = float(r2_score(pos_act_arr, pos_pred_arr))
+        var_pos_act = max(float(np.var(pos_act_arr)), 1e-6)
+        loso_pos_bss_pool = float(1.0 - (mean_squared_error(pos_act_arr, pos_pred_arr) / var_pos_act))
+        loso_pos_corr_pool = float(np.corrcoef(pos_act_arr, pos_pred_arr)[0, 1]) if (np.std(pos_pred_arr) > 1e-6 and np.std(pos_act_arr) > 1e-6) else 0.0
+
+        # Standardized Per-Site Normalized Metrics
+        norm_loso_r2 = float(r2_score(y_norm_act, y_norm_pred))
+        norm_loso_rmse = float(np.sqrt(mean_squared_error(y_norm_act, y_norm_pred)))
+        var_norm_act = max(float(np.var(y_norm_act)), 1e-6)
+        norm_loso_bss = float(1.0 - (mean_squared_error(y_norm_act, y_norm_pred) / var_norm_act))
+
+        norm_pos_loso_r2 = float(r2_score(pos_norm_act, pos_norm_pred))
+        norm_pos_loso_rmse = float(np.sqrt(mean_squared_error(pos_norm_act, pos_norm_pred)))
+        var_norm_pos_act = max(float(np.var(pos_norm_act)), 1e-6)
+        norm_pos_loso_bss = float(1.0 - (mean_squared_error(pos_norm_act, pos_norm_pred) / var_norm_pos_act))
+        norm_pos_loso_corr = float(np.corrcoef(pos_norm_act, pos_norm_pred)[0, 1]) if (np.std(pos_norm_pred) > 1e-6 and np.std(pos_norm_act) > 1e-6) else 0.0
+
+        grp = held_out_sites_df[(held_out_sites_df["Paradigm Class"] == p_class) & (held_out_sites_df["Model Name"] == m_name)]
+        rmse_std = float(grp["LOSO RMSE (m)"].std()) if not grp.empty else 0.0
+        r2_std = float(grp["LOSO R2 Score"].std()) if not grp.empty else 0.0
+        pos_rmse_std = float(grp["LOSO Pos RMSE (m)"].std()) if not grp.empty else 0.0
+        pos_r2_std = float(grp["LOSO Pos R2 Score"].std()) if not grp.empty else 0.0
+
+        site_avg_r2 = float(grp["LOSO R2 Score"].mean()) if not grp.empty else loso_r2_pool
+        site_avg_pos_r2 = float(grp["LOSO Pos R2 Score"].mean()) if not grp.empty else loso_pos_r2_pool
+
+        summary_rows.append({
+            "Paradigm Class": p_class,
+            "Model Name": m_name,
+            # Standardized Per-Site Normalized LOSO Skill
+            "Normalized LOSO R2 (Δx)": norm_loso_r2,
+            "Normalized LOSO RMSE (Δx)": norm_loso_rmse,
+            "Normalized LOSO BSS (Δx)": norm_loso_bss,
+            "Normalized Position LOSO R2": norm_pos_loso_r2,
+            "Normalized Position LOSO RMSE": norm_pos_loso_rmse,
+            "Normalized Position LOSO Pearson r": norm_pos_loso_corr,
+            "Normalized Position LOSO BSS": norm_pos_loso_bss,
+            "Site-Averaged LOSO R2 (Δx)": site_avg_r2,
+            "Site-Averaged LOSO Pos R2": site_avg_pos_r2,
+            # Position-Level Performance Metrics (x_t)
+            "Position LOSO R2 Score": loso_pos_r2_pool,
+            "Position LOSO RMSE (m)": loso_pos_rmse_pool,
+            "Position LOSO Pearson r": loso_pos_corr_pool,
+            "Position LOSO BSS": loso_pos_bss_pool,
+            "Position LOSO R2 (std)": pos_r2_std,
+            "Position LOSO RMSE (std)": pos_rmse_std,
+            # Differential Step Change Metrics (Δx)
+            "LOSO RMSE (m) (Δx)": loso_rmse_pool,
+            "LOSO R2 Score (Δx)": loso_r2_pool,
+            "LOSO BSS (Δx)": loso_bss_pool,
+            "LOSO Pearson r (Δx)": loso_corr_pool,
+            "LOSO RMSE (std)": rmse_std,
+            "LOSO R2 (std)": r2_std,
+            "Held-Out Sites Tested": len(grp),
+        })
+
+    synthesis_loso_df = pd.DataFrame(summary_rows).sort_values(by="Position LOSO R2 Score", ascending=False).reset_index(drop=True)
+    synthesis_loso_df.attrs["sites"] = active_sites
+
+    return synthesis_loso_df, held_out_sites_df
+
