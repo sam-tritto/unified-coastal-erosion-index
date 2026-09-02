@@ -57,6 +57,7 @@ def build_latent_memory_bayesian_model(
     model_name: str = "upsilon_model",
     max_lag: int = 48,
     scale_forcing: bool = True,
+    heteroscedastic: bool = True,
 ) -> Tuple[pm.Model, Dict[str, Any]]:
     """Build a PyMC Bayesian model where antecedent memory gamma is inferred as a latent variable.
 
@@ -65,7 +66,8 @@ def build_latent_memory_bayesian_model(
     - weights_k = gamma^k / sum(gamma^j) for k = 0, ..., max_lag-1
     - E(gamma) = X_lag * weights(gamma)
     - mu_t = alpha + beta_forcing * E_t(gamma)
-    - y_obs ~ StudentT(nu >= 5, mu_t, sigma)
+    - Heteroscedastic noise (Approach A): sigma_t = sigma_base + sigma_storm * max(E_t(gamma), 0)
+    - y_obs ~ StudentT(nu >= 5, mu_t, sigma_t)
 
     Parameters
     ----------
@@ -79,6 +81,8 @@ def build_latent_memory_bayesian_model(
         Maximum historical convolution window in hours.
     scale_forcing : bool
         Whether to standardize the forcing series.
+    heteroscedastic : bool
+        Whether to model noise dynamically with storm intensity (Approach A).
 
     Returns
     -------
@@ -104,6 +108,7 @@ def build_latent_memory_bayesian_model(
         "f_std": f_std,
         "max_lag": max_lag,
         "n_obs": len(y_obs),
+        "heteroscedastic": heteroscedastic,
     }
 
     with pm.Model() as model:
@@ -125,13 +130,22 @@ def build_latent_memory_bayesian_model(
         # 4. Morphodynamic response parameters
         alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
         beta_forcing = pm.Normal("beta_forcing", mu=-2.0, sigma=1.5)
-        sigma = pm.HalfNormal("sigma", sigma=1.0)
+
+        # 5. Uncertainty Model (Approach A: Heteroscedastic Storm Volatility)
+        if heteroscedastic:
+            sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
+            sigma_storm = pm.HalfNormal("sigma_storm", sigma=0.5)
+            storm_excitation = pt.maximum(effective_forcing, 0.0)
+            sigma = pm.Deterministic("sigma", sigma_base + sigma_storm * storm_excitation)
+        else:
+            sigma = pm.HalfNormal("sigma", sigma=1.0)
+
         nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
         
-        # 5. Deterministic latent response
+        # 6. Deterministic latent response
         mu = pm.Deterministic("mu", alpha + beta_forcing * effective_forcing)
         
-        # 6. Student-T Likelihood
+        # 7. Student-T Likelihood
         pm.StudentT("y_obs", nu=nu, mu=mu, sigma=sigma, observed=y_obs)
 
     return model, meta
@@ -202,8 +216,26 @@ def evaluate_model_performance(
 
 def compute_mcmc_summary_table(idata: az.InferenceData) -> pd.DataFrame:
     """Generate clean parameter posterior summary table with R-hat and ESS."""
-    var_names = ["alpha", "beta_forcing", "gamma", "sigma", "nu", "beta_upsilon", "k_eros", "k_accrete", "omega_crit", "hs_exponent"]
-    available = [v for v in var_names if v in idata.posterior]
+    var_names = [
+        "alpha",
+        "beta_forcing",
+        "gamma",
+        "sigma_base",
+        "sigma_storm",
+        "sigma",
+        "nu",
+        "beta_upsilon",
+        "k_eros",
+        "k_accrete",
+        "omega_crit",
+        "hs_exponent",
+    ]
+    # Filter out deterministic vector sigma if scalar sigma_base is present for compact display
+    has_hetero = "sigma_base" in idata.posterior
+    available = [
+        v for v in var_names
+        if v in idata.posterior and (v != "sigma" or not has_hetero)
+    ]
     return az.summary(idata, var_names=available)
 
 
@@ -218,7 +250,8 @@ def predict_bayesian_model(
 ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """Predict morphodynamic response mu (and draw posterior samples) for any dataset window.
 
-    Supports continuous antecedent memory convolution across train/test splits.
+    Supports continuous antecedent memory convolution across train/test splits and
+    dynamic heteroscedastic noise scaling (Approach A).
 
     Parameters
     ----------
@@ -252,20 +285,28 @@ def predict_bayesian_model(
     k_vec = np.arange(max_lag, dtype=float)
 
     alphas = trace.posterior["alpha"].values.reshape(-1)
-    sigmas = trace.posterior["sigma"].values.reshape(-1) if "sigma" in trace.posterior else np.full(len(alphas), 0.3)
     nus = trace.posterior["nu"].values.reshape(-1) if "nu" in trace.posterior else np.full(len(alphas), 5.0)
     
     # Sub-sample posterior draws to 200 for fast, memory-safe out-of-sample evaluation on large multi-year series
     if len(alphas) > 200:
         sub_idx = np.linspace(0, len(alphas) - 1, 200, dtype=int)
         alphas = alphas[sub_idx]
-        sigmas = sigmas[sub_idx]
         nus = nus[sub_idx]
     else:
         sub_idx = np.arange(len(alphas))
     n_samples = len(alphas)
 
+    # Handle homoscedastic vs. heteroscedastic noise parameters
+    has_hetero = ("sigma_base" in trace.posterior) and ("sigma_storm" in trace.posterior)
+    if has_hetero:
+        s_base_arr = trace.posterior["sigma_base"].values.reshape(-1)[sub_idx]
+        s_storm_arr = trace.posterior["sigma_storm"].values.reshape(-1)[sub_idx]
+        sigmas = None
+    else:
+        sigmas = trace.posterior["sigma"].values.reshape(-1)[sub_idx] if "sigma" in trace.posterior else np.full(n_samples, 0.3)
+
     is_survey = "antecedent_upsilon_memory" in df.columns or "surveyed_delta_x_m" in df.columns
+    eff_storm_samples = np.zeros((n_samples, n_pts), dtype=float)
 
     if model_type == "single":
         if spec is not None and "forcing" in spec:
@@ -324,6 +365,7 @@ def predict_bayesian_model(
             w = (gammas[i] ** k_vec) / np.sum(gammas[i] ** k_vec)
             eff = lag_mat @ w
             mu_samples[i] = alphas[i] + betas[i] * eff
+            eff_storm_samples[i] = np.maximum(eff, 0.0)
 
     elif model_type == "nonlinear":
         if spec is not None and "forcing" in spec:
@@ -357,6 +399,7 @@ def predict_bayesian_model(
         beta_poly = trace.posterior["beta_poly"].values.reshape(-1, degree)[sub_idx]
 
         mu_samples = alphas[:, None] + (beta_poly @ basis_matrix.T)
+        eff_storm_samples[:] = np.maximum(f_scaled, 0.0)[None, :]
 
     elif model_type == "multivariate":
         fnames = meta.get("forcing_names", ["hs", "surge", "wind", "dean"])
@@ -414,6 +457,7 @@ def predict_bayesian_model(
             w = (gammas[i] ** k_vec) / np.sum(gammas[i] ** k_vec)
             eff_u = lag_mat @ w
             mu_samples[i] = alphas[i] + beta_ups[i] * eff_u
+            eff_storm_samples[i] = np.maximum(eff_u, 0.0)
 
         fnames = ["hs", "surge", "wind", "dean"]
         if is_survey:
@@ -489,6 +533,7 @@ def predict_bayesian_model(
             eff_a = lag_acc @ w
             is_e = 1.0 / (1.0 + np.exp(-5.0 * (omega - o_crits[i])))
             mu_samples[i] = alphas[i] + is_e * (-k_e[i] * eff_e) + (1.0 - is_e) * (k_a[i] * eff_a)
+            eff_storm_samples[i] = np.maximum(eff_e, 0.0)
 
     else:
         raise ValueError(f"Unknown model_type: {model_type}")
@@ -498,11 +543,15 @@ def predict_bayesian_model(
     if not return_samples:
         return mu_mean
 
-    # Draw posterior predictive Student-T observations
+    # Draw posterior predictive Student-T observations (incorporating dynamic heteroscedastic noise)
     y_pred_samples = np.zeros_like(mu_samples)
     for i in range(n_samples):
         nu_val = max(float(nus[i]), 1.5)
-        sigma_val = max(float(sigmas[i]), 1e-4)
+        if has_hetero:
+            exc = eff_storm_samples[i]
+            sigma_val = np.maximum(s_base_arr[i] + s_storm_arr[i] * exc, 1e-4)
+        else:
+            sigma_val = max(float(sigmas[i]), 1e-4) if np.isscalar(sigmas[i]) or np.ndim(sigmas[i]) == 0 else np.maximum(sigmas[i], 1e-4)
         t_noise = rng.standard_t(df=nu_val, size=n_pts) * sigma_val
         y_pred_samples[i] = mu_samples[i] + t_noise
 
@@ -1152,7 +1201,22 @@ def run_benchmark_model_comparison(
             row["Full R2 Score"] = perf_full["R2 Score"]
 
         # Convergence diagnostics
-        avail_vars = [v for v in ["gamma", "beta_forcing", "beta_upsilon", "alpha", "sigma", "k_eros", "k_accrete", "omega_crit"] if v in trace.posterior]
+        avail_vars = [
+            v for v in [
+                "gamma",
+                "beta_forcing",
+                "beta_upsilon",
+                "alpha",
+                "sigma_base",
+                "sigma_storm",
+                "sigma",
+                "k_eros",
+                "k_accrete",
+                "omega_crit",
+                "hs_exponent",
+            ]
+            if v in trace.posterior and (v != "sigma" or "sigma_base" not in trace.posterior)
+        ]
         post_rhat = float(az.summary(trace, var_names=avail_vars)["r_hat"].max()) if avail_vars else 1.0
         row["Max R-hat"] = post_rhat
         if "gamma" in trace.posterior:
@@ -1309,6 +1373,7 @@ def build_physics_anchored_hybrid_model(
     model_name: str = "hybrid_physics_anchored",
     max_lag: int = 48,
     scale_forcings: bool = True,
+    heteroscedastic: bool = True,
 ) -> Tuple[pm.Model, Dict[str, Any]]:
     """Build a Physics-Informed Hybrid Bayesian Model (PI-HBM).
 
@@ -1321,13 +1386,19 @@ def build_physics_anchored_hybrid_model(
     3. Latent Memory: gamma ~ Beta(2, 5) dynamic convolution for cumulative storm memory.
     4. Deterministic mean:
        mu_t = alpha + beta_upsilon * Upsilon*_t(gamma) + sum_j delta_j * X_{j, t}^*
-    5. Likelihood: y_obs ~ StudentT(nu, mu_t, sigma)
+    5. Heteroscedastic noise (Approach A): sigma_t = sigma_base + sigma_storm * max(Upsilon*_t, 0)
+    6. Likelihood: y_obs ~ StudentT(nu, mu_t, sigma_t)
     """
     ups_arr = np.asarray(upsilon, dtype=float)
     y_obs = np.asarray(delta_x_obs, dtype=float)
 
     max_lag = max(1, min(max_lag, len(y_obs)))
-    meta = {"model_name": model_name, "n_obs": len(y_obs), "max_lag": max_lag}
+    meta = {
+        "model_name": model_name,
+        "n_obs": len(y_obs),
+        "max_lag": max_lag,
+        "heteroscedastic": heteroscedastic,
+    }
 
     # Standardize Upsilon
     u_mean = float(np.mean(ups_arr))
@@ -1374,7 +1445,14 @@ def build_physics_anchored_hybrid_model(
             mu = mu + delta_j * f_data
 
         alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
-        sigma = pm.HalfNormal("sigma", sigma=1.0)
+        if heteroscedastic:
+            sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
+            sigma_storm = pm.HalfNormal("sigma_storm", sigma=0.5)
+            storm_excitation = pt.maximum(upsilon_memory, 0.0)
+            sigma = pm.Deterministic("sigma", sigma_base + sigma_storm * storm_excitation)
+        else:
+            sigma = pm.HalfNormal("sigma", sigma=1.0)
+
         nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
 
         mu_det = pm.Deterministic("mu", alpha + mu)
@@ -1394,6 +1472,7 @@ def build_asymmetric_dual_regime_model(
     model_name: str = "asymmetric_dual_regime",
     max_lag: int = 48,
     scale_forcings: bool = True,
+    heteroscedastic: bool = True,
 ) -> Tuple[pm.Model, Dict[str, Any]]:
     """Build an Asymmetric Dual-Regime Morphodynamic Bayesian Model.
 
@@ -1409,36 +1488,7 @@ def build_asymmetric_dual_regime_model(
        F_accrete = (Tp * sqrt(g * L_0)) / (Hs + 0.1)
     5. Dual Asymmetric Kinetics:
        mu_t = alpha + is_erosion * (-k_eros * E_t(F_eros)) + (1.0 - is_erosion) * (+k_accrete * E_t(F_accrete))
-
-    Parameters
-    ----------
-    hs : np.ndarray
-        Significant wave height (m).
-    tp : np.ndarray
-        Peak wave period (s).
-    ws : np.ndarray
-        Dynamic settling velocity w_s(T) in m/s.
-    upsilon : np.ndarray
-        Unified Coastal Vulnerability Index values.
-    delta_x_obs : np.ndarray
-        Observed shoreline position (m).
-    shielding_factor : np.ndarray, optional
-        Outer sandbar wave power transmission factor (1.0 - Delta P_dissip).
-    accretion_potential : np.ndarray, optional
-        Constructive swash accretion potential series.
-    model_name : str
-        Model identifier.
-    max_lag : int
-        Convolution memory horizon (hours).
-    scale_forcings : bool
-        Whether to standardize the kinetic drivers.
-
-    Returns
-    -------
-    model : pm.Model
-        Constructed PyMC dual-regime model.
-    meta : dict
-        Normalization metadata.
+    6. Heteroscedastic noise (Approach A): sigma_t = sigma_base + sigma_storm * max(E_t(F_eros), 0)
     """
     hs_arr = np.asarray(hs, dtype=float)
     tp_arr = np.maximum(np.asarray(tp, dtype=float), 0.5)
@@ -1464,6 +1514,7 @@ def build_asymmetric_dual_regime_model(
         "model_name": model_name,
         "n_obs": len(y_obs),
         "max_lag": max_lag,
+        "heteroscedastic": heteroscedastic,
     }
 
     # Standardize kinetic forcing series
@@ -1508,7 +1559,14 @@ def build_asymmetric_dual_regime_model(
         mu = alpha + is_erosion * (-k_eros * eff_eros) + (1.0 - is_erosion) * (k_accrete * eff_acc)
         mu_det = pm.Deterministic("mu", mu)
 
-        sigma = pm.HalfNormal("sigma", sigma=1.0)
+        if heteroscedastic:
+            sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
+            sigma_storm = pm.HalfNormal("sigma_storm", sigma=0.5)
+            storm_excitation = pt.maximum(eff_eros, 0.0)
+            sigma = pm.Deterministic("sigma", sigma_base + sigma_storm * storm_excitation)
+        else:
+            sigma = pm.HalfNormal("sigma", sigma=1.0)
+
         nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
         pm.StudentT("y_obs", nu=nu, mu=mu_det, sigma=sigma, observed=y_obs)
 
@@ -1536,51 +1594,9 @@ def build_learnable_exponent_bayesian_model(
     w_bound: float = 0.6,
     lower_bound: float = 1.0,
     upper_bound: float = 3.0,
+    heteroscedastic: bool = True,
 ) -> Tuple[pm.Model, Dict[str, Any]]:
-    """Build a Physics-Informed Bayesian Model that learns the Hs scaling exponent n in [1.0, 3.0] directly from observations.
-
-    Parameters
-    ----------
-    hs : np.ndarray
-        Significant wave height (m).
-    tp : np.ndarray
-        Peak wave period (s).
-    ws : np.ndarray
-        Sediment settling velocity (m/s).
-    surge : np.ndarray
-        Storm surge residual (m).
-    runup : np.ndarray
-        Stockdon wave runup R_2% (m).
-    wind_normal : np.ndarray
-        Shore-normal wind speed (m/s).
-    delta_x_obs : np.ndarray
-        Observed cross-shore position changes (m).
-    tan_beta : float or np.ndarray, optional
-        Foreshore beach slope (default 0.08).
-    shielding_factor : np.ndarray, optional
-        Outer sandbar wave power transmission factor.
-    model_name : str
-        Model identifier.
-    max_lag : int
-        Convolution memory horizon (hours).
-    exponent_prior : str
-        'uniform' (default, Uniform(1.0, 3.0)) or 'truncated_normal' (TruncatedNormal(mu, sigma, 1.0, 3.0)).
-    prior_mu, prior_sigma : float
-        Hyperparameters for truncated_normal prior.
-    s_ref, r_ref : float
-        Reference scales for surge (1.0m) and runup (2.0m).
-    w_ref, w_bound : float
-        Reference wind scale (15.0 m/s) and symmetric bound (0.6).
-    lower_bound, upper_bound : float
-        Bounds for exponent n (default 1.0 to 3.0).
-
-    Returns
-    -------
-    model : pm.Model
-        Constructed PyMC learnable-exponent model.
-    meta : dict
-        Model metadata.
-    """
+    """Build a Physics-Informed Bayesian Model that learns the Hs scaling exponent n in [1.0, 3.0] directly from observations."""
     hs_arr = np.maximum(np.asarray(hs, dtype=float), 0.01)
     tp_arr = np.maximum(np.asarray(tp, dtype=float), 0.1)
     ws_arr = np.maximum(np.asarray(ws, dtype=float), 1e-4)
@@ -1608,6 +1624,7 @@ def build_learnable_exponent_bayesian_model(
         "max_lag": max_lag,
         "lower_bound": lower_bound,
         "upper_bound": upper_bound,
+        "heteroscedastic": heteroscedastic,
     }
 
     with pm.Model() as model:
@@ -1652,8 +1669,15 @@ def build_learnable_exponent_bayesian_model(
         alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
         mu = pm.Deterministic("mu", alpha + beta_upsilon * upsilon_memory)
 
-        # 5. Robust Student-t Likelihood (nu >= 5)
-        sigma = pm.HalfNormal("sigma", sigma=1.0)
+        # 5. Robust Student-t Likelihood (nu >= 5) with Heteroscedastic Storm Volatility (Approach A)
+        if heteroscedastic:
+            sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
+            sigma_storm = pm.HalfNormal("sigma_storm", sigma=0.5)
+            storm_excitation = pt.maximum(upsilon_memory, 0.0)
+            sigma = pm.Deterministic("sigma", sigma_base + sigma_storm * storm_excitation)
+        else:
+            sigma = pm.HalfNormal("sigma", sigma=1.0)
+
         nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
         pm.StudentT("y_obs", nu=nu, mu=mu, sigma=sigma, observed=y_obs)
     return model, meta
@@ -1668,46 +1692,9 @@ def build_latent_equilibrium_bayesian_model(
     upsilon_eq_prior_mu: float = 2500.0,
     upsilon_eq_prior_sigma: float = 750.0,
     sequential_update: bool = False,
+    heteroscedastic: bool = True,
 ) -> Tuple[pm.Model, Dict[str, Any]]:
-    """Build a PyMC Bayesian Model where Equilibrium Threshold Υ_eq is inferred as a Latent Parameter.
-
-    Prevents Target / Future Data Leakage (Suggestion 7):
-    Instead of calculating Υ_eq from the empirical mean of the entire time series (which leaks future
-    wave climates into the model), Υ_eq is estimated as a latent Bayesian parameter or expanding state.
-    The model simultaneously learns:
-    1. Antecedent memory decay gamma ~ Beta(2, 5)
-    2. Latent equilibrium baseline threshold Υ_eq ~ TruncatedNormal(mu, sigma, lower=50.0, upper=25000.0)
-    3. Latent forcing disequilibrium Delta Υ_t = E_t(Υ) - Υ_eq
-    4. Asymmetric signed morphodynamic rate kinetics:
-       mu_t = alpha - k_eros * max(Delta Υ_t, 0) / scale + k_accrete * max(-Delta Υ_t, 0) / scale
-    5. Robust Student-T likelihood on observed shoreline displacement delta_x_obs.
-
-    Parameters
-    ----------
-    forcing : np.ndarray
-        Raw forcing series (e.g., Upsilon, Wave Power, etc.).
-    delta_x_obs : np.ndarray
-        Observed shoreline cross-shore displacement (m).
-    model_name : str
-        Model identifier.
-    max_lag : int
-        Convolution horizon in hours.
-    scale_forcing : bool
-        Whether to standardize the forcing series.
-    upsilon_eq_prior_mu : float
-        Prior mean for the latent equilibrium threshold (default 2500.0).
-    upsilon_eq_prior_sigma : float
-        Prior standard deviation for latent equilibrium threshold (default 750.0).
-    sequential_update : bool
-        Whether to model sequential drifting equilibrium via causal expanding prior.
-
-    Returns
-    -------
-    model : pm.Model
-        Constructed PyMC model.
-    meta : dict
-        Model metadata.
-    """
+    """Build a PyMC Bayesian Model where Equilibrium Threshold Υ_eq is inferred as a Latent Parameter."""
     forcing_arr = np.asarray(forcing, dtype=float)
     y_obs = np.asarray(delta_x_obs, dtype=float)
     n_obs = len(y_obs)
@@ -1729,6 +1716,7 @@ def build_latent_equilibrium_bayesian_model(
         "scale_forcing": scale_forcing,
         "upsilon_eq_prior_mu": upsilon_eq_prior_mu,
         "upsilon_eq_prior_sigma": upsilon_eq_prior_sigma,
+        "heteroscedastic": heteroscedastic,
     }
 
     with pm.Model() as model:
@@ -1773,8 +1761,15 @@ def build_latent_equilibrium_bayesian_model(
             alpha - (k_eros * (delta_eros / scale_div)) + (k_accrete * (delta_acc / scale_div)),
         )
 
-        # 4. Robust Student-T likelihood (nu >= 5)
-        sigma = pm.HalfNormal("sigma", sigma=1.0)
+        # 4. Robust Student-T likelihood (nu >= 5) with Heteroscedastic Volatility (Approach A)
+        if heteroscedastic:
+            sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
+            sigma_storm = pm.HalfNormal("sigma_storm", sigma=0.5)
+            storm_excitation = pt.maximum(delta_eros / scale_div, 0.0)
+            sigma = pm.Deterministic("sigma", sigma_base + sigma_storm * storm_excitation)
+        else:
+            sigma = pm.HalfNormal("sigma", sigma=1.0)
+
         nu = pm.Deterministic("nu", 5.0 + pm.Gamma("nu_offset", alpha=2.0, beta=0.2))
         pm.StudentT("y_obs", nu=nu, mu=mu, sigma=sigma, observed=y_obs)
 
@@ -1930,6 +1925,8 @@ def evaluate_cross_paradigm_walk_forward_cv(
 
     pooled_preds = {}
     pooled_actuals = {}
+    pooled_pos_preds = {}
+    pooled_pos_actuals = {}
     fold_records = []
     full_site_records = []
 
@@ -1948,6 +1945,9 @@ def evaluate_cross_paradigm_walk_forward_cv(
                 continue
 
             y_all = df_survey["surveyed_delta_x_m"].values
+            pos_all = df_survey["cumulative_displacement_m"].values if "cumulative_displacement_m" in df_survey.columns else (
+                df_survey["surveyed_pos_mhw_m"].values - df_survey["surveyed_pos_mhw_m"].iloc[0]
+            )
             f_all = df_survey["antecedent_log_upsilon"].values if "antecedent_log_upsilon" in df_survey.columns else np.log10(np.maximum(df_survey["antecedent_mean_upsilon"].values, 1e-4))
             shorefor_delta = df_survey["antecedent_upsilon_memory"].values if "antecedent_upsilon_memory" in df_survey.columns else df_survey["antecedent_log_upsilon"].values
 
@@ -2011,18 +2011,36 @@ def evaluate_cross_paradigm_walk_forward_cv(
                         slope, intercept = np.polyfit(dp_tr_raw, y_tr, 1)
                         dp_te = slope * dp_te + intercept
 
+                    # Cumulative shoreline position integration over test window
+                    pos_actual_te = pos_all[tr_end:te_end]
+                    pos_init = pos_all[tr_end - 1] if tr_end > 0 else 0.0
+                    pos_pred_te = pos_init + np.cumsum(dp_te)
+
                     key = (p_class, m_name)
                     if key not in pooled_preds:
                         pooled_preds[key] = []
                         pooled_actuals[key] = []
+                        pooled_pos_preds[key] = []
+                        pooled_pos_actuals[key] = []
                     pooled_preds[key].extend(dp_te)
                     pooled_actuals[key].extend(y_te)
+                    pooled_pos_preds[key].extend(pos_pred_te)
+                    pooled_pos_actuals[key].extend(pos_actual_te)
 
+                    # Step delta metrics
                     mse_val = float(mean_squared_error(y_te, dp_te))
                     rmse_val = float(np.sqrt(mse_val))
                     r2_val = float(r2_score(y_te, dp_te))
                     bss_val = float(1.0 - (mse_val / var_base))
                     r_corr = float(np.corrcoef(y_te, dp_te)[0, 1]) if (len(y_te) > 1 and np.std(dp_te) > 1e-6 and np.std(y_te) > 1e-6) else 0.0
+
+                    # Cumulative position metrics
+                    pos_mse = float(mean_squared_error(pos_actual_te, pos_pred_te))
+                    pos_rmse = float(np.sqrt(pos_mse))
+                    pos_r2 = float(r2_score(pos_actual_te, pos_pred_te)) if len(pos_actual_te) > 1 else 0.0
+                    pos_var = max(float(np.var(pos_actual_te)), 1e-6)
+                    pos_bss = float(1.0 - (pos_mse / pos_var))
+                    pos_corr = float(np.corrcoef(pos_actual_te, pos_pred_te)[0, 1]) if (len(pos_actual_te) > 1 and np.std(pos_pred_te) > 1e-6 and np.std(pos_actual_te) > 1e-6) else 0.0
 
                     fold_records.append({
                         "Site": site,
@@ -2032,12 +2050,18 @@ def evaluate_cross_paradigm_walk_forward_cv(
                         "Model Name": m_name,
                         "Model": m_name,
                         "Fold": f + 1,
+                        # Differential Step Metrics (Δx)
                         "Fold RMSE (m)": rmse_val,
                         "Fold RMSE": rmse_val,
                         "Fold R2 Score": r2_val,
                         "Fold R2": r2_val,
                         "Fold BSS": bss_val,
                         "Fold Pearson r": r_corr,
+                        # Cumulative Position Metrics (x_t)
+                        "Fold Pos RMSE (m)": pos_rmse,
+                        "Fold Pos R2 Score": pos_r2,
+                        "Fold Pos BSS": pos_bss,
+                        "Fold Pos Pearson r": pos_corr,
                     })
 
             for p_class, m_name, _, _ in eval_list:
@@ -2066,12 +2090,16 @@ def evaluate_cross_paradigm_walk_forward_cv(
                     else:
                         dp_full = dp_raw
 
+                # Full series cumulative position
+                pos_full_pred = pos_all[0] + np.cumsum(dp_full)
                 full_site_records.append({
                     "Site": site,
                     "Paradigm Class": p_class,
                     "Model Name": m_name,
                     "Full RMSE (m)": float(np.sqrt(mean_squared_error(y_all, dp_full))),
                     "Full R2 Score": float(r2_score(y_all, dp_full)),
+                    "Full Pos RMSE (m)": float(np.sqrt(mean_squared_error(pos_all, pos_full_pred))),
+                    "Full Pos R2 Score": float(r2_score(pos_all, pos_full_pred)),
                 })
         else:
             file_path = os.path.join(data_dir, f"{site}_sensors.parquet")
@@ -2104,6 +2132,7 @@ def evaluate_cross_paradigm_walk_forward_cv(
             log_ups_sub = log_ups_all[::interval]
             dy_all = np.diff(y_sub)
             f_sub = log_ups_sub[:-1]
+            pos_all = y_sub[1:]
             n_pts = len(dy_all)
 
             min_train = int(n_pts * 0.5)
@@ -2160,18 +2189,34 @@ def evaluate_cross_paradigm_walk_forward_cv(
                         slope, intercept = np.polyfit(dp_tr_raw, dy_tr, 1)
                         dp_te = slope * dp_te + intercept
 
+                    # Cumulative position tracking
+                    pos_actual_te = pos_all[train_end:test_end]
+                    pos_init = pos_all[train_end - 1] if train_end > 0 else y_sub[0]
+                    pos_pred_te = pos_init + np.cumsum(dp_te)
+
                     key = (p_class, m_name)
                     if key not in pooled_preds:
                         pooled_preds[key] = []
                         pooled_actuals[key] = []
+                        pooled_pos_preds[key] = []
+                        pooled_pos_actuals[key] = []
                     pooled_preds[key].extend(dp_te)
                     pooled_actuals[key].extend(dy_te)
+                    pooled_pos_preds[key].extend(pos_pred_te)
+                    pooled_pos_actuals[key].extend(pos_actual_te)
 
                     mse_val = float(mean_squared_error(dy_te, dp_te))
                     rmse_val = float(np.sqrt(mse_val))
                     r2_val = float(r2_score(dy_te, dp_te))
                     bss_val = float(1.0 - (mse_val / var_base))
                     r_corr = float(np.corrcoef(dy_te, dp_te)[0, 1]) if np.std(dp_te) > 1e-6 and np.std(dy_te) > 1e-6 else 0.0
+
+                    pos_mse = float(mean_squared_error(pos_actual_te, pos_pred_te))
+                    pos_rmse = float(np.sqrt(pos_mse))
+                    pos_r2 = float(r2_score(pos_actual_te, pos_pred_te)) if len(pos_actual_te) > 1 else 0.0
+                    pos_var = max(float(np.var(pos_actual_te)), 1e-6)
+                    pos_bss = float(1.0 - (pos_mse / pos_var))
+                    pos_corr = float(np.corrcoef(pos_actual_te, pos_pred_te)[0, 1]) if (len(pos_actual_te) > 1 and np.std(pos_pred_te) > 1e-6 and np.std(pos_actual_te) > 1e-6) else 0.0
 
                     fold_records.append({
                         "Site": site,
@@ -2187,6 +2232,10 @@ def evaluate_cross_paradigm_walk_forward_cv(
                         "Fold R2": r2_val,
                         "Fold BSS": bss_val,
                         "Fold Pearson r": r_corr,
+                        "Fold Pos RMSE (m)": pos_rmse,
+                        "Fold Pos R2 Score": pos_r2,
+                        "Fold Pos BSS": pos_bss,
+                        "Fold Pos Pearson r": pos_corr,
                     })
 
     df_folds = pd.DataFrame(fold_records)
@@ -2197,24 +2246,53 @@ def evaluate_cross_paradigm_walk_forward_cv(
     for (p_class, m_name) in pooled_preds:
         y_act_arr = np.array(pooled_actuals[(p_class, m_name)])
         y_pred_arr = np.array(pooled_preds[(p_class, m_name)])
+        pos_act_arr = np.array(pooled_pos_actuals[(p_class, m_name)])
+        pos_pred_arr = np.array(pooled_pos_preds[(p_class, m_name)])
 
+        # Step Delta Metrics (Δx)
         cv_rmse_pool = float(np.sqrt(mean_squared_error(y_act_arr, y_pred_arr)))
         cv_r2_pool = float(r2_score(y_act_arr, y_pred_arr))
         var_act = max(float(np.var(y_act_arr)), 1e-6)
         cv_bss_pool = float(1.0 - (mean_squared_error(y_act_arr, y_pred_arr) / var_act))
         cv_corr_pool = float(np.corrcoef(y_act_arr, y_pred_arr)[0, 1]) if (np.std(y_pred_arr) > 1e-6 and np.std(y_act_arr) > 1e-6) else 0.0
 
+        # Cumulative Position Metrics (x_t)
+        cv_pos_rmse_pool = float(np.sqrt(mean_squared_error(pos_act_arr, pos_pred_arr)))
+        cv_pos_r2_pool = float(r2_score(pos_act_arr, pos_pred_arr))
+        var_pos_act = max(float(np.var(pos_act_arr)), 1e-6)
+        cv_pos_bss_pool = float(1.0 - (mean_squared_error(pos_act_arr, pos_pred_arr) / var_pos_act))
+        cv_pos_corr_pool = float(np.corrcoef(pos_act_arr, pos_pred_arr)[0, 1]) if (np.std(pos_pred_arr) > 1e-6 and np.std(pos_act_arr) > 1e-6) else 0.0
+
         grp = df_folds[(df_folds["Paradigm Class"] == p_class) & (df_folds["Model Name"] == m_name)]
         rmse_std = float(grp["Fold RMSE (m)"].std()) if not grp.empty else 0.0
         r2_std = float(grp["Fold R2 Score"].std()) if not grp.empty else 0.0
+        pos_rmse_std = float(grp["Fold Pos RMSE (m)"].std()) if not grp.empty and "Fold Pos RMSE (m)" in grp.columns else 0.0
+        pos_r2_std = float(grp["Fold Pos R2 Score"].std()) if not grp.empty and "Fold Pos R2 Score" in grp.columns else 0.0
 
         full_grp = df_full_site[(df_full_site["Paradigm Class"] == p_class) & (df_full_site["Model Name"] == m_name)]
         full_rmse = float(full_grp["Full RMSE (m)"].mean()) if not full_grp.empty else cv_rmse_pool
         full_r2 = float(full_grp["Full R2 Score"].mean()) if not full_grp.empty else cv_r2_pool
+        full_pos_rmse = float(full_grp["Full Pos RMSE (m)"].mean()) if not full_grp.empty and "Full Pos RMSE (m)" in full_grp.columns else cv_pos_rmse_pool
+        full_pos_r2 = float(full_grp["Full Pos R2 Score"].mean()) if not full_grp.empty and "Full Pos R2 Score" in full_grp.columns else cv_pos_r2_pool
 
         summary_rows.append({
             "Paradigm Class": p_class,
             "Model Name": m_name,
+            # Position-Level Performance Metrics (x_t)
+            "Position CV R2 Score": cv_pos_r2_pool,
+            "Position CV RMSE (m)": cv_pos_rmse_pool,
+            "Position CV Pearson r": cv_pos_corr_pool,
+            "Position CV BSS": cv_pos_bss_pool,
+            "Position Fold R2 (std)": pos_r2_std,
+            "Position Fold RMSE (std)": pos_rmse_std,
+            "Full Position R2 Score": full_pos_r2,
+            "Full Position RMSE (m)": full_pos_rmse,
+            # Differential Step Change Metrics (Δx)
+            "CV RMSE (m) (Δx)": cv_rmse_pool,
+            "CV R2 Score (Δx)": cv_r2_pool,
+            "CV BSS (Δx)": cv_bss_pool,
+            "CV Pearson r (Δx)": cv_corr_pool,
+            # Standard Aliases for Backward Compatibility
             "CV RMSE (m)": cv_rmse_pool,
             "CV R2 Score": cv_r2_pool,
             "CV BSS": cv_bss_pool,
@@ -2223,17 +2301,16 @@ def evaluate_cross_paradigm_walk_forward_cv(
             "Full RMSE (m)": full_rmse,
             "Full R2 Score": full_r2,
             "CV Pearson r": cv_corr_pool,
-            # Dual Compatibility Aliases
-            "Out-of-Sample Mean R2": cv_r2_pool,
-            "Inter-Fold R2 Std Dev (σ_R2)": r2_std,
-            "Mean Out-of-Sample RMSE (m)": cv_rmse_pool,
-            "Out-of-Sample Mean Pearson r": cv_corr_pool,
-            "Brier Skill Score (BSS)": cv_bss_pool,
+            "Out-of-Sample Mean R2": cv_pos_r2_pool,
+            "Inter-Fold R2 Std Dev (σ_R2)": pos_r2_std,
+            "Mean Out-of-Sample RMSE (m)": cv_pos_rmse_pool,
+            "Out-of-Sample Mean Pearson r": cv_pos_corr_pool,
+            "Brier Skill Score (BSS)": cv_pos_bss_pool,
             "Evaluated Sites": len(grp["Site"].unique()) if not grp.empty else len(sites),
             "Total CV Folds": len(grp),
         })
 
-    df_synthesis = pd.DataFrame(summary_rows).sort_values(by="CV R2 Score", ascending=False).reset_index(drop=True)
+    df_synthesis = pd.DataFrame(summary_rows).sort_values(by="Position CV R2 Score", ascending=False).reset_index(drop=True)
     df_synthesis.attrs["sites"] = sites
     df_synthesis.attrs["n_splits"] = n_splits
 

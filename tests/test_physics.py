@@ -65,6 +65,7 @@ from src.models import (
     run_arviz_loo_comparison,
     run_benchmark_model_comparison,
     fit_bayesian_model,
+    compute_mcmc_summary_table,
 )
 
 
@@ -1452,15 +1453,53 @@ def test_evaluate_cross_paradigm_walk_forward_cv():
     assert "XBeach 1D Process Model" in models
 
 
+def test_heteroscedastic_uncertainty_approach_a():
+    """Verify Approach A: Bayesian noise parameter sigma scales dynamically with storm intensity."""
+    df = generate_frf_duck_hurricane_ian_dataset().iloc[:60]
+    
+    # 1. Test model graph construction with heteroscedastic=True
+    model_hetero, meta_hetero = build_latent_memory_bayesian_model(
+        forcing=df["upsilon"].values,
+        delta_x_obs=df["shoreline_change_rate_mh"].values,
+        max_lag=12,
+        heteroscedastic=True,
+    )
+    assert meta_hetero["heteroscedastic"] is True
+    assert "sigma_base" in model_hetero.named_vars
+    assert "sigma_storm" in model_hetero.named_vars
+    assert "sigma" in model_hetero.named_vars
 
+    # 2. Test model graph construction with heteroscedastic=False (homoscedastic baseline)
+    model_homo, meta_homo = build_latent_memory_bayesian_model(
+        forcing=df["upsilon"].values,
+        delta_x_obs=df["shoreline_change_rate_mh"].values,
+        max_lag=12,
+        heteroscedastic=False,
+    )
+    assert meta_homo["heteroscedastic"] is False
+    assert "sigma_base" not in model_homo.named_vars
+    assert "sigma" in model_homo.named_vars
 
+    # 3. Fit heteroscedastic model and verify sampling
+    trace = fit_bayesian_model(model_hetero, draws=50, tune=50, chains=2, random_seed=42)
+    assert "sigma_base" in trace.posterior
+    assert "sigma_storm" in trace.posterior
 
+    # 4. Out-of-sample prediction and dynamic noise simulation
+    mu_mean, mu_samples, y_pred = predict_bayesian_model(
+        trace=trace,
+        model_type="single",
+        meta=meta_hetero,
+        df=df,
+        return_samples=True,
+        random_seed=42,
+    )
+    assert len(mu_mean) == len(df)
+    assert mu_samples.shape == (100, len(df))
+    assert y_pred.shape == (100, len(df))
 
-
-
-
-
-
-
-
+    # Summary table must include scalar parameters without vector explosion
+    summary = compute_mcmc_summary_table(trace)
+    assert "sigma_base" in summary.index
+    assert "sigma_storm" in summary.index
 
