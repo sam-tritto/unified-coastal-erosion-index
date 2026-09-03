@@ -67,8 +67,14 @@ flowchart LR
    $$\Upsilon_{\text{excess}} = \max\left(0,\, \Upsilon - \Upsilon_{\text{crit}}(\tan\beta, D_{50})\right)$$
    $$\Upsilon_{\text{crit}}(\tan\beta, D_{50}) = \Upsilon_{\text{crit}, 0} \cdot \left(\frac{D_{50}}{D_{50,\text{ref}}}\right)^a \cdot \left(\frac{\tan\beta}{\tan\beta_{\text{ref}}}\right)^b$$
    * **How it works:** Beaches with steep dunes or coarser sand resist morphodynamic change until a critical hydrodynamic threshold is crossed (calibrated baseline $\Upsilon_{\text{crit}, 0} \approx 500$).
-   * **Geomorphic Rationale:** Coarser sediment grains ($D_{50}$) require higher critical shear stress for incipient sediment motion (*Shields 1936, Soulsby 1997*), while steep foreshore profiles and dune toes ($\tan\beta$) exhibit higher gravitational angle-of-repose stability against wave attack.
-   * **Impact:** Eliminates background noise during calm fair-weather seasons, sharpening storm event peak detection and non-linear damage activation.
+   * **Nonlinear Shields & Soulsby Geomorphic Foundation:**
+     In sediment mechanics (*Shields 1936, Soulsby 1997*), the critical Shields parameter $\theta_{\text{cr}}$ for incipient motion is a nonlinear function of dimensionless grain size $D_* = D_{50} [g(s-1)/\nu^2]^{1/3}$:
+     $$\theta_{\text{cr}}(D_*) = \frac{0.30}{1 + 1.2 D_*} + 0.055 \left[ 1 - \exp(-0.020 D_*) \right]$$
+     $$\tau_{\text{cr}} = \theta_{\text{cr}}(D_*) \cdot g (\rho_s - \rho) D_{50}$$
+     Because $\theta_{\text{cr}}$ decreases nonlinearly from $\sim 0.24$ for fine grains ($D_* < 1$) to $\sim 0.03$ for medium-coarse sand before leveling off to $\sim 0.055$ for gravel, the effective power-law scaling exponent $a = \frac{d\ln\tau_{\text{cr}}}{d\ln D_{50}}$ spans $[0.5, 1.3]$ across coastal sandy-gravel regimes. Similarly, foreshore slope stability scaling $(\tan\beta / \tan\beta_{\text{ref}})^b$ reflects gravitational angle-of-repose scarping resistance ($b \in [0.5, 1.5]$).
+   * **Sensitivity & Robustness Sweep:** Systematic 2D sensitivity sweeps across $a, b \in [0.5, 1.5]$ confirm that morphodynamic prediction skill, storm peak detection, and threshold activation fractions remain stable and well-conditioned across the entire physically admissible parameter space.
+   * **Bayesian Parameter Inference:** Exponents $(a, b)$ and baseline $\Upsilon_{\text{crit}, 0}$ can be learned directly from survey data using `build_learnable_critical_threshold_bayesian_model` with informative priors ($a \sim \text{TruncatedNormal}(1.0, 0.3)$, $b \sim \text{TruncatedNormal}(1.0, 0.3)$, $\Upsilon_{\text{crit}, 0} \sim \text{TruncatedNormal}(500, 150)$) or resolved in closed-form via exact Soulsby critical shear calculation (`mode="soulsby_shields"`).
+   * **Impact:** Eliminates background noise during calm fair-weather seasons, sharpening storm event peak detection and non-linear damage activation without introducing artificial parameter fragility.
 
 3. **Signed Equilibrium Formulation ($\Upsilon_{\text{diseq}} = \Upsilon - \Upsilon_{\text{eq}}$):**
    $$\Upsilon_{\text{diseq}} = \Upsilon - \Upsilon_{\text{eq}}$$

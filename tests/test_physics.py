@@ -27,6 +27,8 @@ from src.physics import (
     compute_signed_equilibrium_rate,
     simulate_signed_equilibrium_upsilon_evolution,
     compute_critical_shear_threshold,
+    compute_shields_critical_shear_stress_soulsby,
+    sweep_critical_threshold_sensitivity,
     compute_excess_upsilon,
     compute_critical_threshold_shear_activation,
     compute_excess_vulnerability_index,
@@ -58,6 +60,7 @@ from src.models import (
     build_nonlinear_response_model,
     build_physics_anchored_hybrid_model,
     build_asymmetric_dual_regime_model,
+    build_learnable_critical_threshold_bayesian_model,
     build_learnable_exponent_bayesian_model,
     run_hs_exponent_sensitivity_analysis,
     compute_antecedent_memory_forcing,
@@ -1149,12 +1152,83 @@ def test_critical_shear_threshold_scaling():
     expected_oahu = 500.0 * (0.00045 / 0.00035) * (0.09 / 0.08)
     np.testing.assert_allclose(u_crit_oahu, expected_oahu, rtol=1e-5)
 
-    # 6. Array broadcast
+    # 6. Exponent sensitivity: a, b in [0.5, 1.5]
+    u_crit_sublinear = compute_critical_shear_threshold(tan_beta=0.08, d50_m=0.00070, upsilon_crit_0=500.0, a=0.5, b=0.5)
+    np.testing.assert_allclose(u_crit_sublinear, 500.0 * np.sqrt(2.0), rtol=1e-5)
+
+    u_crit_superlinear = compute_critical_shear_threshold(tan_beta=0.16, d50_m=0.00035, upsilon_crit_0=500.0, a=1.0, b=1.5)
+    np.testing.assert_allclose(u_crit_superlinear, 500.0 * (2.0 ** 1.5), rtol=1e-5)
+
+    # 7. Exact Soulsby Shields nonlinear mode
+    u_crit_soulsby = compute_critical_shear_threshold(tan_beta=0.08, d50_m=0.00070, upsilon_crit_0=500.0, mode="soulsby_shields")
+    assert u_crit_soulsby > 500.0
+
+    # 8. Array broadcast
     tb_vec = np.array([0.04, 0.08, 0.12])
     d50_vec = np.array([0.00020, 0.00035, 0.00050])
     u_crit_vec = compute_critical_shear_threshold(tan_beta=tb_vec, d50_m=d50_vec, upsilon_crit_0=500.0)
     assert len(u_crit_vec) == 3
     assert u_crit_vec[0] < u_crit_vec[1] < u_crit_vec[2]
+
+
+def test_soulsby_shields_critical_shear_stress():
+    """Verify Soulsby (1997) nonlinear Shields parameter and critical shear stress computation."""
+    theta_cr, tau_cr = compute_shields_critical_shear_stress_soulsby(d50_m=0.00035)
+    assert 0.03 <= theta_cr <= 0.10
+    assert tau_cr > 0.0
+
+    # Coarser sand has higher dimensional critical shear stress
+    _, tau_cr_fine = compute_shields_critical_shear_stress_soulsby(d50_m=0.00015)
+    _, tau_cr_coarse = compute_shields_critical_shear_stress_soulsby(d50_m=0.00100)
+    assert tau_cr_fine < tau_cr < tau_cr_coarse
+
+    # Vectorized computation
+    d50_arr = np.array([0.00015, 0.00035, 0.00080])
+    th_vec, tau_vec = compute_shields_critical_shear_stress_soulsby(d50_m=d50_arr)
+    assert len(th_vec) == 3
+    assert len(tau_vec) == 3
+    assert np.all(np.diff(tau_vec) > 0)
+
+
+def test_critical_threshold_sensitivity_sweep():
+    """Verify 2D sensitivity grid sweep over exponents a, b in [0.5, 1.5]."""
+    ups_series = np.linspace(100.0, 3000.0, 50)
+    df_sweep = sweep_critical_threshold_sensitivity(
+        upsilon=ups_series,
+        tan_beta=0.09,
+        d50_m=0.00045,
+        a_values=(0.5, 1.0, 1.5),
+        b_values=(0.5, 1.0, 1.5),
+        upsilon_crit_0=500.0,
+    )
+    assert len(df_sweep) == 9
+    assert "mean_upsilon_crit" in df_sweep.columns
+    assert "activation_fraction" in df_sweep.columns
+    assert "mean_excess_upsilon" in df_sweep.columns
+    assert np.all(df_sweep["activation_fraction"] > 0.0)
+    assert np.all(df_sweep["activation_fraction"] <= 1.0)
+    assert np.all(df_sweep["mean_excess_upsilon"] >= 0.0)
+
+
+def test_learnable_critical_threshold_bayesian_model_structure():
+    """Verify construction of PyMC learnable critical threshold model."""
+    upsilon_raw = np.linspace(200.0, 2500.0, 40)
+    delta_x_obs = np.random.RandomState(42).randn(40) * 0.5
+
+    model, meta = build_learnable_critical_threshold_bayesian_model(
+        upsilon_raw=upsilon_raw,
+        delta_x_obs=delta_x_obs,
+        tan_beta=0.08,
+        d50_m=0.00035,
+        max_lag=6,
+    )
+    assert "a" in model.named_vars
+    assert "b" in model.named_vars
+    assert "upsilon_crit_0" in model.named_vars
+    assert "upsilon_crit" in model.named_vars
+    assert "upsilon_excess" in model.named_vars
+    assert "y_obs" in model.named_vars
+    assert meta["max_lag"] == 6
 
 
 def test_excess_upsilon_activation_and_noise_cutoff():

@@ -1379,6 +1379,74 @@ def simulate_coupled_2d_embayment_evolution(
     return x_net, x_obs
 
 
+def compute_shields_critical_shear_stress_soulsby(
+    d50_m: Union[float, np.ndarray] = 0.00035,
+    water_temp_c: Optional[Union[float, np.ndarray]] = None,
+    rho_water: float = RHO_WATER,
+    rho_sed: float = RHO_SEDIMENT,
+    nu: float = NU_SEAWATER,
+    g: float = G_CONST,
+) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
+    """Compute critical dimensionless Shields parameter (theta_cr) and bed shear stress (tau_cr, N/m^2).
+
+    Uses the Soulsby (1997) nonlinear formulation for the threshold of incipient sediment motion
+    as a function of dimensionless grain size D_*:
+
+        D_* = D_50 * [ g * (s - 1) / nu^2 ]^(1/3)
+        theta_cr(D_*) = 0.30 / (1 + 1.2 * D_*) + 0.055 * [ 1 - exp(-0.020 * D_*) ]
+        tau_cr = theta_cr * g * (rho_sed - rho_water) * D_50
+
+    Physics & Nonlinearity:
+    - Critical shear stress does NOT scale strictly linearly with D_50 across all regimes.
+    - theta_cr decreases from ~0.24 for fine silt/sand (D_* < 1) to ~0.03 for medium-coarse sand
+      (D_* ~ 10-20), before asymptotically leveling off to ~0.055 for coarse gravel.
+    - As a result, the effective power-law scaling exponent a = d(ln tau_cr) / d(ln D_50) varies
+      between ~0.5 and 1.3 across typical coastal grain size regimes (0.1 mm - 2.0 mm).
+
+    Parameters
+    ----------
+    d50_m : float or np.ndarray
+        Median sediment grain diameter in meters (e.g. 0.00035 m).
+    water_temp_c : float or np.ndarray, optional
+        Water temperature in Celsius for dynamic viscosity nu(T).
+    rho_water : float
+        Fluid density in kg/m^3 (default 1025.0).
+    rho_sed : float
+        Sediment density in kg/m^3 (default 2650.0).
+    nu : float
+        Kinematic viscosity in m^2/s (default 1.05e-6).
+    g : float
+        Gravitational acceleration in m/s^2 (default 9.81).
+
+    Returns
+    -------
+    theta_cr : float or np.ndarray
+        Dimensionless critical Shields parameter [-].
+    tau_cr : float or np.ndarray
+        Critical bed shear stress in Pascals [N/m^2].
+    """
+    s = float(rho_sed) / float(rho_water)
+    d50_arr = np.maximum(np.asarray(d50_m, dtype=float), 1e-6)
+
+    if water_temp_c is not None:
+        nu_eff = compute_kinematic_viscosity_seawater(water_temp_c)
+    else:
+        nu_eff = nu
+
+    # Dimensionless grain size D_*
+    d_star = d50_arr * ((g * (s - 1.0)) / (nu_eff ** 2)) ** (1.0 / 3.0)
+
+    # Soulsby (1997) critical Shields parameter
+    theta_cr = (0.30 / (1.0 + 1.2 * d_star)) + 0.055 * (1.0 - np.exp(-0.020 * d_star))
+
+    # Dimensional critical bed shear stress (N/m^2)
+    tau_cr = theta_cr * g * (rho_sed - rho_water) * d50_arr
+
+    if np.isscalar(d50_m) and (water_temp_c is None or np.isscalar(water_temp_c)):
+        return float(theta_cr), float(tau_cr)
+    return theta_cr, tau_cr
+
+
 def compute_critical_shear_threshold(
     tan_beta: Union[float, np.ndarray],
     d50_m: Union[float, np.ndarray],
@@ -1387,6 +1455,7 @@ def compute_critical_shear_threshold(
     tan_beta_ref: float = 0.08,
     a: float = 1.0,
     b: float = 1.0,
+    mode: str = "power_law",
 ) -> Union[float, np.ndarray]:
     """Compute the Critical Threshold Shear Activation threshold Upsilon_crit(tan(beta), D_50).
 
@@ -1398,8 +1467,11 @@ def compute_critical_shear_threshold(
     Physics & Geomorphic Rationale:
     - Coarser sand (larger D_50) increases critical shear stress for incipient sediment motion
       (Shields 1936, Soulsby 1997), requiring higher turbulent wave power to dislodge grains.
+    - In classical linear assumptions, a = 1.0 and b = 1.0. However, critical shear stress scales
+      nonlinearly with grain size (Shields parameter theta_cr is a function of D_* / Re*),
+      producing effective scaling exponents a in [0.5, 1.5] across differing hydrodynamic regimes.
     - Steeper foreshore/dune slopes (larger tan(beta)) exhibit higher gravitational stability
-      and angle-of-repose thresholds before upper-beach scarping and dune face retreat initiate.
+      and angle-of-repose thresholds before upper-beach scarping and dune face retreat initiate (b in [0.5, 1.5]).
     - Finer sand and flatter dissipative profiles mobilize at lower energetic thresholds.
 
     Parameters
@@ -1415,9 +1487,12 @@ def compute_critical_shear_threshold(
     tan_beta_ref : float
         Reference foreshore beach slope (default 0.08 for Duck, NC).
     a : float
-        Grain size scaling exponent (default 1.0).
+        Grain size scaling exponent (default 1.0; physically justified range [0.5, 1.5]).
     b : float
-        Foreshore slope scaling exponent (default 1.0).
+        Foreshore slope scaling exponent (default 1.0; physically justified range [0.5, 1.5]).
+    mode : str
+        Threshold formulation mode: 'power_law' (default, parameterized by exponents a, b) or
+        'soulsby_shields' (exact Soulsby 1997 critical shear stress ratio modulated by slope).
 
     Returns
     -------
@@ -1426,11 +1501,94 @@ def compute_critical_shear_threshold(
     """
     tb_arr = np.maximum(np.asarray(tan_beta, dtype=float), 1e-4)
     d50_arr = np.maximum(np.asarray(d50_m, dtype=float), 1e-6)
-    
-    crit = float(upsilon_crit_0) * ((d50_arr / max(float(d50_ref), 1e-6)) ** float(a)) * ((tb_arr / max(float(tan_beta_ref), 1e-4)) ** float(b))
+
+    if mode == "soulsby_shields":
+        _, tau_cr_local = compute_shields_critical_shear_stress_soulsby(d50_m=d50_arr)
+        _, tau_cr_ref = compute_shields_critical_shear_stress_soulsby(d50_m=float(d50_ref))
+        grain_factor = (tau_cr_local / max(float(tau_cr_ref), 1e-6))
+        slope_factor = (tb_arr / max(float(tan_beta_ref), 1e-4)) ** float(b)
+        crit = float(upsilon_crit_0) * grain_factor * slope_factor
+    else:
+        grain_factor = (d50_arr / max(float(d50_ref), 1e-6)) ** float(a)
+        slope_factor = (tb_arr / max(float(tan_beta_ref), 1e-4)) ** float(b)
+        crit = float(upsilon_crit_0) * grain_factor * slope_factor
+
     if np.isscalar(tan_beta) and np.isscalar(d50_m):
         return float(crit)
     return crit
+
+
+def sweep_critical_threshold_sensitivity(
+    upsilon: Union[float, np.ndarray],
+    tan_beta: Union[float, np.ndarray] = 0.08,
+    d50_m: Union[float, np.ndarray] = 0.00035,
+    a_values: Tuple[float, ...] = (0.5, 0.75, 1.0, 1.25, 1.5),
+    b_values: Tuple[float, ...] = (0.5, 0.75, 1.0, 1.25, 1.5),
+    upsilon_crit_0: float = 500.0,
+    d50_ref: float = 0.00035,
+    tan_beta_ref: float = 0.08,
+) -> pd.DataFrame:
+    """Conduct a systematic sensitivity sweep on critical threshold exponents (a, b).
+
+    Evaluates the morphodynamic threshold behavior across the full physically admissible
+    sub-linear to super-linear exponent space a, b in [0.5, 1.5].
+
+    Parameters
+    ----------
+    upsilon : float or np.ndarray
+        Instantaneous Unified Coastal Vulnerability Index series.
+    tan_beta : float or np.ndarray
+        Foreshore beach slope.
+    d50_m : float or np.ndarray
+        Median grain diameter (m).
+    a_values : sequence of float
+        Grid of grain size scaling exponents a (default: 0.5, 0.75, 1.0, 1.25, 1.5).
+    b_values : sequence of float
+        Grid of slope scaling exponents b (default: 0.5, 0.75, 1.0, 1.25, 1.5).
+    upsilon_crit_0 : float
+        Baseline critical shear threshold (default 500.0).
+    d50_ref, tan_beta_ref : float
+        Reference scaling constants.
+
+    Returns
+    -------
+    df_sweep : pd.DataFrame
+        Sensitivity grid with (a, b, mean_upsilon_crit, median_upsilon_crit,
+        activation_fraction, mean_excess_upsilon, max_excess_upsilon).
+    """
+    ups_arr = np.asarray(upsilon, dtype=float)
+    records = []
+
+    for a_val in a_values:
+        for b_val in b_values:
+            u_crit = compute_critical_shear_threshold(
+                tan_beta=tan_beta,
+                d50_m=d50_m,
+                upsilon_crit_0=upsilon_crit_0,
+                d50_ref=d50_ref,
+                tan_beta_ref=tan_beta_ref,
+                a=a_val,
+                b=b_val,
+            )
+            u_excess = compute_excess_upsilon(
+                upsilon=ups_arr,
+                upsilon_crit=u_crit,
+            )
+            u_crit_arr = np.broadcast_to(np.asarray(u_crit, dtype=float), ups_arr.shape)
+            u_exc_arr = np.asarray(u_excess, dtype=float)
+            
+            act_frac = float(np.mean(u_exc_arr > 0.0))
+            records.append({
+                "a": float(a_val),
+                "b": float(b_val),
+                "mean_upsilon_crit": float(np.mean(u_crit_arr)),
+                "median_upsilon_crit": float(np.median(u_crit_arr)),
+                "activation_fraction": act_frac,
+                "mean_excess_upsilon": float(np.mean(u_exc_arr)),
+                "max_excess_upsilon": float(np.max(u_exc_arr)),
+            })
+
+    return pd.DataFrame(records)
 
 
 def compute_excess_upsilon(
@@ -1443,6 +1601,7 @@ def compute_excess_upsilon(
     tan_beta_ref: float = 0.08,
     a: float = 1.0,
     b: float = 1.0,
+    mode: str = "power_law",
 ) -> Union[float, np.ndarray]:
     """Compute the Excess Vulnerability Index (Upsilon_excess = max(0, Upsilon - Upsilon_crit)).
 
@@ -1468,7 +1627,9 @@ def compute_excess_upsilon(
     d50_ref, tan_beta_ref : float
         Reference scales for grain size (0.00035 m) and slope (0.08).
     a, b : float
-        Scaling exponents for grain size and slope (default 1.0, 1.0).
+        Scaling exponents for grain size and slope (default 1.0, 1.0; range [0.5, 1.5]).
+    mode : str
+        Critical threshold calculation mode ('power_law' or 'soulsby_shields').
 
     Returns
     -------
@@ -1480,9 +1641,13 @@ def compute_excess_upsilon(
         if tan_beta is None or d50_m is None:
             tb = 0.08 if tan_beta is None else tan_beta
             d50 = 0.00035 if d50_m is None else d50_m
-            crit_arr = compute_critical_shear_threshold(tb, d50, upsilon_crit_0=upsilon_crit_0, d50_ref=d50_ref, tan_beta_ref=tan_beta_ref, a=a, b=b)
+            crit_arr = compute_critical_shear_threshold(
+                tb, d50, upsilon_crit_0=upsilon_crit_0, d50_ref=d50_ref, tan_beta_ref=tan_beta_ref, a=a, b=b, mode=mode
+            )
         else:
-            crit_arr = compute_critical_shear_threshold(tan_beta, d50_m, upsilon_crit_0=upsilon_crit_0, d50_ref=d50_ref, tan_beta_ref=tan_beta_ref, a=a, b=b)
+            crit_arr = compute_critical_shear_threshold(
+                tan_beta, d50_m, upsilon_crit_0=upsilon_crit_0, d50_ref=d50_ref, tan_beta_ref=tan_beta_ref, a=a, b=b, mode=mode
+            )
     else:
         crit_arr = np.asarray(upsilon_crit, dtype=float)
 
@@ -1610,6 +1775,7 @@ def compute_unified_coastal_vulnerability_index(
     w_ref: float = 15.0,
     w_bound: float = 0.6,
     d50_m: Optional[Union[float, np.ndarray]] = None,
+    d50: Optional[Union[float, np.ndarray]] = None,
     tan_beta: Optional[Union[float, np.ndarray]] = None,
     shore_normal_deg: Optional[float] = None,
     site: Optional[str] = None,
@@ -1619,6 +1785,9 @@ def compute_unified_coastal_vulnerability_index(
     upsilon_crit_0: float = 500.0,
     d50_ref: float = 0.00035,
     tan_beta_ref: float = 0.08,
+    upsilon_crit_a: float = 1.0,
+    upsilon_crit_b: float = 1.0,
+    upsilon_crit_mode: str = "power_law",
     upsilon_crit: Optional[Union[float, np.ndarray]] = None,
     enable_critical_threshold: bool = True,
     y_alongshore_m: Optional[Union[float, np.ndarray]] = None,
@@ -1633,6 +1802,7 @@ def compute_unified_coastal_vulnerability_index(
     rho: float = RHO_WATER,
     g: float = G_CONST,
     tau: float = TAU_CONST,
+    **kwargs: Any,
 ) -> pd.DataFrame:
     """Compute the Unified Coastal Vulnerability Index (Υ) with continuous dimensionless modulators and site parameterization.
 
@@ -1769,8 +1939,23 @@ def compute_unified_coastal_vulnerability_index(
 
     eff_shore_normal = shore_normal_deg if shore_normal_deg is not None else site_cfg.get("shore_normal_deg", DUCK_SHORE_NORMAL_DEG)
     base_tan_beta = tan_beta if tan_beta is not None else site_cfg.get("tan_beta", 0.08)
-    base_d50 = d50_m if d50_m is not None else site_cfg.get("d50_m", 0.00035)
+    
+    resolved_d50 = d50_m if d50_m is not None else (d50 if d50 is not None else kwargs.get("d50_mm", None))
+    if resolved_d50 is not None:
+        resolved_d50_val = np.asarray(resolved_d50, dtype=float)
+        # If user passed mm e.g. 0.35 mm vs 0.00035 m
+        if np.all(resolved_d50_val > 0.05):
+            resolved_d50_m = resolved_d50_val * 1e-3
+        else:
+            resolved_d50_m = resolved_d50_val
+    else:
+        resolved_d50_m = None
+
+    base_d50 = resolved_d50_m if resolved_d50_m is not None else site_cfg.get("d50_m", 0.00035)
     base_tr = tide_range_m if tide_range_m is not None else site_cfg.get("tide_range_m", 0.0)
+
+    crit_a = float(kwargs.get("a", upsilon_crit_a))
+    crit_b = float(kwargs.get("b", upsilon_crit_b))
 
     site_is_reef = is_reef if is_reef is not None else site_cfg.get("is_reef", False)
     site_z_reef = z_reef_m if z_reef_m is not None else site_cfg.get("z_reef_m", -1.0)
@@ -1903,6 +2088,9 @@ def compute_unified_coastal_vulnerability_index(
             upsilon_crit_0=upsilon_crit_0,
             d50_ref=d50_ref,
             tan_beta_ref=tan_beta_ref,
+            a=crit_a,
+            b=crit_b,
+            mode=upsilon_crit_mode,
         )
         if np.isscalar(u_crit_arr):
             u_crit_arr = np.full_like(hs_arr, float(u_crit_arr))
