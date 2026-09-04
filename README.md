@@ -44,7 +44,7 @@ flowchart LR
         TG["Tide Gating: ((η - MSL)/(TR/2) + 1)^p"]
         F["Wave Direction: max(0, cos θ_rel)^2"]
         G["Alongshore Transport: sin(2θ_rel)"]
-        H["Wind Stress: 1 + sign(Wa)·(Wa/Wref)^2"]
+        H["Asymmetric Wind: 1 + min(c_on·(Wa/Wref)^2, bound_on) - min(c_off·(|Wa|/Wref)^2, bound_off)"]
     end
 
     Core --> Master["Unified Index: Υ_unified"]
@@ -109,10 +109,17 @@ flowchart LR
 8. **Dynamic Viscosity & Settling Kinetics ($w_s(D_{50}, T)$):**
    * Settling velocity dynamically calculates kinematic seawater viscosity $\nu(T)$ and dynamic sediment fall velocity (*Soulsby 1997*).
 
-9. **Outer-Array Sandbar Wave Dissipation & Shielding:**
+9. **Asymmetric Shore-Normal Wind Stress Modulator ($\Psi_{\text{wind}}$):**
+   $$\Psi_{\text{wind}} = \begin{cases} 
+   1.0 + \min\left(c_{\text{on}} \cdot \left(\frac{W_a}{W_{\text{ref,on}}}\right)^2, w_{\text{bound,on}}\right), & W_a \ge 0 \text{ (Onshore)} \\
+   1.0 - \min\left(c_{\text{off}} \cdot \left(\frac{|W_a|}{W_{\text{ref,off}}}\right)^2, w_{\text{bound,off}}\right), & W_a < 0 \text{ (Offshore)}
+   \end{cases}$$
+   * **Physical Asymmetry:** Onshore winds ($W_a \ge 0$) generate surface shear stress that enhances storm water level set-up, destabilizes breaking wave crests, and forces wave overtopping into the upper dune (gain $c_{\text{on}} = 1.0$, bound $+0.60$). Offshore winds ($W_a < 0$) oppose incoming waves, primarily flattening wave steepness and blowing spray seaward with attenuated morphodynamic impact (gain $c_{\text{off}} = 0.5$, bound $-0.30$).
+
+10. **Outer-Array Sandbar Wave Dissipation & Shielding:**
    * Multi-array energy attenuation ratio $\Delta P_{\text{dissip}} = \frac{P_{26\text{m}} - P_{8\text{m}}}{P_{26\text{m}} + 10^{-4}}$ tracking nearshore bar dissipation.
 
-10. **Agentic Latent Space Mapping & Context Optimization (Suggestion 8):**
+11. **Agentic Latent Space Mapping & Context Optimization (Suggestion 8):**
    * **The Threshold Anchor ($\Upsilon_{\text{crit}}$):** Operates as a discrete binary classification boundary. When $\Upsilon < \Upsilon_{\text{crit}}$, time steps are categorized as `"Background Noise"` (subcritical hydrodynamic forcing below incipient sand motion), allowing LLM conversational agents and RAG vector retrievers to safely prune non-impactful steps, drastically reducing LLM context-window bloat and token consumption.
    * **State-Space Recovery Navigation ($\Upsilon_{\text{diseq}} = \Upsilon - \Upsilon_{\text{eq}}$):** Enables LLM agents navigating latent vector spaces to isolate constructive swash recovery phases ($\Upsilon_{\text{diseq}} < 0$, $+\Delta X$) rather than only severe storm gouging events ($-\Delta X$), quantitatively answering natural language inquiries regarding post-storm beach recovery durations and berm accretion timeframes.
 

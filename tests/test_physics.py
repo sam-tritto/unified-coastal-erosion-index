@@ -14,6 +14,7 @@ from src.physics import (
     compute_wave_energy_flux,
     compute_dean_number,
     compute_shore_normal_wind,
+    compute_asymmetric_wind_amplification,
     compute_tidal_smearing_factor,
     compute_instantaneous_tide_phase_factor,
     compute_tide_phase_gating,
@@ -519,12 +520,10 @@ def test_forward_physics_bayesian_kinematic_consistency():
         )
         upsilon_physics = df["upsilon"].values
 
-        # Compute via Bayesian kinematic base formula
+        # Compute via Bayesian kinematic base formula with asymmetric wind
         prefactor = (1025.0 * (9.81 ** 1.5)) / (16.0 * ((2.0 * np.pi) ** 1.5))
         twl_arr = 1.0 + np.maximum(surge / 1.0, 0.0) + np.maximum(df["runup_r2_m"].values / 2.0, 0.0)
-        w_sign = np.sign(df["wind_normal_ms"].values)
-        w_quad = w_sign * ((np.abs(df["wind_normal_ms"].values) / 15.0) ** 2)
-        wind_arr_mod = 1.0 + np.clip(w_quad, -0.6, 0.6)
+        wind_arr_mod = compute_asymmetric_wind_amplification(df["wind_normal_ms"].values)
         ws_arr = df["w_s_ms"].values
 
         kinematic_base = prefactor * tan_beta * (tp / ws_arr) * twl_arr * wind_arr_mod
@@ -533,8 +532,8 @@ def test_forward_physics_bayesian_kinematic_consistency():
         np.testing.assert_allclose(upsilon_physics, upsilon_reconstructed, rtol=1e-5)
 
 
-def test_quadratic_symmetric_wind_scaling():
-    """Verify that wind amplification follows signed quadratic scaling and symmetric bounds."""
+def test_asymmetric_wind_scaling():
+    """Verify that wind amplification follows physically asymmetric onshore/offshore scaling."""
     hs = np.array([2.0])
     tp = np.array([10.0])
     surge = np.array([0.3])
@@ -543,42 +542,50 @@ def test_quadratic_symmetric_wind_scaling():
     # 1. Calm wind baseline (W = 0)
     df_calm = compute_unified_coastal_vulnerability_index(
         hs=hs, tp=tp, surge=surge, wind_speed=np.array([0.0]), wind_dir_deg=np.array([70.0]),
-        w_ref=15.0, w_bound=0.6,
     )
     ups_calm = df_calm["upsilon"].iloc[0]
 
     # 2. Moderate onshore wind (+10 m/s at 70 deg)
     df_onshore = compute_unified_coastal_vulnerability_index(
         hs=hs, tp=tp, surge=surge, wind_speed=np.array([10.0]), wind_dir_deg=np.array([70.0]),
-        w_ref=15.0, w_bound=0.6,
     )
     ups_onshore = df_onshore["upsilon"].iloc[0]
 
     # 3. Moderate offshore wind (-10 m/s at 250 deg)
     df_offshore = compute_unified_coastal_vulnerability_index(
         hs=hs, tp=tp, surge=surge, wind_speed=np.array([10.0]), wind_dir_deg=np.array([250.0]),
-        w_ref=15.0, w_bound=0.6,
     )
     ups_offshore = df_offshore["upsilon"].iloc[0]
 
-    # Symmetric quadratic modulation around calm baseline: (10/15)^2 = 0.444
+    # Asymmetric quadratic modulation around calm baseline:
+    # Onshore gain = c_on * (10/15)^2 = 1.0 * 0.4444 = 0.4444
+    # Offshore reduction = c_off * (10/15)^2 = 0.5 * 0.4444 = 0.2222
     onshore_gain = (ups_onshore - ups_calm) / ups_calm
     offshore_reduction = (ups_calm - ups_offshore) / ups_calm
-    np.testing.assert_allclose(onshore_gain, (10.0 / 15.0) ** 2, rtol=1e-3)
-    np.testing.assert_allclose(offshore_reduction, (10.0 / 15.0) ** 2, rtol=1e-3)
-    np.testing.assert_allclose(onshore_gain, offshore_reduction, rtol=1e-3)
+    np.testing.assert_allclose(onshore_gain, 1.0 * (10.0 / 15.0) ** 2, rtol=1e-3)
+    np.testing.assert_allclose(offshore_reduction, 0.5 * (10.0 / 15.0) ** 2, rtol=1e-3)
+    # Physical asymmetry: onshore response is twice as large as offshore steepness flattening
+    assert onshore_gain > offshore_reduction
+    np.testing.assert_allclose(onshore_gain / offshore_reduction, 2.0, rtol=1e-3)
 
-    # 4. Extreme gale capping (+30 m/s vs -30 m/s)
+    # 4. Extreme gale capping (+30 m/s vs -30 m/s) with default bounds (0.6 onshore, 0.3 offshore)
     df_extreme_on = compute_unified_coastal_vulnerability_index(
         hs=hs, tp=tp, surge=surge, wind_speed=np.array([30.0]), wind_dir_deg=np.array([70.0]),
-        w_ref=15.0, w_bound=0.6,
     )
     df_extreme_off = compute_unified_coastal_vulnerability_index(
         hs=hs, tp=tp, surge=surge, wind_speed=np.array([30.0]), wind_dir_deg=np.array([250.0]),
-        w_ref=15.0, w_bound=0.6,
     )
     np.testing.assert_allclose(df_extreme_on["upsilon"].iloc[0] / ups_calm, 1.0 + 0.6, rtol=1e-3)
-    np.testing.assert_allclose(df_extreme_off["upsilon"].iloc[0] / ups_calm, 1.0 - 0.6, rtol=1e-3)
+    np.testing.assert_allclose(df_extreme_off["upsilon"].iloc[0] / ups_calm, 1.0 - 0.3, rtol=1e-3)
+
+    # 5. Direct test of compute_asymmetric_wind_amplification
+    assert compute_asymmetric_wind_amplification(0.0) == 1.0
+    assert abs(compute_asymmetric_wind_amplification(15.0) - 1.6) < 1e-6
+    assert abs(compute_asymmetric_wind_amplification(-15.0) - 0.7) < 1e-6
+    # Vectorized test
+    w_vec = np.array([-30.0, -15.0, 0.0, 10.0, 30.0])
+    res_vec = compute_asymmetric_wind_amplification(w_vec)
+    np.testing.assert_allclose(res_vec, [0.7, 0.7, 1.0, 1.0 + (10/15)**2, 1.6], rtol=1e-5)
 
 
 def test_coastal_site_profiles_database():

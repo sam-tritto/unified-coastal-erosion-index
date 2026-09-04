@@ -505,6 +505,63 @@ def compute_shore_normal_wind(
     return w_a
 
 
+def compute_asymmetric_wind_amplification(
+    w_a: Union[float, np.ndarray],
+    w_ref_on: float = 15.0,
+    w_ref_off: float = 15.0,
+    w_bound_on: float = 0.6,
+    w_bound_off: float = 0.3,
+    c_on: float = 1.0,
+    c_off: float = 0.5,
+) -> Union[float, np.ndarray]:
+    """Compute asymmetric wind stress amplification factor for shore-normal wind velocity W_a.
+
+    Physical Asymmetry Formulation:
+    - Onshore winds (W_a >= 0): Enhance wind set-up, overtop dunes via surface shear,
+      and drive cross-shore momentum flux into swash zone:
+      Wind_amp = 1.0 + min(c_on * (W_a / w_ref_on)^2, w_bound_on)
+    - Offshore winds (W_a < 0): Oppose incoming wave crests, flattening wave steepness
+      and damping set-up, with attenuated impact:
+      Wind_amp = 1.0 - min(c_off * (|W_a| / w_ref_off)^2, w_bound_off)
+
+    Parameters
+    ----------
+    w_a : float or np.ndarray
+        Projected shore-normal wind velocity (m/s), positive onshore, negative offshore.
+    w_ref_on : float
+        Reference wind speed for onshore wind scaling (m/s, default 15.0).
+    w_ref_off : float
+        Reference wind speed for offshore wind scaling (m/s, default 15.0).
+    w_bound_on : float
+        Upper modulation bound for onshore wind amplification (default 0.6).
+    w_bound_off : float
+        Lower modulation bound for offshore wind damping (default 0.3).
+    c_on : float
+        Scaling gain coefficient for onshore wind (default 1.0).
+    c_off : float
+        Scaling gain coefficient for offshore wind (default 0.5).
+
+    Returns
+    -------
+    wind_amp : float or np.ndarray
+        Dimensionless wind amplification factor.
+    """
+    is_scalar = np.isscalar(w_a)
+    w_arr = np.asarray(w_a, dtype=float)
+
+    mod_on = np.minimum(
+        c_on * ((np.maximum(w_arr, 0.0) / max(w_ref_on, 1.0)) ** 2),
+        w_bound_on,
+    )
+    mod_off = np.minimum(
+        c_off * ((np.maximum(-w_arr, 0.0) / max(w_ref_off, 1.0)) ** 2),
+        w_bound_off,
+    )
+
+    wind_amp = 1.0 + mod_on - mod_off
+    return float(wind_amp) if is_scalar else wind_amp
+
+
 def compute_cross_array_dissipation_ratio(
     p_outer_Wm: Union[float, np.ndarray],
     p_inner_Wm: Union[float, np.ndarray],
@@ -1774,6 +1831,12 @@ def compute_unified_coastal_vulnerability_index(
     r_ref: float = 2.0,
     w_ref: float = 15.0,
     w_bound: float = 0.6,
+    w_ref_on: Optional[float] = None,
+    w_ref_off: Optional[float] = None,
+    w_bound_on: Optional[float] = None,
+    w_bound_off: Optional[float] = None,
+    c_wind_on: float = 1.0,
+    c_wind_off: float = 0.5,
     d50_m: Optional[Union[float, np.ndarray]] = None,
     d50: Optional[Union[float, np.ndarray]] = None,
     tan_beta: Optional[Union[float, np.ndarray]] = None,
@@ -1846,7 +1909,10 @@ def compute_unified_coastal_vulnerability_index(
     6. Reef Dissipation Modulator: Psi_reef = K_c * K_f = min(1, gamma_b * h_r / H_0) * exp(-c_f * W_r / h_r)
        Dynamically models coral reefs as physical low-pass filters via crest clipping and flat friction (Oahu / Waikiki).
     7. Decoupled TWL Amplification: TWL_amp = 1.0 + max(S / s_ref, 0) + max(R_2% / r_ref, 0)
-    8. Wind Amplification: Wind_amp = 1.0 + clip(sgn(W_a) * (|W_a| / w_ref)^2, -w_bound, w_bound)
+    8. Asymmetric Wind Stress Amplification:
+       - Onshore (W_a >= 0): Wind_amp = 1.0 + min(c_on * (W_a / w_ref_on)^2, w_bound_on)
+       - Offshore (W_a < 0): Wind_amp = 1.0 - min(c_off * (|W_a| / w_ref_off)^2, w_bound_off)
+       Onshore winds enhance set-up and overtopping, while offshore winds primarily flatten wave steepness with attenuated impact.
 
     Parameters
     ----------
@@ -1889,7 +1955,13 @@ def compute_unified_coastal_vulnerability_index(
     s_ref, r_ref : float
         Reference scales for surge (1.0m) and runup (2.0m).
     w_ref, w_bound : float
-        Reference wind speed (15.0 m/s) and symmetric modulation bound (0.6).
+        Reference wind speed (15.0 m/s) and symmetric modulation bound fallback (0.6).
+    w_ref_on, w_ref_off : float, optional
+        Onshore and offshore reference wind speeds (default w_ref = 15.0 m/s).
+    w_bound_on, w_bound_off : float, optional
+        Onshore and offshore wind modulation bounds (default w_bound = 0.6 and 0.3).
+    c_wind_on, c_wind_off : float
+        Onshore and offshore scaling gain coefficients (default 1.0 and 0.5).
     d50_m : float or np.ndarray, optional
         Median grain size in meters (default 0.00035m or from site profile). Can be a time series.
     tan_beta : float or np.ndarray, optional
@@ -2070,10 +2142,21 @@ def compute_unified_coastal_vulnerability_index(
         + np.maximum(r_2 / max(r_ref, 1e-3), 0.0)
     )
     
-    # 11. Projected Wind Stress Amplification Factor
-    w_sign = np.sign(w_a)
-    w_quad = w_sign * ((np.abs(w_a) / max(w_ref, 1.0)) ** 2)
-    wind_amplification = 1.0 + np.clip(w_quad, -w_bound, w_bound)
+    # 11. Projected Asymmetric Wind Stress Amplification Factor
+    eff_w_ref_on = w_ref_on if w_ref_on is not None else w_ref
+    eff_w_ref_off = w_ref_off if w_ref_off is not None else w_ref
+    eff_w_bound_on = w_bound_on if w_bound_on is not None else w_bound
+    eff_w_bound_off = w_bound_off if w_bound_off is not None else (0.5 * w_bound if w_bound != 0.6 else 0.3)
+
+    wind_amplification = compute_asymmetric_wind_amplification(
+        w_a=w_a,
+        w_ref_on=eff_w_ref_on,
+        w_ref_off=eff_w_ref_off,
+        w_bound_on=eff_w_bound_on,
+        w_bound_off=eff_w_bound_off,
+        c_on=c_wind_on,
+        c_off=c_wind_off,
+    )
     
     # 12. Unified Coastal Vulnerability Index (Upsilon_unified)
     upsilon = prefactor * tan_beta_arr * wave_sed_core * twl_amplification * psi_tide * psi_phase * psi_dir * wind_amplification

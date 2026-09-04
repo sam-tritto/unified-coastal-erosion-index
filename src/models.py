@@ -1631,6 +1631,12 @@ def build_learnable_exponent_bayesian_model(
     r_ref: float = 2.0,
     w_ref: float = 15.0,
     w_bound: float = 0.6,
+    w_ref_on: Optional[float] = None,
+    w_ref_off: Optional[float] = None,
+    w_bound_on: Optional[float] = None,
+    w_bound_off: Optional[float] = None,
+    c_wind_on: float = 1.0,
+    c_wind_off: float = 0.5,
     lower_bound: float = 1.0,
     upper_bound: float = 3.0,
     heteroscedastic: bool = True,
@@ -1649,11 +1655,23 @@ def build_learnable_exponent_bayesian_model(
     shield_arr = np.asarray(shielding_factor, dtype=float) if shielding_factor is not None else np.ones(n_obs)
     k_indices = np.arange(max_lag, dtype=float)
 
-    # Precompute non-exponent terms to optimize sampling graph (decoupled additive TWL & quadratic symmetric wind)
+    # Precompute non-exponent terms to optimize sampling graph (decoupled additive TWL & asymmetric quadratic wind)
+    eff_w_ref_on = w_ref_on if w_ref_on is not None else w_ref
+    eff_w_ref_off = w_ref_off if w_ref_off is not None else w_ref
+    eff_w_bound_on = w_bound_on if w_bound_on is not None else w_bound
+    eff_w_bound_off = w_bound_off if w_bound_off is not None else (0.5 * w_bound if w_bound != 0.6 else 0.3)
+
+    from src.physics import compute_asymmetric_wind_amplification
     twl_arr = 1.0 + np.maximum(surge_arr / s_ref, 0.0) + np.maximum(runup_arr / r_ref, 0.0)
-    w_sign = np.sign(wind_arr)
-    w_quad = w_sign * ((np.abs(wind_arr) / max(w_ref, 1.0)) ** 2)
-    wind_arr_mod = 1.0 + np.clip(w_quad, -w_bound, w_bound)
+    wind_arr_mod = compute_asymmetric_wind_amplification(
+        wind_arr,
+        w_ref_on=eff_w_ref_on,
+        w_ref_off=eff_w_ref_off,
+        w_bound_on=eff_w_bound_on,
+        w_bound_off=eff_w_bound_off,
+        c_on=c_wind_on,
+        c_off=c_wind_off,
+    )
     prefactor = (1025.0 * (9.81 ** 1.5)) / (16.0 * ((2.0 * np.pi) ** 1.5))
     kinematic_base = prefactor * tan_beta_val * (tp_arr / ws_arr) * twl_arr * wind_arr_mod * shield_arr
 
