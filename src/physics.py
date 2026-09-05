@@ -1807,6 +1807,79 @@ def compute_tier4_directional_spread_upsilon(
     return upsilon_tier4, k_focus
 
 
+def compute_site_reference_flux(
+    tan_beta: Union[float, np.ndarray],
+    hs_mean: Union[float, np.ndarray],
+    tp_mean: Union[float, np.ndarray],
+    ws: Union[float, np.ndarray],
+    hs_exponent: float = 2.5,
+    rho: float = RHO_WATER,
+    g: float = G_CONST,
+    tau: float = TAU_CONST,
+) -> Union[float, np.ndarray]:
+    """Compute site-specific reference kinetic forcing flux Upsilon_ref [kg/s].
+
+    Theoretical Formulation:
+        Upsilon_ref = C_0 * tan(beta_site) * [ (Hs_mean^n * Tp_mean) / ws_site ]
+
+    Parameters
+    ----------
+    tan_beta : float or np.ndarray
+        Foreshore beach slope [-].
+    hs_mean : float or np.ndarray
+        Site climatological or series mean significant wave height [m].
+    tp_mean : float or np.ndarray
+        Site climatological or series mean peak wave period [s].
+    ws : float or np.ndarray
+        Site mean sediment settling velocity [m/s].
+    hs_exponent : float
+        Nonlinear wave height scaling exponent (default 2.5).
+    rho : float
+        Seawater density [kg/m^3] (default 1025.0).
+    g : float
+        Gravitational acceleration [m/s^2] (default 9.81).
+    tau : float
+        2*pi.
+
+    Returns
+    -------
+    upsilon_ref : float or np.ndarray
+        Site reference forcing flux [kg/s].
+    """
+    prefactor = (rho * (g ** 1.5)) / (16.0 * (tau ** 1.5))
+    tan_beta_arr = np.asarray(tan_beta, dtype=float)
+    hs_arr = np.maximum(np.asarray(hs_mean, dtype=float), 0.01)
+    tp_arr = np.maximum(np.asarray(tp_mean, dtype=float), 0.1)
+    ws_arr = np.maximum(np.asarray(ws, dtype=float), 1e-5)
+
+    return prefactor * tan_beta_arr * ((hs_arr ** float(hs_exponent)) * tp_arr) / ws_arr
+
+
+def compute_dimensionless_upsilon(
+    upsilon: Union[float, np.ndarray],
+    upsilon_ref: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    """Normalize dimensional Upsilon [kg/s] by site reference flux Upsilon_ref [kg/s] to yield dimensionless relative forcing Upsilon* [-].
+
+    Theoretical Formulation:
+        Upsilon* = Upsilon / Upsilon_ref
+
+    Parameters
+    ----------
+    upsilon : float or np.ndarray
+        Dimensional Unified Coastal Vulnerability Index [kg/s].
+    upsilon_ref : float or np.ndarray
+        Site reference forcing flux [kg/s].
+
+    Returns
+    -------
+    upsilon_star : float or np.ndarray
+        Dimensionless relative forcing index [-].
+    """
+    ref = np.maximum(np.asarray(upsilon_ref, dtype=float), 1e-6)
+    return np.asarray(upsilon, dtype=float) / ref
+
+
 def compute_unified_coastal_vulnerability_index(
     hs: Union[float, np.ndarray],
     tp: Union[float, np.ndarray],
@@ -1881,15 +1954,21 @@ def compute_unified_coastal_vulnerability_index(
 
     Where:
         H_shore = H_0 * Psi_reef
-        Υ_crit(tan(beta), D_50) = Υ_crit,0 * (D_50 / D_50,ref) * (tan(beta) / tan(beta)_ref)
+        Υ_crit(tan(beta), D_50) = Υ_crit,0 * (D_50 / D_50,ref)^a * (tan(beta) / tan(beta)_ref)^b
 
     Dimensional Breakdown:
-    - Prefactor C_0 = (rho * g^1.5) / (16 * (2*pi)^1.5) has physical dimensions [kg / (m^0.5 * s^3)].
+    - Prefactor C_0 = (rho * g^1.5) / (16 * (2*pi)^1.5) has physical dimensions [kg / (m^1.5 * s^3)].
     - Foreshore slope tan(beta) is dimensionless [-].
     - Sediment-wave core [ (H_shore^n * Tp) / ws(T) ] has dimensions [m^(n-1) * s^2].
     - At the baseline exponent n = 2.5, the core dimensions are [m^1.5 * s^2], giving Υ net dimensions
-      of [kg / s] (kinetic mass forcing rate per second).
+      of [kg / s] (kinetic sediment forcing mass flux rate per second).
     - Continuous modulators (TWL_amp, Psi_tide, Psi_phase, Psi_dir, Psi_reef, Wind_amp) are dimensionless scaling factors [-].
+
+    Dimensionless Relative Forcing Index (Upsilon*):
+    - Normalizing dimensional Upsilon by site reference flux Upsilon_ref produces scale-invariant relative forcing:
+        Upsilon_ref = C_0 * tan(beta_site) * [ (Hs_mean^n * Tp_mean) / ws_site ]
+        Upsilon* = Upsilon / Upsilon_ref
+      where Upsilon* = 1.0 represents the mean background kinetic carrying capacity for any global archetype.
 
     Continuous Dimensionless Scaling Factors & Morphodynamic Regimes:
     1. Critical Threshold Shear Activation: Upsilon_excess = max(0, Upsilon - Upsilon_crit(tan(beta), D_50))
@@ -2273,6 +2352,26 @@ def compute_unified_coastal_vulnerability_index(
         sigma_theta_deg=sigma_theta_arr,
     )
 
+    # 14. Site Reference Kinetic Flux & Dimensionless Relative Forcing Index (Upsilon*)
+    hs_ref_val = float(np.nanmean(hs_eff))
+    tp_ref_val = float(np.nanmean(tp_arr))
+    tan_beta_ref_val = float(np.nanmean(tan_beta_arr))
+    ws_ref_val = float(np.nanmean(ws))
+    u_ref_scalar = compute_site_reference_flux(
+        tan_beta=tan_beta_ref_val,
+        hs_mean=hs_ref_val,
+        tp_mean=tp_ref_val,
+        ws=ws_ref_val,
+        hs_exponent=n_exp,
+        rho=rho,
+        g=g,
+        tau=tau,
+    )
+    u_ref_arr = np.full_like(hs_arr, float(u_ref_scalar))
+    upsilon_star = compute_dimensionless_upsilon(upsilon, u_ref_arr)
+    upsilon_star_excess = compute_dimensionless_upsilon(upsilon_excess, u_ref_arr)
+    upsilon_star_crit = compute_dimensionless_upsilon(u_crit_arr, u_ref_arr)
+
     df_out = pd.DataFrame({
         "hs_m": hs_arr,
         "tp_s": tp_arr,
@@ -2329,6 +2428,10 @@ def compute_unified_coastal_vulnerability_index(
         "upsilon_shielded": upsilon_shielded,
         "upsilon_raw": upsilon_raw,
         "log_upsilon": log_upsilon,
+        "upsilon_ref": u_ref_arr,
+        "upsilon_star": upsilon_star,
+        "upsilon_star_excess": upsilon_star_excess,
+        "upsilon_star_crit": upsilon_star_crit,
     })
     if water_temp_c is not None:
         df_out["water_temp_c"] = water_temp_c

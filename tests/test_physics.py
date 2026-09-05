@@ -39,6 +39,8 @@ from src.physics import (
     simulate_coupled_2d_embayment_evolution,
     compute_dynamic_foreshore_slope,
     compute_dynamic_grain_size,
+    compute_site_reference_flux,
+    compute_dimensionless_upsilon,
     COASTAL_SITE_PROFILES,
 )
 from src.data import (
@@ -1762,6 +1764,121 @@ def test_evaluate_model_performance_baselines():
     assert np.isclose(perf_custom["MSE Baseline"], mse_custom_expected)
     assert "BSS (Zero-Change)" in perf_custom
     assert "BSS (Persistence)" in perf_custom
+
+
+def test_dimensional_analysis_and_units():
+    """Verify dimensional prefactor C_0, wave-sediment core, and Upsilon kinetic units [kg/s]."""
+    rho = 1025.0       # kg/m^3
+    g = 9.81           # m/s^2
+    tau = 2.0 * np.pi
+
+    # Prefactor C_0 = rho * g^1.5 / (16 * (2*pi)^1.5) [kg / (m^1.5 * s^3)]
+    c0 = (rho * (g ** 1.5)) / (16.0 * (tau ** 1.5))
+    assert 120.0 < c0 < 140.0  # ~130.5 kg / (m^1.5 * s^3)
+
+    # Core at n=2.5: Hs^2.5 * Tp / ws [m^1.5 * s^2]
+    hs = 2.0   # m
+    tp = 10.0  # s
+    ws = 0.05  # m/s
+    core = (hs ** 2.5) * tp / ws
+    assert core > 0.0
+
+    # Total product Upsilon = C_0 * tan_beta * core [kg/s]
+    tan_beta = 0.08
+    ups_manual = c0 * tan_beta * core
+    assert ups_manual > 0.0
+
+    # Reference flux calculation must match manual formula
+    u_ref = compute_site_reference_flux(
+        tan_beta=tan_beta,
+        hs_mean=hs,
+        tp_mean=tp,
+        ws=ws,
+        hs_exponent=2.5,
+        rho=rho,
+        g=g,
+        tau=tau,
+    )
+    assert np.isclose(u_ref, ups_manual)
+
+
+def test_site_reference_flux_and_dimensionless_upsilon():
+    """Verify compute_site_reference_flux and compute_dimensionless_upsilon with scalars and arrays."""
+    # 1. Scalar calculation
+    u_ref = compute_site_reference_flux(tan_beta=0.08, hs_mean=1.5, tp_mean=8.0, ws=0.04)
+    assert isinstance(u_ref, (float, np.floating))
+    assert u_ref > 0.0
+
+    u_raw = 2.0 * u_ref
+    u_star = compute_dimensionless_upsilon(u_raw, u_ref)
+    assert np.isclose(u_star, 2.0)
+
+    # 2. Array calculation
+    u_raw_arr = np.array([0.5 * u_ref, 1.0 * u_ref, 3.0 * u_ref])
+    u_star_arr = compute_dimensionless_upsilon(u_raw_arr, u_ref)
+    np.testing.assert_allclose(u_star_arr, [0.5, 1.0, 3.0])
+
+
+def test_unified_vulnerability_index_dimensionless_outputs():
+    """Verify compute_unified_coastal_vulnerability_index outputs upsilon_ref and upsilon_star."""
+    hs = np.array([1.0, 2.0, 3.5])
+    tp = np.array([8.0, 10.0, 12.0])
+    surge = np.array([0.1, 0.3, 0.8])
+    wind_spd = np.array([5.0, 12.0, 20.0])
+    wind_dir = np.array([70.0, 70.0, 70.0])
+
+    df = compute_unified_coastal_vulnerability_index(
+        hs=hs,
+        tp=tp,
+        surge=surge,
+        wind_speed=wind_spd,
+        wind_dir_deg=wind_dir,
+        site="duck_nc",
+    )
+
+    assert "upsilon_ref" in df.columns
+    assert "upsilon_star" in df.columns
+    assert "upsilon_star_excess" in df.columns
+    assert "upsilon_star_crit" in df.columns
+
+    # Reference flux must be positive
+    assert np.all(df["upsilon_ref"] > 0.0)
+
+    # Dimensionless Upsilon* must equal upsilon / upsilon_ref
+    expected_u_star = df["upsilon"].values / df["upsilon_ref"].values
+    np.testing.assert_allclose(df["upsilon_star"].values, expected_u_star, rtol=1e-5)
+
+    # Storm condition (Hs=3.5m) should yield higher Upsilon* than calm condition (Hs=1.0m)
+    assert df["upsilon_star"].iloc[2] > df["upsilon_star"].iloc[0]
+
+
+def test_cross_archetype_dimensionless_calibration_invariance():
+    """Verify that normalizing by site reference flux yields dimensionless baseline Upsilon* ~ O(1) across all 5 archetypes."""
+    sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+
+    for site_key in sites:
+        prof = COASTAL_SITE_PROFILES[site_key]
+        # Simulate typical site conditions
+        hs = np.array([1.5, 2.0, 2.5])
+        tp = np.array([9.0, 10.0, 11.0])
+        surge = np.array([0.2, 0.3, 0.4])
+        wind_spd = np.array([8.0, 10.0, 12.0])
+        wind_dir = np.full_like(hs, prof["shore_normal_deg"])
+
+        df = compute_unified_coastal_vulnerability_index(
+            hs=hs,
+            tp=tp,
+            surge=surge,
+            wind_speed=wind_spd,
+            wind_dir_deg=wind_dir,
+            site=site_key,
+        )
+
+        mean_u_star = float(df["upsilon_star"].mean())
+        # Normalized mean relative forcing across typical conditions must be O(1), e.g. within [0.2, 5.0]
+        assert 0.2 < mean_u_star < 5.0, f"Site {site_key} Upsilon* out of bounds: {mean_u_star}"
+        assert np.all(df["upsilon_star_excess"] >= 0.0)
+
 
 
 

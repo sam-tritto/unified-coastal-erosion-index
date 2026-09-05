@@ -23,7 +23,32 @@ $$\Upsilon_{\text{unified}} = \underbrace{\left(\frac{\rho g^{3/2}}{16 (2\pi)^{3
 
 $$\Upsilon_{\text{excess}} = \max\left(0,\, \Upsilon - \Upsilon_{\text{crit}}(\tan\beta, D_{50})\right)$$
 
-where deepwater incident wave height $H_0$ is modulated across reef-fronted systems via $H_{\text{shore}} = H_0 \cdot \Psi_{\text{reef}}$, and critical shear activation threshold scales with sediment size and beach slope via $\Upsilon_{\text{crit}}(\tan\beta, D_{50}) = \Upsilon_{\text{crit}, 0} \cdot (D_{50} / D_{50,\text{ref}}) \cdot (\tan\beta / \tan\beta_{\text{ref}})$.
+where deepwater incident wave height $H_0$ is modulated across reef-fronted systems via $H_{\text{shore}} = H_0 \cdot \Psi_{\text{reef}}$, and critical shear activation threshold scales with sediment size and beach slope via $\Upsilon_{\text{crit}}(\tan\beta, D_{50}) = \Upsilon_{\text{crit}, 0} \cdot (D_{50} / D_{50,\text{ref}})^a \cdot (\tan\beta / \tan\beta_{\text{ref}})^b$.
+
+### Dimensional Analysis & SI Units Breakdown
+
+The master index $\Upsilon$ is a **kinetic sediment-forcing mass flux rate** carrying physical dimensions of **$[\text{kg}/\text{s}]$** (or $[\text{kg}\cdot\text{s}^{-1}]$):
+
+| Component | Mathematical Expression | Physical Dimensions | SI Units |
+| :--- | :--- | :--- | :--- |
+| **Prefactor ($C_0$)** | $\frac{\rho g^{3/2}}{16(2\pi)^{3/2}}$ | $[M \cdot L^{-1.5} \cdot T^{-3}]$ | $\text{kg} / (\text{m}^{1.5} \cdot \text{s}^3)$ |
+| **Beach Slope ($\tan\beta$)** | $\tan\beta$ | $[-]$ | Dimensionless |
+| **Wave-Sediment Core ($n=2.5$)** | $\frac{H_{\text{shore}}^{2.5} T_p}{w_s}$ | $[L^{2.5} \cdot T / (L \cdot T^{-1})] = [L^{1.5} \cdot T^2]$ | $\text{m}^{1.5} \cdot \text{s}^2$ |
+| **Product ($C_0 \cdot \tan\beta \cdot \text{Core}$)** | $C_0 \tan\beta \frac{H_{\text{shore}}^{2.5} T_p}{w_s}$ | $[M \cdot L^{-1.5} \cdot T^{-3}] \cdot [L^{1.5} \cdot T^2] = [M \cdot T^{-1}]$ | **$\text{kg} / \text{s}$** |
+| **Continuous Modulators ($\Psi_{\dots}, \text{TWL}$)** | $\Psi_{\text{tide}}, \Psi_{\text{phase}}, \Psi_{\text{dir}}, \Psi_{\text{wind}}, \text{TWL}_{\text{amp}}$ | $[-]$ | Dimensionless |
+
+### Archetype Calibration Sensitivity & Dimensionless Index ($\Upsilon^*$)
+
+Because raw $\Upsilon$ carries physical dimensions $[\text{kg}/\text{s}]$, baseline magnitudes naturally reflect local climatology (mean wave height $\overline{H}_s$, mean period $\overline{T}_p$, foreshore slope $\tan\beta$, and grain size $D_{50}$):
+- Fixed calibration constants ($\Upsilon_{\text{crit}, 0} = 500\text{ kg/s}$, $\Upsilon_{\text{eq}} = 2500\text{ kg/s}$, $s_{\text{ref}} = 1.0\text{ m}$, $r_{\text{ref}} = 2.0\text{ m}$) are empirically grounded in Duck, NC conditions.
+- Across contrasting global regimes (e.g. low-energy reef lagoons with $\overline{\Upsilon} \sim 500\text{ kg/s}$ vs. macrotidal open-ocean beaches with $\overline{\Upsilon} \sim 10{,}000\text{ kg/s}$), raw values require regime-aware scaling.
+- To produce a **truly scale-invariant, non-dimensional forcing index**, $\Upsilon$ is normalized by the site's annual mean reference flux:
+
+$$\Upsilon_{\text{ref}} = C_0 \cdot \tan\beta_{\text{site}} \cdot \frac{\overline{H}_{s,\text{site}}^n \cdot \overline{T}_{p,\text{site}}}{w_{s,\text{site}}}$$
+
+$$\Upsilon^*(t) = \frac{\Upsilon(t)}{\Upsilon_{\text{ref}}}, \quad \Upsilon^*_{\text{crit}} = \frac{\Upsilon_{\text{crit}}}{\Upsilon_{\text{ref}}}, \quad \Upsilon^*_{\text{excess}} = \max\left(0,\, \Upsilon^* - \Upsilon^*_{\text{crit}}\right)$$
+
+Where $\Upsilon^* = 1.0$ represents the characteristic background carrying capacity for *any* beach archetype, $\Upsilon^* > 2.0-5.0$ isolates severe anomalous storm erosion, and $\Upsilon^* < 0.5$ identifies constructive berm accretion.
 
 ```mermaid
 flowchart LR
@@ -34,7 +59,7 @@ flowchart LR
     end
 
     subgraph Core ["Kinematic Wave-Sediment Core"]
-        Hshore --> C["Wave-Sediment Prefactor"]
+        Hshore --> C["Wave-Sediment Prefactor C_0 [kg/(m^1.5·s^3)]"]
         B["Morphodynamics: tanβ / ws(D50, T)"] --> C
     end
 
@@ -47,10 +72,11 @@ flowchart LR
         H["Asymmetric Wind: 1 + min(c_on·(Wa/Wref)^2, bound_on) - min(c_off·(|Wa|/Wref)^2, bound_off)"]
     end
 
-    Core --> Master["Unified Index: Υ_unified"]
+    Core --> Master["Unified Index: Υ [kg/s]"]
     Modulators --> Master
-    Master --> CritThresh["Critical Shear Activation: Υ_excess = max(0, Υ - Υ_crit(tanβ, D50))"]
-    CritThresh --> SignedEq["Signed Equilibrium: dX_cross/dt = -C_ero·max(Υ_excess - Υ_eq, 0) + C_acc·max(Υ_eq - Υ, 0)"]
+    Master --> NormRef["Reference Normalization: Υ* = Υ / Υ_ref [-]"]
+    Master --> CritThresh["Critical Shear Activation: Υ_excess = max(0, Υ - Υ_crit)"]
+    CritThresh --> SignedEq["Signed Equilibrium: dX_cross/dt = -C_ero·max(Υ - Υ_eq, 0) + C_acc·max(Υ_eq - Υ, 0)"]
     SignedEq --> Embayment2D["Coupled 2D Embayment Rotation: ΔX_net = ΔX_cross(Υ) + α_rot · Φ_ls · ((y - y_center) / L_beach)"]
 ```
 
