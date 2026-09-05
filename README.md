@@ -2,7 +2,7 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![PyMC 5.0+](https://img.shields.io/badge/PyMC-v5.0+-red.svg)](https://www.pymc.io/)
-[![Tests](https://img.shields.io/badge/pytest-91%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/pytest-passing-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A physics-informed foundation framework for multi-modal coastal hydrodynamics synchronization, Bayesian morphodynamic forecasting with PyMC, continuous global dimensionless scaling, and physics-anchored latent embeddings.
@@ -156,71 +156,35 @@ flowchart LR
 | Coastal Archetype | Exemplar Site | $\tan\beta$ | $D_{50}$ | $TR$ | $\theta_{\text{shore}}$ | Dominant Forcing Modulator | Physical Behavior |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Microtidal Storm Barrier** | **Duck, NC** (USA) | $0.08$ | $0.35\text{ mm}$ | $1.0\text{ m}$ | $70.0^\circ$ | High Surge ($S$), $\Psi_{\text{tide}} \approx 0.89$ | Concentrated berm attack, surge-dominated TWL |
-| **Macrotidal High-Energy** | **Truc Vert** (France) | $0.03$ | $0.22\text{ mm}$ | $4.5\text{ m}$ | $275.0^\circ$ | Energy Smearing ($\Psi_{\text{tide}} \approx 0.57$) | 100m+ intertidal dissipation, tide-diluted impact |
+| **Macrotidal High-Energy** | **Truc Vert** (France) | $0.03$ | $0.22\text{ mm}$ | $4.5\text{ m}$ | $275.0^\circ$ | Energy Smearing ($\Psi_{\text{tide}} \approx 0.57$)| 100m+ intertidal dissipation, tide-diluted impact |
 | **Swell-Dominated Pacific** | **Torrey Pines, CA** (USA) | $0.04$ | $0.20\text{ mm}$ | $1.5\text{ m}$ | $265.0^\circ$ | Long-period Swell ($R_{2\%}$), $S \to 0$ | $T_p > 16\text{s}$ infragravity swash dominates TWL |
 | **Embayed / Rotational** | **Narrabeen** (Australia) | $0.09$ | $0.30\text{ mm}$ | $1.2\text{ m}$ | $85.0^\circ$ | Directional Splitting ($\Psi_{\text{dir}} \text{ vs. } \Phi_{\text{longshore}}$) | Oblique ECL storms drive alongshore rotation |
 | **Reef-Fronted Island** | **Oahu North Shore / Waikiki** (USA) | $0.09$ | $0.45\text{ mm}$ | $0.8\text{ m}$ | $325.0^\circ$ | Coral Reef Filter ($\Psi_{\text{reef}} = K_c \cdot K_f$) | Depth-limited crest clipping & flat friction |
 
 ---
 
-## 3. Empirical In-Situ Validation Results
+## 3. Empirical In-Situ Validation Framework
 
-The formulation is validated against real ground-truth profile surveys measured by the USACE Coastal Research Amphibious Buggy (CRAB), LARC-V amphibious vessel, and backpack RTK-GPS at Mean High Water ($X_{\text{MHW}} = +0.366\text{ m}$ NAVD88) across 2020–2024.
+The formulation is evaluated against ground-truth profile surveys measured by the USACE Coastal Research Amphibious Buggy (CRAB), LARC-V amphibious vessel, and backpack RTK-GPS at Mean High Water ($X_{\text{MHW}} = +0.366\text{ m}$ NAVD88) across 2020–2024.
 
-To ensure **publication-grade statistical rigor** and prevent over-interpreting raw correlation coefficients in noisy nearshore environments, every metric is reported with:
+To ensure **publication-grade statistical rigor** and prevent over-interpreting raw correlation coefficients in noisy nearshore environments, every benchmark execution dynamically computes:
 1. **95% Non-Parametric Bootstrap Confidence Intervals** ($B = 1000$ resamples) on Pearson $r$ and $R^2$.
 2. **Paired Williams Tests ($t$-statistic and $p$-value):** Testing $H_0: \rho(\Upsilon, Y) = \rho(\text{Baseline}, Y)$ accounting for inter-predictor correlation $\rho(\Upsilon, \text{Baseline})$.
 3. **Diebold-Mariano Forecast Error Tests ($DM$ and $p$-value with Harvey-Leybourne-Newbold small-sample correction):** Evaluating whether $\Upsilon$'s reduction in prediction residuals is statistically significant ($p < 0.05$).
 4. **Explained Variance Lift:** Reporting both absolute variance gain ($\Delta R^2 = R^2_{\Upsilon} - R^2_{\text{Baseline}}$) and relative percentage improvement in explained variance ($\% \text{ Variance Lift} = \frac{R^2_{\Upsilon} - R^2_{\text{Base}}}{R^2_{\text{Base}}} \times 100\%$).
 
----
-
-### A. Profile Line 109 (Northern Array, Duck, NC — $N = 82$ In-Situ Field Surveys)
-
-| Rank | Predictor Metric | Pearson $r$ [95% CI] | $p$-val ($r$) | $R^2$ Score [95% CI] | RMSE (m) | Williams $t$ ($p$-val) | DM Stat ($p$-val) | $\Delta R^2$ | % Variance Lift |
-| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1** | **Unified Index (Signed Eq. $dX/dt$)** | **+0.3289** `[+0.173, +0.488]` | **0.0026** | **0.1082** `[0.030, 0.238]` | **7.38** | — (Ref) | — (Ref) | **Ref** | **Baseline Ref** |
-| 2 | Process-Based (XBeach-inspired) | +0.2396 `[-0.008, +0.457]` | 0.0301 | 0.0574 `[0.001, 0.209]` | 7.59 | 0.97 ($p=0.335$) | -0.72 ($p=0.475$) | +0.0508 | **+88.4%** |
-| 3 | Yates (2009) Equilibrium Model | +0.2078 `[+0.024, +0.369]` | 0.0610 | 0.0432 `[0.001, 0.136]` | 7.64 | 1.34 ($p=0.185$) | -1.11 ($p=0.271$) | +0.0650 | **+150.6%** |
-| 4 | Mean Wave Height (mean $H_s$) | -0.1717 `[-0.361, +0.023]` | 0.1229 | 0.0295 `[0.000, 0.130]` | 7.70 | 1.50 ($p=0.138$) | -1.42 ($p=0.160$) | +0.0787 | **+266.9%** |
-| 5 | Unified Index ($\Upsilon$ Memory) | -0.1645 `[-0.341, +0.023]` | 0.1398 | 0.0270 `[0.000, 0.117]` | 7.71 | 1.89 ($p=0.062$) | -1.47 ($p=0.146$) | +0.0811 | **+300.0%** |
-| 6 | Peak Wave Power ($\max P$) | -0.1599 `[-0.316, +0.031]` | 0.1514 | 0.0256 `[0.000, 0.100]` | 7.71 | 1.71 ($p=0.092$) | -1.30 ($p=0.196$) | +0.0826 | **+323.3%** |
-| 7 | Unified Index ($\log_{10}\Upsilon$ Memory) | -0.1156 `[-0.322, +0.078]` | 0.3010 | 0.0134 `[0.000, 0.103]` | 7.76 | 1.89 ($p=0.062$) | -1.63 ($p=0.107$) | +0.0948 | **+709.5%** |
-| 8 | Peak Wave Height ($\max H_s$) | -0.1124 `[-0.284, +0.051]` | 0.3148 | 0.0126 `[0.000, 0.081]` | 7.77 | 1.97 ($p=0.052$) | -1.53 ($p=0.130$) | +0.0956 | **+756.9%** |
-| 9 | Dean Number (mean $\Omega$) | -0.1116 `[-0.298, +0.081]` | 0.3183 | 0.0125 `[0.000, 0.089]` | 7.77 | 1.70 ($p=0.092$) | -1.63 ($p=0.107$) | +0.0957 | **+769.0%** |
-| 10 | Cumulative Storm Work ($\int \Upsilon dt$) | -0.1093 `[-0.291, +0.115]` | 0.8408 | 0.0119 `[0.000, 0.085]` | 7.81 | 2.13 ($p=0.036$) | -1.59 ($p=0.116$) | +0.0963 | **+805.8%** |
-| 11 | Peak Storm Surge ($\max S$) | +0.0506 `[-0.124, +0.218]` | 0.6517 | 0.0026 `[0.000, 0.050]` | 7.80 | 1.63 ($p=0.107$) | -1.65 ($p=0.103$) | +0.1056 | **+4127.9%** |
+> [!TIP]
+> Quantitative benchmark rankings, bootstrap distributions, and statistical comparison tables across all transects (e.g. Profile Lines 58 and 109) are computed and rendered dynamically in `02_Diagnostic_Baselines.ipynb` and `unified_coastal_vulnerability_index.ipynb`.
 
 ---
 
-### B. Profile Line 58 (Near Pier, Duck, NC — $N = 68$ In-Situ Field Surveys)
-
-| Rank | Predictor Metric | Pearson $r$ [95% CI] | $p$-val ($r$) | $R^2$ Score [95% CI] | RMSE (m) | Williams $t$ ($p$-val) | DM Stat ($p$-val) | $\Delta R^2$ | % Variance Lift |
-| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| 1 | Cumulative Storm Work ($\int \Upsilon dt$) | -0.3759 `[-0.592, -0.117]` | 0.0016 | 0.1413 `[0.014, 0.350]` | 8.01 | -0.79 ($p=0.430$) | +0.73 ($p=0.469$) | +0.0614 | (Work Leader) |
-| 2 | Mean Wave Height (mean $H_s$) | -0.2941 `[-0.471, -0.107]` | 0.0149 | 0.0865 `[0.011, 0.221]` | 8.25 | -0.10 ($p=0.924$) | +0.08 ($p=0.934$) | +0.0066 | (Wave Leader) |
-| **3** | **Unified Index (Signed Eq. $dX/dt$)** | **+0.2827** `[+0.046, +0.488]` | **0.0195** | **0.0799** `[0.003, 0.239]` | **8.28** | — (Ref) | — (Ref) | **Ref** | **Baseline Ref** |
-| 4 | Unified Index ($\log_{10}\Upsilon$ Memory) | -0.2748 `[-0.460, -0.091]` | 0.0233 | 0.0755 `[0.008, 0.212]` | 8.30 | 0.06 ($p=0.952$) | -0.05 ($p=0.957$) | +0.0044 | **+5.8%** |
-| 5 | Dean Number (mean $\Omega$) | -0.2678 `[-0.495, -0.038]` | 0.0273 | 0.0717 `[0.002, 0.245]` | 8.32 | 0.10 ($p=0.918$) | -0.09 ($p=0.932$) | +0.0082 | **+11.4%** |
-| 6 | Process-Based (XBeach-inspired) | +0.2600 `[+0.061, +0.451]` | 0.0322 | 0.0676 `[0.004, 0.203]` | 8.33 | 0.21 ($p=0.832$) | -0.17 ($p=0.868$) | +0.0123 | **+18.2%** |
-| 7 | Peak Wave Height ($\max H_s$) | -0.2549 `[-0.420, -0.092]` | 0.0359 | 0.0650 `[0.009, 0.176]` | 8.35 | 0.22 ($p=0.826$) | -0.20 ($p=0.841$) | +0.0150 | **+23.0%** |
-| 8 | Yates (2009) Equilibrium Model | +0.2473 `[+0.038, +0.487]` | 0.0421 | 0.0611 `[0.002, 0.237]` | 8.36 | 0.32 ($p=0.750$) | -0.26 ($p=0.798$) | +0.0188 | **+30.7%** |
-| 9 | Unified Index ($\Upsilon$ Memory) | -0.2462 `[-0.406, -0.082]` | 0.0429 | 0.0606 `[0.007, 0.165]` | 8.37 | 0.36 ($p=0.721$) | -0.30 ($p=0.766$) | +0.0193 | **+31.8%** |
-| 10 | Peak Storm Upsilon ($\max \Upsilon$) | -0.2188 `[-0.405, -0.052]` | 0.0412 | 0.0479 `[0.003, 0.164]` | 8.36 | 0.57 ($p=0.573$) | -0.50 ($p=0.621$) | +0.0320 | **+66.9%** |
-| 11 | Peak Wave Power ($\max P$) | -0.2182 `[-0.391, -0.033]` | 0.0738 | 0.0476 `[0.001, 0.153]` | 8.42 | 0.56 ($p=0.575$) | -0.50 ($p=0.620$) | +0.0323 | **+67.8%** |
-| 12 | Peak Storm Surge ($\max S$) | -0.2154 `[-0.378, -0.055]` | 0.0777 | 0.0464 `[0.003, 0.143]` | 8.43 | 0.46 ($p=0.650$) | -0.44 ($p=0.659$) | +0.0335 | **+72.2%** |
-
----
-
-### C. Morphodynamic Context: Interpreting Absolute Skill vs. Relative Lift
+### Morphodynamic Context: Interpreting Absolute Skill vs. Relative Lift
 
 > [!NOTE]
-> **Why $R^2 \sim 0.08\text{--}0.33$ is Expected in Cross-Shore Field Surveys:**
+> **Why $R^2 \sim 0.08\text{--}0.35$ is Expected in Cross-Shore Field Surveys:**
 > 1. **Unmeasured 3D Nearshore Dynamics:** In-situ inter-survey shoreline change ($\Delta X_{\text{MHW}}$) is driven not only by cross-shore 1D wave energy, but by complex 3D rhythmic sandbar migrations, rip-current embayments, and alongshore sediment transport gradients that cannot be captured by 1D offshore wave buoys alone.
 > 2. **Survey Instrument Resolution:** RTK-GPS profile elevation uncertainty ($\pm 0.15\text{ m}$ vertical) translates to $\sim \pm 1.5\text{--}3.0\text{ m}$ horizontal MHW position uncertainty across mild foreshore slopes ($\tan\beta \approx 0.05\text{--}0.10$), creating an irreducible noise floor in $\Delta X$ inter-survey variance.
-> 3. **The Importance of Relative Lift:** In this high-noise regime, the relevant scientific question is whether $\Upsilon$ provides a **statistically significant lift in predictive power over traditional single-variable indices**. 
->    * At **PF109**, Signed Equilibrium $\Upsilon$ explains **$10.82\%$ of variance vs. Mean $H_s$ at $2.95\%$** (a **$+266.9\%$ relative lift**), outperforming process-based XBeach by **$+88.4\%$** and Yates by **$+150.6\%$**.
->    * Furthermore, Signed Equilibrium $\Upsilon$ is the **only metric whose 95% bootstrap confidence interval on Pearson $r$ is strictly positive and bounded away from zero** ($r \in [+0.173, +0.488]$ at PF109), whereas individual wave height and equilibrium baselines exhibit wide intervals spanning zero or near-zero correlation.
+> 3. **The Importance of Relative Lift:** In this high-noise regime, the relevant scientific question is whether $\Upsilon$ provides a **statistically significant lift in predictive power over traditional single-variable indices**. The evaluation metrics quantify relative variance lift over baseline wave power and equilibrium formulations.
 
 ---
 
@@ -255,22 +219,16 @@ flowchart TD
   3. **Temporal Holdout (`eval_mode="holdout"`):** Forward split (e.g. 75/25).
 
 #### 4.1.1 Prior-Sensitivity Analysis on Antecedent Memory $\gamma$
-To verify that the inferred antecedent memory is driven by empirical morphodynamic physics rather than prior constraint, we conduct a systematic prior-sensitivity check comparing:
+To verify that the inferred antecedent memory is driven by empirical morphodynamic physics rather than prior constraint, the Bayesian modeling framework compares:
 * **(a) $\text{Beta}(2, 5)$:** Wider prior (prior mean $= 0.286$, $\text{SD} = 0.160$)
 * **(b) $\text{Beta}(2, 2)$:** Uninformative symmetric prior (prior mean $= 0.500$, $\text{SD} = 0.224$)
 * **(c) $\text{Beta}(5, 20)$:** Informative short-memory prior (prior mean $= 0.200$, $\text{SD} = 0.078$)
 
-| Candidate Prior | Prior Mean (SD) | Posterior Mean $\gamma$ | Posterior 94% HDI | Implied Half-Life $t_{1/2}$ | PSIS-LOO $\Delta\text{ELPD}$ | $\text{ELPD}$ Stacking Weight | Convergence $\hat{R}$ / ESS |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **$\text{Beta}(2, 2)$ (Uninformative)** | $0.500 \ (0.224)$ | **$0.995$** | $[0.989, 0.999]$ | **$138.5\text{ h}$ ($5.8\text{ d}$)** | **$0.00$ (Best)** | **$1.000$** | $\hat{R} < 1.001$, $\text{ESS}=1055$ |
-| **$\text{Beta}(2, 5)$ (Wider)** | $0.286 \ (0.160)$ | **$0.989$** | $[0.981, 0.996]$ | **$63.7\text{ h}$ ($2.7\text{ d}$)** | $-2.56$ | $0.000$ | $\hat{R} < 1.001$, $\text{ESS}=1401$ |
-| **$\text{Beta}(5, 20)$ (Constrained)** | $0.200 \ (0.078)$ | $0.697$ (bimodal) | $[0.173, 0.981]$ | $1.9\text{ h}$ | $-55.10$ | $0.000$ | $\hat{R} = 1.485$, $\text{ESS}=4$ |
-
-* **Empirical Finding:** Under uninformative $\text{Beta}(2, 2)$ and wider $\text{Beta}(2, 5)$ priors, the data likelihood dominates, inferring $\gamma \approx 0.989\text{--}0.995$ corresponding to multi-day to multi-week equilibrium memory timescales ($t_{1/2} \approx 2.7\text{--}5.8\text{ days}$) aligned with synoptic storm duration and post-storm berm equilibration (Yates et al. 2009, Splinter et al. 2014 ShoreFor). The uninformative prior achieves a $+55.10 \ \text{ELPD}_{\text{LOO}}$ predictive gain over the over-constrained $\text{Beta}(5, 20)$ prior while resolving MCMC chain mixing friction.
+MCMC convergence metrics ($\hat{R}$, ESS), posterior distributions, implied half-lives ($t_{1/2} = -\ln(2)/\ln\gamma$), and PSIS-LOO model rankings ($\Delta\text{ELPD}$, stacking weights) are computed directly during inference.
 
 ### 4.2 Multi-Timescale Evaluation: Cumulative Position ($x_t$) vs. Step Changes ($\Delta x$)
 * **Step Deltas ($\Delta x_k$):** Measures high-frequency impulse response between adjacent survey epochs ($t_{k-1} \to t_k$). Due to in-situ GPS noise floors ($\sim 3\text{m}$), raw step $\Delta x$ skill is tightly bounded.
-* **Cumulative Position ($x_t = x_0 + \sum \Delta x_k$):** Tracks the multi-year shoreline trajectory, capturing long-term multi-week berm recovery and multi-seasonal equilibrium cycles ($R^2 \approx 0.06\text{--}0.10+$ on blind out-of-sample multi-site field holdouts).
+* **Cumulative Position ($x_t = x_0 + \sum \Delta x_k$):** Tracks the multi-year shoreline trajectory, capturing long-term multi-week berm recovery and multi-seasonal equilibrium cycles.
 
 ### 4.3 Continuous Hourly Hydrodynamic Memory Integration
 * Continuous hydrodynamic time series are convolved hourly with antecedent memory decay:
@@ -278,7 +236,7 @@ To verify that the inferred antecedent memory is driven by empirical morphodynam
 * Exact inter-survey forcing is computed via interval integration $\bar{\Upsilon}^*_k = \frac{1}{t_k - t_{k-1}} \int_{t_{k-1}}^{t_k} \Upsilon^*(t) dt$, completely eliminating multi-week row-lag artifacts across irregularly spaced field surveys.
 
 ### 4.4 Per-Site Standardized Skill Normalization ($\sigma_{\text{site}}$)
-* To prevent high-energy, high-variance macrotidal sites (e.g., Truc Vert $\sigma \approx 9.7\text{m}$, Duck $\sigma \approx 7.5\text{m}$) from dominating global cross-validation metrics over lower-variance rotational or reef-fronted sites (Narrabeen $\sigma \approx 2.5\text{m}$, Torrey Pines $\sigma \approx 5.1\text{m}$), all test fold actuals and predictions are standardized by their site-specific natural envelope:
+* To prevent high-energy, high-variance macrotidal sites from dominating global cross-validation metrics over lower-variance rotational or reef-fronted sites, all test fold actuals and predictions are standardized by their site-specific natural envelope:
   $$\Delta x_{\text{norm}} = \frac{\Delta x}{\sigma_{\text{site}, \Delta x}}, \quad x_{t, \text{norm}} = \frac{x_t}{\sigma_{\text{site}, x_t}}$$
 * The synthesis engine reports both **Dimensionless Normalized Metrics** (`Normalized Position CV R2`, `Normalized CV R2 (Δx)`) and **Site-Averaged Macro Metrics** (`Site-Averaged Pos R2`, `Site-Averaged R2 (Δx)`).
 
@@ -287,9 +245,11 @@ To verify that the inferred antecedent memory is driven by empirical morphodynam
 ## 5. Multi-Horizon Deep Learning Benchmark (Section 5)
 
 Evaluated across three operational horizons:
-1. **Horizon 1 (1-Hour Nowcast):** Real-time sensor assimilation ($R^2 \approx 0.971$).
-2. **Horizon 2 (72-Hour Extreme Storm Gouging Forward Rollout - Site Peak Hazard Event):** Closed-loop recursive forward rollout during peak hazard storm event ($\text{RMSE} = 0.239\text{ m}$).
+1. **Horizon 1 (1-Hour Nowcast):** Real-time sensor assimilation for immediate shoreline state tracking.
+2. **Horizon 2 (72-Hour Extreme Storm Gouging Forward Rollout - Site Peak Hazard Event):** Closed-loop recursive forward rollout during peak hazard storm events.
 3. **Horizon 3 (365-Day Hindcast):** Continuous un-anchored annual forward simulation ($N = 8,760\text{ hrs}$).
+
+Detailed performance tables and figures are dynamically generated and displayed in `03_SciML_Architectural_Ablation.ipynb` and `unified_coastal_vulnerability_index.ipynb`.
 
 ---
 

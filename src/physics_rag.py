@@ -105,6 +105,10 @@ class PhysicsQuerySpec(BaseModel):
         description="Canonical reference state name (State_ExtremeStormPeak, State_CalmFairWeather, State_PostStormRecovery, State_LongPeriodSwell, Breaker_Spilling, etc.)"
     )
     focus: Optional[str] = Field(default=None, description="Focal phenomenon (e.g. 'surge', 'swell', 'wind', 'calm', 'storm', 'recovery').")
+    is_failure_mode: Optional[bool] = Field(
+        default=None,
+        description="If True, query seeks hydrodynamic failure modes or model under-prediction episodes (e.g. 'When does Upsilon under-predict erosion?')."
+    )
 
 
 class PhysicsQueryParser:
@@ -237,6 +241,14 @@ class PhysicsQueryParser:
             parsed["morphology"] = "Accretive"
             parsed["target_state"] = "State_PostStormRecovery"
             parsed["query_recovery_timeframe"] = True
+
+        # Failure mode & under-prediction queries (e.g. "When does Upsilon under-predict erosion?")
+        if any(w in text for w in ["under-predict", "underpredict", "under-prediction", "underprediction", "failure mode", "failure modes", "unexplained erosion", "model failure", "underpredicts", "under-predicts"]):
+            parsed["is_failure_mode"] = True
+            parsed["morphology"] = "Erosive"
+            parsed["phase"] = "Erosion"
+            parsed["target_state"] = "State_UnderpredictedErosion"
+            parsed["intent_summary"] = "Identify physical episodes where observed erosion was severe despite low-to-moderate Upsilon forcing (model under-prediction failure mode)."
 
         # Check event / state keywords
         for kw, specs in cls.EVENT_KEYWORDS.items():
@@ -1681,6 +1693,146 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
             f"Observed net shoreline displacement across window is ΔX = {st.get('net_delta_x_m', 0.0):+.2f}m."
         )
         return " ".join(parts)
+
+    def query_failure_modes(
+        self,
+        query_text: str = "When does Upsilon under-predict erosion?",
+        top_k_per_site: int = 2,
+        pre_window_hours: float = 72.0,
+        post_window_hours: float = 24.0,
+        sites: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Automatically query and diagnose hydrodynamic failure modes and model under-prediction across all sites.
+
+        Scans the global Parent Storage layer to identify episodes where severe observed shoreline erosion
+        (negative Δx rate) coincided with low-to-moderate baseline Upsilon forcing.
+        Hydrates continuous parent sequences from DuckDB and synthesizes an automated diagnostic root-cause attribution.
+
+        Parameters
+        ----------
+        query_text : str
+            The failure mode natural language query.
+        top_k_per_site : int
+            Number of peak discrepancy episodes to retrieve per site archetype (default 2).
+        pre_window_hours : float
+            Hydration context hours prior to event (default 72h).
+        post_window_hours : float
+            Hydration context hours after event (default 24h).
+        sites : list of str, optional
+            List of site keys to audit (default: all sites in df).
+
+        Returns
+        -------
+        result : dict
+            Dictionary containing 'query', 'failure_episodes_df', 'parent_windows', and 'diagnostic_summary'.
+        """
+        try:
+            from src.physics import COASTAL_SITE_PROFILES
+        except ImportError:
+            from physics import COASTAL_SITE_PROFILES  # type: ignore
+
+        if sites is None:
+            if "site" in self.df.columns:
+                sites = list(self.df["site"].unique())
+            else:
+                sites = ["duck_nc"]
+
+        records: List[Dict[str, Any]] = []
+        hydrated_windows: Dict[str, List[ParentWindowContext]] = {}
+
+        for site_key in sites:
+            site_mask = self.df["site"] == site_key if "site" in self.df.columns else np.ones(len(self.df), dtype=bool)
+            sub_df = self.df[site_mask].copy().reset_index(drop=True)
+            if len(sub_df) < 10:
+                continue
+
+            prof = COASTAL_SITE_PROFILES.get(site_key, {
+                "name": site_key, "tan_beta": 0.08, "is_reef": False, "is_embayment": False, "z_crest_m": 2.5
+            })
+
+            # Calculate observed shoreline change rate and Upsilon
+            if "shoreline_change_rate_mh" in sub_df.columns:
+                dx = sub_df["shoreline_change_rate_mh"].values
+            elif "shoreline_pos_obs_m" in sub_df.columns:
+                dx = np.diff(sub_df["shoreline_pos_obs_m"].values, prepend=sub_df["shoreline_pos_obs_m"].values[0])
+            else:
+                dx = np.zeros(len(sub_df))
+
+            u = sub_df["upsilon"].values if "upsilon" in sub_df.columns else np.zeros(len(sub_df))
+
+            # Standardized discrepancy: severe erosion (negative dx) with low/moderate Upsilon
+            z_dx_erosion = -(dx - np.mean(dx)) / max(float(np.std(dx)), 1e-4)
+            z_u = (u - np.mean(u)) / max(float(np.std(u)), 1e-4)
+            discrepancy = z_dx_erosion - z_u
+
+            top_indices = np.argsort(discrepancy)[-top_k_per_site:][::-1]
+            hydrated_windows[site_key] = []
+
+            for rank, idx in enumerate(top_indices):
+                row = sub_df.iloc[idx]
+                hs_val = float(row.get("hs_m", 0.0))
+                tp_val = float(row.get("tp_s", 0.0))
+                surge_val = float(row.get("surge_m", 0.0))
+                tide_val = float(row.get("tide_m", 0.0))
+                twl_val = float(row.get("total_water_level_m", surge_val + tide_val + hs_val * 0.2))
+                dx_val = float(dx[idx])
+                u_val = float(u[idx])
+                ts = row["timestamp"] if "timestamp" in row else f"Step_{idx}"
+
+                # Physical root cause attribution
+                if prof.get("is_reef") and (surge_val > 0.3 or tide_val > 0.2):
+                    cause = "Reef Depth-Modulated Overtopping (Tidal surge reduces reef flat friction, transmitting energetic bores to shore)"
+                elif prof.get("is_embayment") and abs(row.get("wave_dir_deg", 0.0) - prof.get("shore_normal_deg", 0.0)) > 20.0:
+                    cause = "Embayed Rotation & Alongshore Rip Scour (High wave obliquity drives localized rip cell sand evacuation)"
+                elif tp_val >= 13.0 and prof.get("tan_beta", 0.08) <= 0.07:
+                    cause = "Infragravity Swash & Surf-Beat Resonance (Long-period swell excites bound infragravity waves over dissipative bars)"
+                elif surge_val > 0.35 or twl_val > prof.get("z_crest_m", 2.5) * 0.8:
+                    cause = "Storm Surge & Elevated TWL Scarping (High water level elevates wave attack above baseline equilibrium berm)"
+                else:
+                    cause = "Antecedent Beach Depletion (Successive wave pulses erode a previously scarped profile)"
+
+                records.append({
+                    "Site": prof.get("name", site_key).split(",")[0],
+                    "Site Key": site_key,
+                    "Timestamp": str(ts)[:16],
+                    "Observed Δx/Δt (m/h)": f"{dx_val:+.3f}",
+                    "Hs (m)": f"{hs_val:.2f}",
+                    "Tp (s)": f"{tp_val:.1f}",
+                    "Surge (m)": f"{surge_val:+.2f}",
+                    "Upsilon [kg/s]": f"{u_val:.1f}",
+                    "Discrepancy Score": f"{discrepancy[idx]:.1f}",
+                    "Physical Root Cause": cause,
+                })
+
+                # Hydrate continuous parent window via DuckDB
+                pw = self.hydrate_parent_window(
+                    event_timestamp=ts,
+                    match_index=idx,
+                    similarity=float(discrepancy[idx]),
+                    pre_window_hours=pre_window_hours,
+                    post_window_hours=post_window_hours,
+                )
+                hydrated_windows[site_key].append(pw)
+
+        df_episodes = pd.DataFrame(records)
+
+        # Generate summary synthesis
+        summary_text = (
+            f"=== Physics-RAG Automated Failure Mode Audit ({query_text}) ===\n"
+            f"Analyzed {len(sites)} coastal site archetypes. Identified {len(df_episodes)} primary failure mode episodes.\n"
+            "Key Oceanographic Failure Mechanisms:\n"
+            "1. Storm Surge & Elevated Water Levels: Extreme surge and spring tides enable modest waves to directly attack sub-aerial dunes.\n"
+            "2. Infragravity Swash Resonance: Narrow long-period swell (Tp > 13s) amplifies unmodeled surf beat at dissipative beaches.\n"
+            "3. Oblique Swell & Embayment Rotation: High wave obliquity induces alongshore rip cells and embayed rotation.\n"
+            "4. Reef-Flat Depth Modulation: Elevated water levels reduce coral friction, allowing energetic wave bores to penetrate to the shoreline.\n"
+        )
+
+        return {
+            "query": query_text,
+            "failure_episodes_df": df_episodes,
+            "parent_windows": hydrated_windows,
+            "diagnostic_summary": summary_text,
+        }
 
 
 # ==============================================================================

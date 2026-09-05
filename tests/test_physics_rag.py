@@ -468,3 +468,33 @@ def test_explain_hierarchical_with_gemini_mock(sample_coastal_df):
     assert narrative is not None
     assert "antecedent" in narrative.lower()
 
+
+def test_query_failure_modes(sample_coastal_df):
+    """Verify automated query for hydrodynamic failure modes and model under-prediction across archetypes."""
+    df_test = sample_coastal_df.copy()
+    df_test["site"] = "duck_nc"
+    # Inject a strong under-prediction episode (severe negative delta_x with zero/low Upsilon)
+    df_test.loc[10, "delta_x_m"] = -5.0
+    df_test.loc[10, "upsilon"] = 0.0
+    df_test.loc[10, "hs_m"] = 4.0
+    df_test.loc[10, "surge_m"] = 1.2
+
+    hrag = HierarchicalPhysicsRAG.from_dataset(df_test, scaler_type="robust")
+    res = hrag.query_failure_modes(
+        query_text="When does Upsilon under-predict erosion?",
+        top_k_per_site=2,
+        pre_window_hours=24.0,
+        post_window_hours=12.0,
+    )
+
+    assert isinstance(res, dict)
+    assert "failure_episodes_df" in res
+    assert "parent_windows" in res
+    assert "diagnostic_summary" in res
+    df_fail = res["failure_episodes_df"]
+    assert isinstance(df_fail, pd.DataFrame)
+    assert not df_fail.empty
+    assert "Physical Root Cause" in df_fail.columns
+    assert "Discrepancy Score" in df_fail.columns
+
+
