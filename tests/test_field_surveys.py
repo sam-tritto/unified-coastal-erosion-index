@@ -194,5 +194,56 @@ def test_evaluate_survey_epoch_loocv():
     assert "Total Survey Epochs Evaluated" in df_syn.columns
 
 
+def test_build_learnable_signed_equilibrium_bayesian_model():
+    """Verify that the learnable Bayesian Signed Equilibrium model builds and samples properly."""
+    import pymc as pm
+    from src.models import build_learnable_signed_equilibrium_bayesian_model
+
+    rng = np.random.default_rng(42)
+    n = 60
+    ups = rng.uniform(800, 5000, size=n)
+    ups_eq = np.full(n, 2500.0)
+    c_ero = 1.2e-5
+    c_acc = 1.8e-5
+    d_ero = np.maximum(ups - ups_eq, 0.0)
+    d_acc = np.maximum(ups_eq - ups, 0.0)
+    delta_x = -c_ero * d_ero + c_acc * d_acc + rng.normal(0, 0.05, size=n)
+
+    model, meta = build_learnable_signed_equilibrium_bayesian_model(
+        upsilon=ups,
+        delta_x_obs=delta_x,
+        upsilon_eq=ups_eq,
+        parameterization="independent",
+        heteroscedastic=True,
+    )
+    assert isinstance(model, pm.Model)
+    assert meta["n_obs"] == n
+    assert "c_erosion" in [v.name for v in model.deterministics]
+    assert "c_accretion" in [v.name for v in model.deterministics]
+    assert "r_asym" in [v.name for v in model.deterministics]
+
+    with model:
+        idata = pm.sample(draws=30, tune=20, chains=2, random_seed=42, progressbar=False)
+    assert idata.posterior["c_erosion"].shape == (2, 30)
+
+
+def test_evaluate_signed_equilibrium_rate_sensitivity():
+    """Verify that rate sensitivity sweep computes morphodynamic metrics across c_acc / c_ero ratios."""
+    from src.models import evaluate_signed_equilibrium_rate_sensitivity
+
+    df_sens = evaluate_signed_equilibrium_rate_sensitivity(
+        sites=["duck_nc"],
+        c_asym_ratios=[0.75, 1.0, 1.5, 2.0],
+    )
+    assert isinstance(df_sens, pd.DataFrame)
+    assert not df_sens.empty
+    assert len(df_sens) == 4
+    assert "asymmetry_ratio" in df_sens.columns
+    assert "pos_rmse_m" in df_sens.columns
+    assert "step_rmse_m" in df_sens.columns
+    assert "pos_r2" in df_sens.columns
+
+
+
 
 

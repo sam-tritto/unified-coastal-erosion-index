@@ -4704,4 +4704,294 @@ def run_constructive_tier_ablation(
     return summary_df, details
 
 
+def build_learnable_signed_equilibrium_bayesian_model(
+    upsilon: np.ndarray,
+    delta_x_obs: np.ndarray,
+    upsilon_eq: Optional[Union[float, np.ndarray]] = None,
+    k_erosion_prior_sigma: float = 5.0,
+    k_accretion_prior_sigma: float = 5.0,
+    r_asym_prior_mu: float = 1.5,
+    r_asym_prior_sigma: float = 0.75,
+    model_name: str = "learnable_signed_equilibrium_model",
+    max_lag: int = 24,
+    parameterization: str = "independent",
+    heteroscedastic: bool = True,
+) -> Tuple[pm.Model, Dict[str, Any]]:
+    """Build a PyMC Bayesian model estimating learnable rate constants (c_erosion, c_accretion) and asymmetry ratio.
+
+    Morphodynamic Formulation:
+        Delta_X(t) = -c_erosion * max(Upsilon(t) - Upsilon_eq(t), 0) + c_accretion * max(Upsilon_eq(t) - Upsilon(t), 0)
+        r_asym = c_accretion / c_erosion (Recovery Asymmetry Ratio)
+
+    Numerically stabilized via rescaled parameters k_erosion = c_erosion * 1e5 and k_accretion = c_accretion * 1e5.
+
+    Parameters
+    ----------
+    upsilon : np.ndarray
+        Hourly or survey-epoch antecedent Upsilon hydrodynamic forcing flux [kg/s].
+    delta_x_obs : np.ndarray
+        Observed cross-shore shoreline displacement [m].
+    upsilon_eq : float or np.ndarray, optional
+        Equilibrium carrying capacity baseline [kg/s] (default: expanding median).
+    k_erosion_prior_sigma, k_accretion_prior_sigma : float
+        Priors on rescaled rate constants k = c * 1e5.
+    r_asym_prior_mu, r_asym_prior_sigma : float
+        Prior on asymmetry ratio when parameterization="ratio".
+    model_name : str
+        Model identifier.
+    max_lag : int
+        Antecedent lag convolution depth.
+    parameterization : str
+        'independent' (k_ero, k_acc ~ HalfNormal) or 'ratio' (k_ero ~ HalfNormal, r_asym ~ TruncatedNormal).
+    heteroscedastic : bool
+        Whether to model storm-scaled observation volatility.
+
+    Returns
+    -------
+    Tuple[pm.Model, Dict[str, Any]]
+        PyMC model and metadata dictionary.
+    """
+    ups_arr = np.asarray(upsilon, dtype=float)
+    y_obs = np.asarray(delta_x_obs, dtype=float)
+    n_obs = len(y_obs)
+    max_lag = max(1, min(max_lag, n_obs))
+
+    if upsilon_eq is None:
+        # Default causal expanding median baseline
+        ups_eq_arr = np.zeros(n_obs, dtype=float)
+        for i in range(n_obs):
+            ups_eq_arr[i] = np.median(ups_arr[: max(1, i + 1)])
+    elif np.isscalar(upsilon_eq):
+        ups_eq_arr = np.full(n_obs, float(upsilon_eq), dtype=float)
+    else:
+        ups_eq_arr = np.asarray(upsilon_eq, dtype=float)
+
+    d_ero_raw = np.maximum(ups_arr - ups_eq_arr, 0.0)
+    d_acc_raw = np.maximum(ups_eq_arr - ups_arr, 0.0)
+
+    # Scale disequilibrium terms by 1e-5 to match k_erosion / k_accretion scaling
+    d_ero_scaled = d_ero_raw * 1e-5
+    d_acc_scaled = d_acc_raw * 1e-5
+
+    meta = {
+        "model_name": model_name,
+        "n_obs": n_obs,
+        "max_lag": max_lag,
+        "parameterization": parameterization,
+        "heteroscedastic": heteroscedastic,
+    }
+
+    with pm.Model() as model:
+        # 1. Physics-informed Priors for Rate Constants
+        if parameterization == "ratio":
+            k_erosion = pm.HalfNormal("k_erosion", sigma=k_erosion_prior_sigma)
+            r_asym = pm.TruncatedNormal("r_asym", mu=r_asym_prior_mu, sigma=r_asym_prior_sigma, lower=0.1, upper=10.0)
+            k_accretion = pm.Deterministic("k_accretion", k_erosion * r_asym)
+        else:
+            k_erosion = pm.HalfNormal("k_erosion", sigma=k_erosion_prior_sigma)
+            k_accretion = pm.HalfNormal("k_accretion", sigma=k_accretion_prior_sigma)
+            r_asym = pm.Deterministic("r_asym", k_accretion / pt.maximum(k_erosion, 1e-4))
+
+        c_erosion = pm.Deterministic("c_erosion", k_erosion * 1e-5)
+        c_accretion = pm.Deterministic("c_accretion", k_accretion * 1e-5)
+
+        # Intercept offset
+        alpha = pm.Normal("alpha", mu=0.0, sigma=0.5)
+
+        # 2. Linear / Antecedent Disequilibrium Transfer
+        d_ero_t = pt.as_tensor_variable(d_ero_scaled)
+        d_acc_t = pt.as_tensor_variable(d_acc_scaled)
+
+        mu_t = alpha - k_erosion * d_ero_t + k_accretion * d_acc_t
+        pm.Deterministic("mu", mu_t)
+
+        # 3. Dynamic Heteroscedastic Observation Likelihood (Approach A)
+        if heteroscedastic:
+            sigma_base = pm.HalfNormal("sigma_base", sigma=1.5)
+            sigma_storm = pm.HalfNormal("sigma_storm", sigma=2.5)
+            storm_scale = d_ero_t / pt.maximum(pt.mean(d_ero_t), 1e-3)
+            sigma_t = sigma_base + sigma_storm * pt.maximum(storm_scale, 0.0)
+        else:
+            sigma_t = pm.HalfNormal("sigma", sigma=2.0)
+
+        # Robust Student-t with degrees of freedom constraint
+        nu = pm.Gamma("nu", alpha=2.0, beta=0.1)
+        pm.StudentT("y_obs", nu=nu + 4.0, mu=mu_t, sigma=sigma_t, observed=y_obs)
+
+    return model, meta
+
+
+def evaluate_signed_equilibrium_rate_sensitivity(
+    sites: Optional[List[str]] = None,
+    c_asym_ratios: Sequence[float] = (0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0),
+    c_erosion_base: float = 1.2e-5,
+    upsilon_eq_mode: str = "expanding",
+    data_dir: str = "data/processed",
+) -> pd.DataFrame:
+    """Evaluate shoreline prediction sensitivity across recovery asymmetry ratios c_acc / c_ero in [0.5, 3.0].
+
+    Parameters
+    ----------
+    sites : list of str, optional
+        Target sites (default: all 5 global sites).
+    c_asym_ratios : sequence of float
+        Asymmetry ratios c_accretion / c_erosion to sweep (default: 0.5 to 3.0).
+    c_erosion_base : float
+        Baseline erosion rate constant (default: 1.2e-5).
+    upsilon_eq_mode : str
+        Equilibrium baseline mode ('expanding', 'annual', 'causal').
+    data_dir : str
+        Path to processed survey and sensor archives.
+
+    Returns
+    -------
+    pd.DataFrame
+        Formatted dataframe recording site, c_asym_ratio, c_erosion, c_accretion,
+        Position RMSE, Position R2, Step RMSE, and BSS.
+    """
+    from src.data import load_site_field_surveys, load_dataset, align_hydrodynamics_with_field_surveys
+    from src.physics import simulate_signed_equilibrium_upsilon_evolution, COASTAL_SITE_PROFILES
+
+    if sites is None:
+        sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+
+    records = []
+
+    for site in sites:
+        df_surveys = load_site_field_surveys(site, transect_index=None)
+        df_hydro, _ = load_dataset(site=site)
+        if df_hydro.index.tz is not None and df_surveys.index.tz is None:
+            df_surveys.index = df_surveys.index.tz_localize("UTC")
+        elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
+            df_surveys.index = df_surveys.index.tz_convert(None)
+        df_survey = align_hydrodynamics_with_field_surveys(df_hydro, df_surveys)
+
+        ups_hourly = df_hydro["upsilon"].values
+        x_obs = df_survey["surveyed_pos_mhw_m"].values
+        survey_times = df_survey.index
+
+        for r in c_asym_ratios:
+            c_ero = float(c_erosion_base)
+            c_acc = float(c_ero * r)
+
+            x_sim, _ = simulate_signed_equilibrium_upsilon_evolution(
+                ups_hourly,
+                c_erosion=c_ero,
+                c_accretion=c_acc,
+                upsilon_eq_mode=upsilon_eq_mode,
+            )
+
+            sim_series = pd.Series(x_sim, index=df_hydro.index)
+            sim_at_surveys = np.interp(
+                survey_times.astype(np.int64),
+                sim_series.index.astype(np.int64),
+                sim_series.values,
+            )
+            sim_at_surveys = sim_at_surveys - sim_at_surveys[0] + x_obs[0]
+
+            pos_rmse = float(np.sqrt(np.mean((x_obs - sim_at_surveys) ** 2)))
+            ss_tot = np.sum((x_obs - np.mean(x_obs)) ** 2)
+            ss_res = np.sum((x_obs - sim_at_surveys) ** 2)
+            pos_r2 = float(1.0 - (ss_res / (ss_tot + 1e-8)))
+
+            dx_obs = np.diff(x_obs)
+            dx_sim = np.diff(sim_at_surveys)
+            step_rmse = float(np.sqrt(np.mean((dx_obs - dx_sim) ** 2)))
+            dx_ss_tot = np.sum((dx_obs - np.mean(dx_obs)) ** 2)
+            dx_ss_res = np.sum((dx_obs - dx_sim) ** 2)
+            step_bss = float(1.0 - (dx_ss_res / (dx_ss_tot + 1e-8)))
+
+            records.append({
+                "site": site,
+                "site_name": COASTAL_SITE_PROFILES[site]["name"].split("(")[0].strip() if site in COASTAL_SITE_PROFILES else site,
+                "asymmetry_ratio": float(r),
+                "c_erosion": c_ero,
+                "c_accretion": c_acc,
+                "pos_rmse_m": pos_rmse,
+                "pos_r2": pos_r2,
+                "step_rmse_m": step_rmse,
+                "step_bss": step_bss,
+            })
+
+    return pd.DataFrame(records)
+
+
+def infer_multi_site_signed_equilibrium_uncertainty(
+    sites: Optional[List[str]] = None,
+    draws: int = 300,
+    tune: int = 200,
+    chains: int = 2,
+    random_seed: int = 42,
+) -> pd.DataFrame:
+    """Fit learnable Bayesian Signed Equilibrium models across global site archetypes and compute 94% HDIs.
+
+    Parameters
+    ----------
+    sites : list of str, optional
+        Target sites (default: all 5 global sites).
+    draws, tune, chains, random_seed : MCMC sampling configuration.
+
+    Returns
+    -------
+    pd.DataFrame
+        Summary table with posterior means, standard deviations, and 94% HDIs for c_erosion, c_accretion, and r_asym.
+    """
+    from src.data import load_site_field_surveys, load_dataset, align_hydrodynamics_with_field_surveys
+    from src.physics import COASTAL_SITE_PROFILES
+
+    if sites is None:
+        sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+
+    results = []
+
+    for site in sites:
+        df_surveys = load_site_field_surveys(site, transect_index=None)
+        df_hydro, _ = load_dataset(site=site)
+        if df_hydro.index.tz is not None and df_surveys.index.tz is None:
+            df_surveys.index = df_surveys.index.tz_localize("UTC")
+        elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
+            df_surveys.index = df_surveys.index.tz_convert(None)
+        df_survey = align_hydrodynamics_with_field_surveys(df_hydro, df_surveys)
+
+        ups_survey = df_survey["antecedent_mean_upsilon"].values if "antecedent_mean_upsilon" in df_survey.columns else df_survey["upsilon"].values
+        delta_x_obs = df_survey["surveyed_delta_x_m"].values
+
+        model, _ = build_learnable_signed_equilibrium_bayesian_model(
+            upsilon=ups_survey,
+            delta_x_obs=delta_x_obs,
+            model_name=f"signed_eq_{site}",
+            heteroscedastic=True,
+        )
+
+        with model:
+            idata = pm.sample(
+                draws=draws,
+                tune=tune,
+                chains=chains,
+                random_seed=random_seed,
+                progressbar=False,
+            )
+
+        summary = az.summary(idata, var_names=["c_erosion", "c_accretion", "r_asym"], hdi_prob=0.94)
+
+        results.append({
+            "site": site,
+            "site_name": COASTAL_SITE_PROFILES[site]["name"].split("(")[0].strip() if site in COASTAL_SITE_PROFILES else site,
+            "c_erosion_mean": float(summary.loc["c_erosion", "mean"]),
+            "c_erosion_hdi_lower": float(summary.loc["c_erosion", "hdi_3%"]),
+            "c_erosion_hdi_upper": float(summary.loc["c_erosion", "hdi_97%"]),
+            "c_accretion_mean": float(summary.loc["c_accretion", "mean"]),
+            "c_accretion_hdi_lower": float(summary.loc["c_accretion", "hdi_3%"]),
+            "c_accretion_hdi_upper": float(summary.loc["c_accretion", "hdi_97%"]),
+            "r_asym_mean": float(summary.loc["r_asym", "mean"]),
+            "r_asym_hdi_lower": float(summary.loc["r_asym", "hdi_3%"]),
+            "r_asym_hdi_upper": float(summary.loc["r_asym", "hdi_97%"]),
+            "r_hat_max": float(summary["r_hat"].max()),
+            "ess_min": float(summary["ess_bulk"].min()),
+        })
+
+    return pd.DataFrame(results)
+
+
+
 
