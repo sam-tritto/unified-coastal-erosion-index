@@ -51,13 +51,42 @@ def create_lag_matrix(forcing: np.ndarray, max_lag: int = 48) -> np.ndarray:
     return lag_mat
 
 
+def _parse_heteroscedastic_mode(heteroscedastic: Union[bool, str]) -> str:
+    """Parse and normalize heteroscedastic noise mode identifier.
+
+    Parameters
+    ----------
+    heteroscedastic : bool or str
+        - True / 'rectified' / 'linear': Rectified linear storm volatility (sigma_base + sigma_storm * max(E_t, 0))
+        - 'exponential' / 'log_link' / 'log_linear' / 'egarch': Log-link exponential volatility (sigma_base * exp(beta_sigma * E_t))
+        - False / 'none' / 'homoscedastic': Constant noise floor (sigma)
+
+    Returns
+    -------
+    str : One of 'exponential', 'rectified', or 'homoscedastic'.
+    """
+    if isinstance(heteroscedastic, str):
+        mode = heteroscedastic.lower().strip()
+        if mode in ["exponential", "log_link", "log_linear", "egarch", "log"]:
+            return "exponential"
+        elif mode in ["rectified", "linear", "relu", "max", "true"]:
+            return "rectified"
+        elif mode in ["none", "homoscedastic", "false", "off"]:
+            return "homoscedastic"
+        return mode
+    elif heteroscedastic is True:
+        return "rectified"
+    else:
+        return "homoscedastic"
+
+
 def build_latent_memory_bayesian_model(
     forcing: np.ndarray,
     delta_x_obs: np.ndarray,
     model_name: str = "upsilon_model",
     max_lag: int = 48,
     scale_forcing: bool = True,
-    heteroscedastic: bool = True,
+    heteroscedastic: Union[bool, str] = True,
     gamma_prior: Tuple[float, float] = (5.0, 20.0),
 ) -> Tuple[pm.Model, Dict[str, Any]]:
     """Build a PyMC Bayesian model where antecedent memory gamma is inferred as a latent variable.
@@ -67,7 +96,9 @@ def build_latent_memory_bayesian_model(
     - weights_k = gamma^k / sum(gamma^j) for k = 0, ..., max_lag-1
     - E(gamma) = X_lag * weights(gamma)
     - mu_t = alpha + beta_forcing * E_t(gamma)
-    - Heteroscedastic noise (Approach A): sigma_t = sigma_base + sigma_storm * max(E_t(gamma), 0)
+    - Heteroscedastic noise (Approach A):
+        * Rectified: sigma_t = sigma_base + sigma_storm * max(E_t(gamma), 0)
+        * Exponential (Log-link): sigma_t = sigma_base * exp(beta_sigma * E_t(gamma))
     - y_obs ~ StudentT(nu >= 5, mu_t, sigma_t)
 
     Parameters
@@ -82,8 +113,8 @@ def build_latent_memory_bayesian_model(
         Maximum historical convolution window in hours.
     scale_forcing : bool
         Whether to standardize the forcing series.
-    heteroscedastic : bool
-        Whether to model noise dynamically with storm intensity (Approach A).
+    heteroscedastic : bool or str
+        Noise formulation: True / 'rectified' (ReLU-clamped), 'exponential' / 'log_link' (log-linear EGARCH), or False (homoscedastic).
     gamma_prior : Tuple[float, float]
         Shape parameters (alpha, beta) for the Beta prior on latent memory gamma. Default (5.0, 20.0).
 
@@ -105,13 +136,15 @@ def build_latent_memory_bayesian_model(
     lag_mat = create_lag_matrix(f_scaled, max_lag=max_lag)
     k_indices = np.arange(max_lag, dtype=float)
 
+    h_mode = _parse_heteroscedastic_mode(heteroscedastic)
     meta = {
         "model_name": model_name,
         "f_mean": f_mean,
         "f_std": f_std,
         "max_lag": max_lag,
         "n_obs": len(y_obs),
-        "heteroscedastic": heteroscedastic,
+        "heteroscedastic": heteroscedastic if isinstance(heteroscedastic, str) else (h_mode != "homoscedastic"),
+        "heteroscedastic_mode": h_mode,
         "gamma_prior": gamma_prior,
     }
 
@@ -137,7 +170,11 @@ def build_latent_memory_bayesian_model(
         beta_forcing = pm.Normal("beta_forcing", mu=-2.0, sigma=1.5)
 
         # 5. Uncertainty Model (Approach A: Heteroscedastic Storm Volatility)
-        if heteroscedastic:
+        if h_mode == "exponential":
+            sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
+            beta_sigma = pm.Normal("beta_sigma", mu=0.0, sigma=0.3)
+            sigma = pm.Deterministic("sigma", sigma_base * pt.exp(beta_sigma * effective_forcing))
+        elif h_mode == "rectified":
             sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
             sigma_storm = pm.HalfNormal("sigma_storm", sigma=0.5)
             storm_excitation = pt.maximum(effective_forcing, 0.0)
@@ -288,6 +325,7 @@ def compute_mcmc_summary_table(idata: az.InferenceData) -> pd.DataFrame:
         "gamma",
         "sigma_base",
         "sigma_storm",
+        "beta_sigma",
         "sigma",
         "nu",
         "beta_upsilon",
@@ -317,7 +355,7 @@ def predict_bayesian_model(
     """Predict morphodynamic response mu (and draw posterior samples) for any dataset window.
 
     Supports continuous antecedent memory convolution across train/test splits and
-    dynamic heteroscedastic noise scaling (Approach A).
+    dynamic heteroscedastic noise scaling (Approach A: Rectified Linear & Log-Link Exponential).
 
     Parameters
     ----------
@@ -363,16 +401,24 @@ def predict_bayesian_model(
     n_samples = len(alphas)
 
     # Handle homoscedastic vs. heteroscedastic noise parameters
-    has_hetero = ("sigma_base" in trace.posterior) and ("sigma_storm" in trace.posterior)
+    has_hetero_rectified = ("sigma_base" in trace.posterior) and ("sigma_storm" in trace.posterior)
+    has_hetero_exponential = ("sigma_base" in trace.posterior) and ("beta_sigma" in trace.posterior)
+    has_hetero = has_hetero_rectified or has_hetero_exponential
+
     if has_hetero:
         s_base_arr = trace.posterior["sigma_base"].values.reshape(-1)[sub_idx]
-        s_storm_arr = trace.posterior["sigma_storm"].values.reshape(-1)[sub_idx]
+        if has_hetero_exponential:
+            beta_sigma_arr = trace.posterior["beta_sigma"].values.reshape(-1)[sub_idx]
+            s_storm_arr = None
+        else:
+            s_storm_arr = trace.posterior["sigma_storm"].values.reshape(-1)[sub_idx]
+            beta_sigma_arr = None
         sigmas = None
     else:
         sigmas = trace.posterior["sigma"].values.reshape(-1)[sub_idx] if "sigma" in trace.posterior else np.full(n_samples, 0.3)
 
     is_survey = "antecedent_upsilon_memory" in df.columns or "surveyed_delta_x_m" in df.columns
-    eff_storm_samples = np.zeros((n_samples, n_pts), dtype=float)
+    eff_forcing_samples = np.zeros((n_samples, n_pts), dtype=float)
 
     if model_type == "single":
         if spec is not None and "forcing" in spec:
@@ -431,7 +477,7 @@ def predict_bayesian_model(
             w = (gammas[i] ** k_vec) / np.sum(gammas[i] ** k_vec)
             eff = lag_mat @ w
             mu_samples[i] = alphas[i] + betas[i] * eff
-            eff_storm_samples[i] = np.maximum(eff, 0.0)
+            eff_forcing_samples[i] = eff
 
     elif model_type == "nonlinear":
         if spec is not None and "forcing" in spec:
@@ -465,7 +511,7 @@ def predict_bayesian_model(
         beta_poly = trace.posterior["beta_poly"].values.reshape(-1, degree)[sub_idx]
 
         mu_samples = alphas[:, None] + (beta_poly @ basis_matrix.T)
-        eff_storm_samples[:] = np.maximum(f_scaled, 0.0)[None, :]
+        eff_forcing_samples[:] = f_scaled[None, :]
 
     elif model_type == "multivariate":
         fnames = meta.get("forcing_names", ["hs", "surge", "wind", "dean"])
@@ -523,7 +569,7 @@ def predict_bayesian_model(
             w = (gammas[i] ** k_vec) / np.sum(gammas[i] ** k_vec)
             eff_u = lag_mat @ w
             mu_samples[i] = alphas[i] + beta_ups[i] * eff_u
-            eff_storm_samples[i] = np.maximum(eff_u, 0.0)
+            eff_forcing_samples[i] = eff_u
 
         fnames = ["hs", "surge", "wind", "dean"]
         if is_survey:
@@ -599,7 +645,7 @@ def predict_bayesian_model(
             eff_a = lag_acc @ w
             is_e = 1.0 / (1.0 + np.exp(-5.0 * (omega - o_crits[i])))
             mu_samples[i] = alphas[i] + is_e * (-k_e[i] * eff_e) + (1.0 - is_e) * (k_a[i] * eff_a)
-            eff_storm_samples[i] = np.maximum(eff_e, 0.0)
+            eff_forcing_samples[i] = eff_e
 
     else:
         raise ValueError(f"Unknown model_type: {model_type}")
@@ -614,8 +660,11 @@ def predict_bayesian_model(
     for i in range(n_samples):
         nu_val = max(float(nus[i]), 1.5)
         if has_hetero:
-            exc = eff_storm_samples[i]
-            sigma_val = np.maximum(s_base_arr[i] + s_storm_arr[i] * exc, 1e-4)
+            if has_hetero_exponential:
+                sigma_val = np.maximum(s_base_arr[i] * np.exp(beta_sigma_arr[i] * eff_forcing_samples[i]), 1e-4)
+            else:
+                exc = np.maximum(eff_forcing_samples[i], 0.0)
+                sigma_val = np.maximum(s_base_arr[i] + s_storm_arr[i] * exc, 1e-4)
         else:
             sigma_val = max(float(sigmas[i]), 1e-4) if np.isscalar(sigmas[i]) or np.ndim(sigmas[i]) == 0 else np.maximum(sigmas[i], 1e-4)
         t_noise = rng.standard_t(df=nu_val, size=n_pts) * sigma_val
@@ -1307,6 +1356,7 @@ def run_benchmark_model_comparison(
                 "alpha",
                 "sigma_base",
                 "sigma_storm",
+                "beta_sigma",
                 "sigma",
                 "k_eros",
                 "k_accrete",
@@ -1471,7 +1521,7 @@ def build_physics_anchored_hybrid_model(
     model_name: str = "hybrid_physics_anchored",
     max_lag: int = 48,
     scale_forcings: bool = True,
-    heteroscedastic: bool = True,
+    heteroscedastic: Union[bool, str] = True,
 ) -> Tuple[pm.Model, Dict[str, Any]]:
     """Build a Physics-Informed Hybrid Bayesian Model (PI-HBM).
 
@@ -1484,18 +1534,22 @@ def build_physics_anchored_hybrid_model(
     3. Latent Memory: gamma ~ Beta(2, 5) dynamic convolution for cumulative storm memory.
     4. Deterministic mean:
        mu_t = alpha + beta_upsilon * Upsilon*_t(gamma) + sum_j delta_j * X_{j, t}^*
-    5. Heteroscedastic noise (Approach A): sigma_t = sigma_base + sigma_storm * max(Upsilon*_t, 0)
+    5. Heteroscedastic noise (Approach A):
+       * Rectified: sigma_t = sigma_base + sigma_storm * max(Upsilon*_t, 0)
+       * Exponential: sigma_t = sigma_base * exp(beta_sigma * Upsilon*_t)
     6. Likelihood: y_obs ~ StudentT(nu, mu_t, sigma_t)
     """
     ups_arr = np.asarray(upsilon, dtype=float)
     y_obs = np.asarray(delta_x_obs, dtype=float)
 
     max_lag = max(1, min(max_lag, len(y_obs)))
+    h_mode = _parse_heteroscedastic_mode(heteroscedastic)
     meta = {
         "model_name": model_name,
         "n_obs": len(y_obs),
         "max_lag": max_lag,
-        "heteroscedastic": heteroscedastic,
+        "heteroscedastic": heteroscedastic if isinstance(heteroscedastic, str) else (h_mode != "homoscedastic"),
+        "heteroscedastic_mode": h_mode,
     }
 
     # Standardize Upsilon
@@ -1543,7 +1597,11 @@ def build_physics_anchored_hybrid_model(
             mu = mu + delta_j * f_data
 
         alpha = pm.Normal("alpha", mu=0.0, sigma=1.0)
-        if heteroscedastic:
+        if h_mode == "exponential":
+            sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
+            beta_sigma = pm.Normal("beta_sigma", mu=0.0, sigma=0.3)
+            sigma = pm.Deterministic("sigma", sigma_base * pt.exp(beta_sigma * upsilon_memory))
+        elif h_mode == "rectified":
             sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
             sigma_storm = pm.HalfNormal("sigma_storm", sigma=0.5)
             storm_excitation = pt.maximum(upsilon_memory, 0.0)
@@ -1570,7 +1628,7 @@ def build_asymmetric_dual_regime_model(
     model_name: str = "asymmetric_dual_regime",
     max_lag: int = 48,
     scale_forcings: bool = True,
-    heteroscedastic: bool = True,
+    heteroscedastic: Union[bool, str] = True,
 ) -> Tuple[pm.Model, Dict[str, Any]]:
     """Build an Asymmetric Dual-Regime Morphodynamic Bayesian Model.
 
@@ -1586,7 +1644,9 @@ def build_asymmetric_dual_regime_model(
        F_accrete = (Tp * sqrt(g * L_0)) / (Hs + 0.1)
     5. Dual Asymmetric Kinetics:
        mu_t = alpha + is_erosion * (-k_eros * E_t(F_eros)) + (1.0 - is_erosion) * (+k_accrete * E_t(F_accrete))
-    6. Heteroscedastic noise (Approach A): sigma_t = sigma_base + sigma_storm * max(E_t(F_eros), 0)
+    6. Heteroscedastic noise (Approach A):
+       * Rectified: sigma_t = sigma_base + sigma_storm * max(E_t(F_eros), 0)
+       * Exponential: sigma_t = sigma_base * exp(beta_sigma * E_t(F_eros))
     """
     hs_arr = np.asarray(hs, dtype=float)
     tp_arr = np.maximum(np.asarray(tp, dtype=float), 0.5)
@@ -1608,11 +1668,13 @@ def build_asymmetric_dual_regime_model(
         l_0 = (9.81 * (tp_arr ** 2)) / (2.0 * np.pi)
         f_acc = (tp_arr * np.sqrt(9.81 * l_0)) / (hs_arr + 0.1)
 
+    h_mode = _parse_heteroscedastic_mode(heteroscedastic)
     meta = {
         "model_name": model_name,
         "n_obs": len(y_obs),
         "max_lag": max_lag,
-        "heteroscedastic": heteroscedastic,
+        "heteroscedastic": heteroscedastic if isinstance(heteroscedastic, str) else (h_mode != "homoscedastic"),
+        "heteroscedastic_mode": h_mode,
     }
 
     # Standardize kinetic forcing series
@@ -1657,7 +1719,11 @@ def build_asymmetric_dual_regime_model(
         mu = alpha + is_erosion * (-k_eros * eff_eros) + (1.0 - is_erosion) * (k_accrete * eff_acc)
         mu_det = pm.Deterministic("mu", mu)
 
-        if heteroscedastic:
+        if h_mode == "exponential":
+            sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
+            beta_sigma = pm.Normal("beta_sigma", mu=0.0, sigma=0.3)
+            sigma = pm.Deterministic("sigma", sigma_base * pt.exp(beta_sigma * eff_eros))
+        elif h_mode == "rectified":
             sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
             sigma_storm = pm.HalfNormal("sigma_storm", sigma=0.5)
             storm_excitation = pt.maximum(eff_eros, 0.0)
@@ -1683,22 +1749,12 @@ def build_learnable_exponent_bayesian_model(
     shielding_factor: Optional[np.ndarray] = None,
     model_name: str = "learnable_hs_exponent",
     max_lag: int = 48,
-    exponent_prior: str = "uniform",
-    prior_mu: float = 2.0,
-    prior_sigma: float = 0.5,
-    s_ref: float = 1.0,
-    r_ref: float = 2.0,
-    w_ref: float = 15.0,
-    w_bound: float = 0.6,
-    w_ref_on: Optional[float] = None,
-    w_ref_off: Optional[float] = None,
-    w_bound_on: Optional[float] = None,
-    w_bound_off: Optional[float] = None,
-    c_wind_on: float = 1.0,
-    c_wind_off: float = 0.5,
+    exponent_prior: str = "truncated_normal",
+    prior_mu: float = 2.5,
+    prior_sigma: float = 0.35,
     lower_bound: float = 1.0,
     upper_bound: float = 3.0,
-    heteroscedastic: bool = True,
+    heteroscedastic: Union[bool, str] = True,
 ) -> Tuple[pm.Model, Dict[str, Any]]:
     """Build a Physics-Informed Bayesian Model that learns the Hs scaling exponent n in [1.0, 3.0] directly from observations."""
     hs_arr = np.maximum(np.asarray(hs, dtype=float), 0.01)
@@ -1715,32 +1771,34 @@ def build_learnable_exponent_bayesian_model(
     k_indices = np.arange(max_lag, dtype=float)
 
     # Precompute non-exponent terms to optimize sampling graph (decoupled additive TWL & asymmetric quadratic wind)
-    eff_w_ref_on = w_ref_on if w_ref_on is not None else w_ref
-    eff_w_ref_off = w_ref_off if w_ref_off is not None else w_ref
-    eff_w_bound_on = w_bound_on if w_bound_on is not None else w_bound
-    eff_w_bound_off = w_bound_off if w_bound_off is not None else (0.5 * w_bound if w_bound != 0.6 else 0.3)
+    eff_w_ref_on = 15.0
+    eff_w_ref_off = 15.0
+    eff_w_bound_on = 0.6
+    eff_w_bound_off = 0.3
 
     from src.physics import compute_asymmetric_wind_amplification
-    twl_arr = 1.0 + np.maximum(surge_arr / s_ref, 0.0) + np.maximum(runup_arr / r_ref, 0.0)
+    twl_arr = 1.0 + np.maximum(surge_arr / 1.0, 0.0) + np.maximum(runup_arr / 2.0, 0.0)
     wind_arr_mod = compute_asymmetric_wind_amplification(
         wind_arr,
         w_ref_on=eff_w_ref_on,
         w_ref_off=eff_w_ref_off,
         w_bound_on=eff_w_bound_on,
         w_bound_off=eff_w_bound_off,
-        c_on=c_wind_on,
-        c_off=c_wind_off,
+        c_on=1.0,
+        c_off=0.5,
     )
     prefactor = (1025.0 * (9.81 ** 1.5)) / (16.0 * ((2.0 * np.pi) ** 1.5))
     kinematic_base = prefactor * tan_beta_val * (tp_arr / ws_arr) * twl_arr * wind_arr_mod * shield_arr
 
+    h_mode = _parse_heteroscedastic_mode(heteroscedastic)
     meta = {
         "model_name": model_name,
         "n_obs": n_obs,
         "max_lag": max_lag,
         "lower_bound": lower_bound,
         "upper_bound": upper_bound,
-        "heteroscedastic": heteroscedastic,
+        "heteroscedastic": heteroscedastic if isinstance(heteroscedastic, str) else (h_mode != "homoscedastic"),
+        "heteroscedastic_mode": h_mode,
     }
 
     with pm.Model() as model:
@@ -1786,7 +1844,12 @@ def build_learnable_exponent_bayesian_model(
         mu = pm.Deterministic("mu", alpha + beta_upsilon * upsilon_memory)
 
         # 5. Robust Student-t Likelihood (nu >= 5) with Heteroscedastic Storm Volatility (Approach A)
-        if heteroscedastic:
+        if h_mode == "exponential":
+            sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
+            beta_sigma = pm.Normal("beta_sigma", mu=0.0, sigma=0.3)
+            meta["beta_sigma_mu"] = 0.0
+            sigma = pm.Deterministic("sigma", sigma_base * pt.exp(beta_sigma * upsilon_memory))
+        elif h_mode == "rectified":
             sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
             sigma_storm = pm.HalfNormal("sigma_storm", sigma=0.5)
             storm_excitation = pt.maximum(upsilon_memory, 0.0)
@@ -1934,7 +1997,7 @@ def build_latent_equilibrium_bayesian_model(
     upsilon_eq_prior_mu: float = 2500.0,
     upsilon_eq_prior_sigma: float = 750.0,
     sequential_update: bool = False,
-    heteroscedastic: bool = True,
+    heteroscedastic: Union[bool, str] = True,
 ) -> Tuple[pm.Model, Dict[str, Any]]:
     """Build a PyMC Bayesian Model where Equilibrium Threshold Υ_eq is inferred as a Latent Parameter."""
     forcing_arr = np.asarray(forcing, dtype=float)
@@ -1949,6 +2012,7 @@ def build_latent_equilibrium_bayesian_model(
     lag_mat = create_lag_matrix(f_scaled, max_lag=max_lag)
     k_indices = np.arange(max_lag, dtype=float)
 
+    h_mode = _parse_heteroscedastic_mode(heteroscedastic)
     meta = {
         "model_name": model_name,
         "n_obs": n_obs,
@@ -1958,7 +2022,8 @@ def build_latent_equilibrium_bayesian_model(
         "scale_forcing": scale_forcing,
         "upsilon_eq_prior_mu": upsilon_eq_prior_mu,
         "upsilon_eq_prior_sigma": upsilon_eq_prior_sigma,
-        "heteroscedastic": heteroscedastic,
+        "heteroscedastic": heteroscedastic if isinstance(heteroscedastic, str) else (h_mode != "homoscedastic"),
+        "heteroscedastic_mode": h_mode,
     }
 
     with pm.Model() as model:
@@ -2004,7 +2069,11 @@ def build_latent_equilibrium_bayesian_model(
         )
 
         # 4. Robust Student-T likelihood (nu >= 5) with Heteroscedastic Volatility (Approach A)
-        if heteroscedastic:
+        if h_mode == "exponential":
+            sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
+            beta_sigma = pm.Normal("beta_sigma", mu=0.0, sigma=0.3)
+            sigma = pm.Deterministic("sigma", sigma_base * pt.exp(beta_sigma * (delta_eros / scale_div)))
+        elif h_mode == "rectified":
             sigma_base = pm.HalfNormal("sigma_base", sigma=0.5)
             sigma_storm = pm.HalfNormal("sigma_storm", sigma=0.5)
             storm_excitation = pt.maximum(delta_eros / scale_div, 0.0)
@@ -3895,5 +3964,113 @@ def run_bayesian_memory_prior_sensitivity_analysis(
     df_comp = run_arviz_loo_comparison(traces, ic="loo")
 
     return df_comp, traces, df_gamma_summary
+
+
+def run_heteroscedastic_noise_ablation(
+    df: pd.DataFrame,
+    target_col: str = "shoreline_pos_obs_m",
+    forcing_col: Optional[str] = None,
+    max_lag: int = 48,
+    draws: int = 600,
+    tune: int = 400,
+    chains: int = 2,
+    cores: int = 1,
+    random_seed: int = 42,
+) -> Tuple[pd.DataFrame, Dict[str, az.InferenceData]]:
+    """Ablate and benchmark competing Bayesian likelihood noise structures via ArviZ PSIS-LOO-CV.
+
+    Compares:
+      1. Homoscedastic baseline: sigma ~ HalfNormal(1.0)
+      2. Rectified Linear (Approach A): sigma_t = sigma_base + sigma_storm * max(E_t, 0)
+      3. Log-Link Exponential (EGARCH-style): sigma_t = sigma_base * exp(beta_sigma * E_t)
+
+    Evaluates whether smooth bidirectional volatility modulation (allowing calm periods to
+    contract variance while storms expand variance) provides superior out-of-sample predictive
+    accuracy and calibration relative to thresholded ReLU or constant noise floors.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset containing hydrodynamic forcing and morphodynamic observations.
+    target_col : str
+        Target column name (e.g., 'shoreline_pos_obs_m' or 'surveyed_delta_x_m').
+    forcing_col : str, optional
+        Forcing column name (e.g., 'upsilon', 'upsilon_excess', 'hs_m').
+        If None, auto-selected from available columns in df.
+    max_lag : int
+        Convolution window length in hours (default 48).
+    draws : int
+        Number of MCMC draws per chain (default 600).
+    tune : int
+        Number of tuning / warmup steps per chain (default 400).
+    chains : int
+        Number of MCMC chains (default 2).
+    cores : int
+        Number of CPU cores for sampling.
+    random_seed : int
+        Random seed for sampling reproducibility.
+
+    Returns
+    -------
+    df_comp : pd.DataFrame
+        ArviZ model comparison table with PSIS-LOO-CV ELPD, p_loo, LOO weights, and SE.
+    traces : dict
+        Fitted MCMC InferenceData traces for each candidate noise model.
+    """
+    # 1. Resolve target series
+    if target_col in df.columns:
+        y_obs = df[target_col].values
+    elif "surveyed_delta_x_m" in df.columns:
+        y_obs = df["surveyed_delta_x_m"].values
+    elif "delta_x_obs" in df.columns:
+        y_obs = df["delta_x_obs"].values
+    elif "delta_x_m" in df.columns:
+        y_obs = df["delta_x_m"].values
+    else:
+        y_obs = df.iloc[:, 0].values
+
+    # 2. Resolve forcing series
+    if forcing_col is not None and forcing_col in df.columns:
+        forcing = df[forcing_col].values
+    elif "upsilon" in df.columns:
+        forcing = df["upsilon"].values
+    elif "upsilon_excess" in df.columns:
+        forcing = df["upsilon_excess"].values
+    elif "hs_m" in df.columns:
+        forcing = df["hs_m"].values ** 2.5
+    elif "hs" in df.columns:
+        forcing = df["hs"].values ** 2.5
+    else:
+        forcing = np.ones(len(y_obs))
+
+    effective_lag = max(1, min(int(max_lag), len(y_obs)))
+    traces: Dict[str, az.InferenceData] = {}
+
+    noise_configs = [
+        ("Homoscedastic", False),
+        ("Rectified Linear (ReLU)", "rectified"),
+        ("Log-Link Exponential (EGARCH)", "exponential"),
+    ]
+
+    for model_label, hetero_spec in noise_configs:
+        model, _ = build_latent_memory_bayesian_model(
+            forcing=forcing,
+            delta_x_obs=y_obs,
+            model_name=model_label,
+            max_lag=effective_lag,
+            heteroscedastic=hetero_spec,
+        )
+        trace = fit_bayesian_model(
+            model=model,
+            draws=draws,
+            tune=tune,
+            chains=chains,
+            cores=cores,
+            random_seed=random_seed,
+        )
+        traces[model_label] = trace
+
+    df_comp = run_arviz_loo_comparison(traces, ic="loo")
+    return df_comp, traces
 
 

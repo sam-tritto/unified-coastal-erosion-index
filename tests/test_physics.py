@@ -73,6 +73,7 @@ from src.models import (
     compute_mcmc_summary_table,
     run_bayesian_memory_window_ablation,
     run_bayesian_memory_prior_sensitivity_analysis,
+    run_heteroscedastic_noise_ablation,
 )
 
 
@@ -1559,42 +1560,53 @@ def test_evaluate_cross_paradigm_walk_forward_cv():
 
 
 def test_heteroscedastic_uncertainty_approach_a():
-    """Verify Approach A: Bayesian noise parameter sigma scales dynamically with storm intensity."""
+    """Verify Approach A: Bayesian noise parameter sigma scales dynamically with storm intensity (rectified & exponential)."""
     df = generate_frf_duck_hurricane_ian_dataset().iloc[:60]
     
-    # 1. Test model graph construction with heteroscedastic=True
+    # 1. Test model graph construction with heteroscedastic=True / 'rectified'
     model_hetero, meta_hetero = build_latent_memory_bayesian_model(
         forcing=df["upsilon"].values,
         delta_x_obs=df["shoreline_change_rate_mh"].values,
         max_lag=12,
-        heteroscedastic=True,
+        heteroscedastic="rectified",
     )
-    assert meta_hetero["heteroscedastic"] is True
+    assert meta_hetero["heteroscedastic_mode"] == "rectified"
     assert "sigma_base" in model_hetero.named_vars
     assert "sigma_storm" in model_hetero.named_vars
     assert "sigma" in model_hetero.named_vars
 
-    # 2. Test model graph construction with heteroscedastic=False (homoscedastic baseline)
+    # 2. Test model graph construction with heteroscedastic='exponential' (log-link)
+    model_exp, meta_exp = build_latent_memory_bayesian_model(
+        forcing=df["upsilon"].values,
+        delta_x_obs=df["shoreline_change_rate_mh"].values,
+        max_lag=12,
+        heteroscedastic="exponential",
+    )
+    assert meta_exp["heteroscedastic_mode"] == "exponential"
+    assert "sigma_base" in model_exp.named_vars
+    assert "beta_sigma" in model_exp.named_vars
+    assert "sigma" in model_exp.named_vars
+
+    # 3. Test model graph construction with heteroscedastic=False (homoscedastic baseline)
     model_homo, meta_homo = build_latent_memory_bayesian_model(
         forcing=df["upsilon"].values,
         delta_x_obs=df["shoreline_change_rate_mh"].values,
         max_lag=12,
         heteroscedastic=False,
     )
-    assert meta_homo["heteroscedastic"] is False
+    assert meta_homo["heteroscedastic_mode"] == "homoscedastic"
     assert "sigma_base" not in model_homo.named_vars
     assert "sigma" in model_homo.named_vars
 
-    # 3. Fit heteroscedastic model and verify sampling
-    trace = fit_bayesian_model(model_hetero, draws=50, tune=50, chains=2, random_seed=42)
-    assert "sigma_base" in trace.posterior
-    assert "sigma_storm" in trace.posterior
+    # 4. Fit exponential model and verify sampling & posterior predictive
+    trace_exp = fit_bayesian_model(model_exp, draws=50, tune=50, chains=2, random_seed=42)
+    assert "sigma_base" in trace_exp.posterior
+    assert "beta_sigma" in trace_exp.posterior
 
-    # 4. Out-of-sample prediction and dynamic noise simulation
     mu_mean, mu_samples, y_pred = predict_bayesian_model(
-        trace=trace,
+        trace=trace_exp,
         model_type="single",
-        meta=meta_hetero,
+        meta=meta_exp,
         df=df,
         return_samples=True,
         random_seed=42,
@@ -1603,10 +1615,32 @@ def test_heteroscedastic_uncertainty_approach_a():
     assert mu_samples.shape == (100, len(df))
     assert y_pred.shape == (100, len(df))
 
-    # Summary table must include scalar parameters without vector explosion
-    summary = compute_mcmc_summary_table(trace)
-    assert "sigma_base" in summary.index
-    assert "sigma_storm" in summary.index
+    # Summary table must include beta_sigma
+    summary_exp = compute_mcmc_summary_table(trace_exp)
+    assert "sigma_base" in summary_exp.index
+    assert "beta_sigma" in summary_exp.index
+
+
+def test_run_heteroscedastic_noise_ablation():
+    """Verify systematic likelihood noise model ablation (homoscedastic vs. rectified vs. exponential) via PSIS-LOO-CV."""
+    df = generate_frf_duck_hurricane_ian_dataset().iloc[:60]
+    df_comp, traces = run_heteroscedastic_noise_ablation(
+        df=df,
+        target_col="shoreline_change_rate_mh",
+        forcing_col="upsilon",
+        max_lag=12,
+        draws=50,
+        tune=50,
+        chains=2,
+        random_seed=42,
+    )
+    assert len(traces) == 3
+    assert "Homoscedastic" in traces
+    assert "Rectified Linear (ReLU)" in traces
+    assert "Log-Link Exponential (EGARCH)" in traces
+    assert not df_comp.empty
+    assert "elpd_loo" in df_comp.columns
+    assert "rank" in df_comp.columns
 
 
 def test_run_bayesian_memory_window_ablation():
