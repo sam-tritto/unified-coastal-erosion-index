@@ -4074,3 +4074,363 @@ def run_heteroscedastic_noise_ablation(
     return df_comp, traces
 
 
+def run_constructive_tier_ablation(
+    df: pd.DataFrame,
+    target_col: str = "shoreline_pos_obs_m",
+    tier_feature_sets: Optional[Dict[str, List[str]]] = None,
+    train_split: float = 0.75,
+    model_type: str = "mlp",
+    hidden_dim: int = 64,
+    epochs: int = 35,
+    lr: float = 0.01,
+    batch_size: int = 256,
+    n_bootstraps: int = 1000,
+    ci: float = 0.95,
+    random_seed: int = 42,
+    rolling_origin_folds: Optional[int] = None,
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Execute constructive physical tier addition ablation strictly on out-of-sample test data.
+
+    Evaluates whether incrementally adding physical complexity tiers:
+      - Tier 1: Base Upsilon (energy flux + steepness / Dean number)
+      - Tier 2: + Infragravity wave contribution
+      - Tier 3: + Alongshore transport gradient
+      - Tier 4: + Directional spreading / energy collimation
+
+    provides statistically significant out-of-sample skill improvement or whether changes fall
+    within the statistical noise margin.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset containing hydrodynamic forcing, physical tier columns, and target observations.
+    target_col : str
+        Target column name (e.g. 'shoreline_pos_obs_m', 'shoreline_pos_true_m', or 'delta_x_m').
+    tier_feature_sets : dict, optional
+        Mapping of tier names to feature column lists. If None, defaults to standard 4 tiers.
+    train_split : float
+        Fraction of time series dedicated to training (default 0.75, remaining 0.25 is out-of-sample test).
+    model_type : str
+        Model architecture: 'mlp' (PyTorch CoastalMLP), 'ridge' (Ridge Regression), or 'linear'.
+    hidden_dim : int
+        Hidden dimension for MLP (default 64).
+    epochs : int
+        Training epochs for MLP (default 35).
+    lr : float
+        Learning rate for MLP (default 0.01).
+    batch_size : int
+        Batch size for MLP training (default 256).
+    n_bootstraps : int
+        Number of non-parametric bootstrap resamples for 95% CIs (default 1000).
+    ci : float
+        Confidence level for interval bounds (default 0.95).
+    random_seed : int
+        Random seed for reproducibility.
+    rolling_origin_folds : int, optional
+        If set (e.g. 4), also executes expanding-window rolling origin temporal cross-validation.
+
+    Returns
+    -------
+    summary_df : pd.DataFrame
+        Comprehensive ablation summary with Test RMSE, 95% Bootstrap CIs, paired ΔRMSE,
+        paired 95% CIs, p-values (Diebold-Mariano test), and statistical significance classification.
+    details : dict
+        Dictionary containing out-of-sample predictions, bootstrap distributions, and fold metrics.
+    """
+    from scipy import stats
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.linear_model import Ridge
+
+    df_proc = df.copy()
+
+    # 1. Target resolution
+    if target_col not in df_proc.columns:
+        candidates = ["shoreline_pos_obs_m", "shoreline_pos_true_m", "surveyed_delta_x_m", "delta_x_obs", "delta_x_m"]
+        for c in candidates:
+            if c in df_proc.columns:
+                target_col = c
+                break
+        if target_col not in df_proc.columns:
+            target_col = df_proc.columns[0]
+
+    # 2. Shoreline lag handling
+    if "shoreline_lag1" not in df_proc.columns:
+        df_proc["shoreline_lag1"] = df_proc[target_col].shift(1).bfill()
+
+    # 3. Default tier feature sets with auto-fallback matching
+    if tier_feature_sets is None:
+        def _match_col(preferred: str, fallback_candidates: List[str]) -> str:
+            if preferred in df_proc.columns:
+                return preferred
+            for fb in fallback_candidates:
+                if fb in df_proc.columns:
+                    return fb
+            return preferred
+
+        t1_col = _match_col("upsilon_tier1", ["upsilon", "log_upsilon", "upsilon_signed", "upsilon_excess"])
+        t2_col = _match_col("upsilon_tier2", [t1_col])
+        t3_col = _match_col("upsilon_tier3", [t2_col, t1_col])
+        t4_col = _match_col("upsilon_tier4", ["upsilon_full", t3_col, t2_col, t1_col])
+        dean_col = _match_col("dean_number", ["omega_ratio", "dean_omega", "hs_m"])
+
+        tier_feature_sets = {
+            "1. Base Upsilon (Tier 1)": [t1_col, dean_col],
+            "2. + Infragravity (Tier 2)": [t2_col, dean_col],
+            "3. + Alongshore Drift (Tier 3)": [t3_col, dean_col],
+            "4. + Directional Spread (Tier 4 / Full)": [t4_col, dean_col],
+        }
+
+    n_total = len(df_proc)
+    split_idx = int(n_total * train_split)
+    y_raw = df_proc[target_col].values.astype(np.float32)
+    y_train_unscaled = y_raw[:split_idx]
+    y_test_unscaled = y_raw[split_idx:]
+    n_test = len(y_test_unscaled)
+
+    # Base MSE for Brier Skill Score
+    var_base = float(np.var(y_test_unscaled))
+    mse_base = float(np.mean((y_test_unscaled - np.mean(y_train_unscaled)) ** 2)) if var_base > 1e-6 else 1.0
+
+    test_predictions: Dict[str, np.ndarray] = {}
+    test_metrics: Dict[str, Dict[str, float]] = {}
+    bootstrap_rmses: Dict[str, np.ndarray] = {}
+    trained_models: Dict[str, Any] = {}
+
+    alpha_ci = (1.0 - ci) / 2.0
+    rng = np.random.default_rng(random_seed)
+
+    # 4. Train each physical tier and generate out-of-sample test predictions
+    for tier_name, feat_cols in tier_feature_sets.items():
+        cols = [c for c in feat_cols if c in df_proc.columns]
+        if "shoreline_lag1" not in cols:
+            cols.append("shoreline_lag1")
+
+        x_raw = df_proc[cols].values.astype(np.float32)
+
+        scaler_x = StandardScaler().fit(x_raw[:split_idx])
+        scaler_y = StandardScaler().fit(y_raw[:split_idx].reshape(-1, 1))
+
+        x_train_scaled = scaler_x.transform(x_raw[:split_idx])
+        y_train_scaled = scaler_y.transform(y_raw[:split_idx].reshape(-1, 1)).ravel()
+
+        x_test_scaled = scaler_x.transform(x_raw[split_idx:])
+
+        if model_type == "mlp":
+            try:
+                import torch
+                import torch.nn as nn
+                from src.neural_baselines import CoastalMLP
+
+                torch.manual_seed(random_seed)
+                input_dim = x_train_scaled.shape[1]
+                model = CoastalMLP(
+                    input_dim=input_dim,
+                    hidden_dims=[hidden_dim, max(16, hidden_dim // 2)],
+                    dropout=0.05,
+                )
+                optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+                criterion = nn.MSELoss()
+
+                ds = torch.utils.data.TensorDataset(
+                    torch.tensor(x_train_scaled, dtype=torch.float32),
+                    torch.tensor(y_train_scaled, dtype=torch.float32),
+                )
+                loader = torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True)
+
+                model.train()
+                for _ in range(epochs):
+                    for bx, by in loader:
+                        optimizer.zero_grad()
+                        preds = model(bx)
+                        loss = criterion(preds, by)
+                        loss.backward()
+                        optimizer.step()
+
+                model.eval()
+                with torch.no_grad():
+                    preds_test_scaled = model(torch.tensor(x_test_scaled, dtype=torch.float32)).numpy().reshape(-1, 1)
+                    p_test = scaler_y.inverse_transform(preds_test_scaled).ravel()
+
+                trained_models[tier_name] = model
+
+            except Exception:
+                # Fallback to Ridge if PyTorch unavailable
+                model = Ridge(alpha=1.0)
+                model.fit(x_train_scaled, y_train_scaled)
+                preds_test_scaled = model.predict(x_test_scaled).reshape(-1, 1)
+                p_test = scaler_y.inverse_transform(preds_test_scaled).ravel()
+                trained_models[tier_name] = model
+        else:
+            model = Ridge(alpha=1.0)
+            model.fit(x_train_scaled, y_train_scaled)
+            preds_test_scaled = model.predict(x_test_scaled).reshape(-1, 1)
+            p_test = scaler_y.inverse_transform(preds_test_scaled).ravel()
+            trained_models[tier_name] = model
+
+        test_predictions[tier_name] = p_test
+
+        # Calculate point metrics on out-of-sample test horizon
+        err = y_test_unscaled - p_test
+        rmse = float(np.sqrt(np.mean(err ** 2)))
+        mae = float(np.mean(np.abs(err)))
+        r, _ = stats.pearsonr(y_test_unscaled, p_test) if np.std(p_test) > 1e-6 and np.std(y_test_unscaled) > 1e-6 else (0.0, 1.0)
+        ss_tot = float(np.sum((y_test_unscaled - np.mean(y_test_unscaled)) ** 2))
+        ss_res = float(np.sum(err ** 2))
+        r2 = float(1.0 - (ss_res / max(ss_tot, 1e-8)))
+        bss = float(1.0 - (np.mean(err ** 2) / max(mse_base, 1e-8)))
+
+        test_metrics[tier_name] = {
+            "rmse": rmse,
+            "mae": mae,
+            "r": float(r),
+            "r2": r2,
+            "bss": bss,
+        }
+
+    # 5. Non-parametric bootstrap resampling across test set for simultaneous CIs and paired deltas
+    boot_indices = [rng.choice(n_test, size=n_test, replace=True) for _ in range(n_bootstraps)]
+    tier_list = list(tier_feature_sets.keys())
+
+    for t_name in tier_list:
+        p_t = test_predictions[t_name]
+        b_rmses = []
+        for b_idx in boot_indices:
+            yb = y_test_unscaled[b_idx]
+            pb = p_t[b_idx]
+            b_rmses.append(float(np.sqrt(np.mean((yb - pb) ** 2))))
+        bootstrap_rmses[t_name] = np.array(b_rmses)
+
+    # 6. Build summary rows with paired delta metrics, DM test, and significance
+    summary_rows = []
+    paired_deltas: Dict[str, Dict[str, Any]] = {}
+
+    for i, tier_name in enumerate(tier_list):
+        t_rmse = test_metrics[tier_name]["rmse"]
+        t_mae = test_metrics[tier_name]["mae"]
+        t_r2 = test_metrics[tier_name]["r2"]
+        t_bss = test_metrics[tier_name]["bss"]
+
+        b_dist = bootstrap_rmses[tier_name]
+        rmse_ci_low = float(np.percentile(b_dist, alpha_ci * 100.0))
+        rmse_ci_high = float(np.percentile(b_dist, (1.0 - alpha_ci) * 100.0))
+
+        if i == 0:
+            delta_rmse = 0.0
+            delta_ci_low = 0.0
+            delta_ci_high = 0.0
+            p_val = 1.0
+            sig_verdict = "Baseline (Tier 1)"
+        else:
+            prev_tier = tier_list[i - 1]
+            prev_rmse = test_metrics[prev_tier]["rmse"]
+            delta_rmse = t_rmse - prev_rmse
+
+            # Paired bootstrap differences
+            diff_b = bootstrap_rmses[tier_name] - bootstrap_rmses[prev_tier]
+            delta_ci_low = float(np.percentile(diff_b, alpha_ci * 100.0))
+            delta_ci_high = float(np.percentile(diff_b, (1.0 - alpha_ci) * 100.0))
+
+            # Diebold-Mariano test on loss differential (squared errors)
+            e_curr = (y_test_unscaled - test_predictions[tier_name]) ** 2
+            e_prev = (y_test_unscaled - test_predictions[prev_tier]) ** 2
+            d_t = e_prev - e_curr  # positive d_t means current tier has smaller error
+
+            if np.std(d_t) > 1e-8:
+                _, p_val = diebold_mariano_test(
+                    y_true=y_test_unscaled,
+                    y_pred1=test_predictions[prev_tier],
+                    y_pred2=test_predictions[tier_name],
+                    loss="squared",
+                )
+            else:
+                p_val = 1.0
+
+            # Classification verdict
+            if delta_rmse < 0 and p_val < 0.05 and delta_ci_high < 0:
+                sig_verdict = f"Significant Improvement (p={p_val:.3f})"
+            elif delta_rmse > 0 and p_val < 0.05 and delta_ci_low > 0:
+                sig_verdict = f"Significant Degradation (p={p_val:.3f})"
+            else:
+                sig_verdict = "Noise Margin / Not Significant"
+
+            paired_deltas[tier_name] = {
+                "prev_tier": prev_tier,
+                "delta_rmse": delta_rmse,
+                "delta_ci_low": delta_ci_low,
+                "delta_ci_high": delta_ci_high,
+                "p_value": p_val,
+                "verdict": sig_verdict,
+            }
+
+        summary_rows.append({
+            "Tier": tier_name,
+            "Features": ", ".join(tier_feature_sets[tier_name]),
+            "Test RMSE (m)": t_rmse,
+            "Test RMSE 95% CI": f"[{rmse_ci_low:.3f}, {rmse_ci_high:.3f}]",
+            "RMSE CI Lower": rmse_ci_low,
+            "RMSE CI Upper": rmse_ci_high,
+            "ΔRMSE (m)": delta_rmse if i > 0 else 0.0,
+            "ΔRMSE 95% CI": f"[{delta_ci_low:+.3f}, {delta_ci_high:+.3f}]" if i > 0 else "Baseline",
+            "p-value (DM)": p_val if i > 0 else 1.0,
+            "Significance": sig_verdict,
+            "Test BSS": t_bss,
+            "Test R2": t_r2,
+            "Test MAE (m)": t_mae,
+        })
+
+    summary_df = pd.DataFrame(summary_rows)
+
+    # 7. Optional Rolling-Origin Cross-Validation folds
+    rolling_results = {}
+    if rolling_origin_folds is not None and rolling_origin_folds >= 2:
+        fold_size = len(df_proc) // (rolling_origin_folds + 1)
+        folds_data = []
+        for k in range(1, rolling_origin_folds + 1):
+            train_end = fold_size * k
+            test_start = train_end
+            test_end = min(len(df_proc), train_end + fold_size)
+            if test_end - test_start > 10:
+                folds_data.append((train_end, test_start, test_end))
+
+        tier_fold_rmses: Dict[str, List[float]] = {t: [] for t in tier_list}
+        for train_end, test_start, test_end in folds_data:
+            for tier_name, feat_cols in tier_feature_sets.items():
+                cols = [c for c in feat_cols if c in df_proc.columns]
+                if "shoreline_lag1" not in cols:
+                    cols.append("shoreline_lag1")
+                xr = df_proc[cols].values.astype(np.float32)
+                yr = df_proc[target_col].values.astype(np.float32)
+
+                sx = StandardScaler().fit(xr[:train_end])
+                sy = StandardScaler().fit(yr[:train_end].reshape(-1, 1))
+
+                xtr = sx.transform(xr[:train_end])
+                ytr = sy.transform(yr[:train_end].reshape(-1, 1)).ravel()
+                xte = sx.transform(xr[test_start:test_end])
+                yte = yr[test_start:test_end]
+
+                model = Ridge(alpha=1.0)
+                model.fit(xtr, ytr)
+                pte = sy.inverse_transform(model.predict(xte).reshape(-1, 1)).ravel()
+                tier_fold_rmses[tier_name].append(float(np.sqrt(np.mean((yte - pte) ** 2))))
+
+        rolling_results = {
+            "tier_fold_rmses": tier_fold_rmses,
+            "tier_mean_cv_rmse": {t: float(np.mean(rms)) for t, rms in tier_fold_rmses.items()},
+            "tier_std_cv_rmse": {t: float(np.std(rms)) for t, rms in tier_fold_rmses.items()},
+        }
+
+    details = {
+        "test_predictions": test_predictions,
+        "y_test_unscaled": y_test_unscaled,
+        "test_metrics": test_metrics,
+        "bootstrap_rmses": bootstrap_rmses,
+        "paired_deltas": paired_deltas,
+        "trained_models": trained_models,
+        "rolling_origin_results": rolling_results,
+    }
+
+    return summary_df, details
+
+
+
