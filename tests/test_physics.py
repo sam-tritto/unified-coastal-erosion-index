@@ -71,6 +71,7 @@ from src.models import (
     run_benchmark_model_comparison,
     fit_bayesian_model,
     compute_mcmc_summary_table,
+    run_bayesian_memory_window_ablation,
 )
 
 
@@ -1605,4 +1606,26 @@ def test_heteroscedastic_uncertainty_approach_a():
     summary = compute_mcmc_summary_table(trace)
     assert "sigma_base" in summary.index
     assert "sigma_storm" in summary.index
+
+
+def test_run_bayesian_memory_window_ablation():
+    """Verify systematic Bayesian memory window (max_lag) ablation across candidate horizons."""
+    df, _ = load_dataset(try_live_api=False)
+    df_sub = df.iloc[:100].copy()
+    lags = (12, 24, 48)
+    df_comp, traces = run_bayesian_memory_window_ablation(
+        df=df_sub,
+        lags=lags,
+        target_col="shoreline_pos_obs_m",
+        draws=50,
+        tune=50,
+        chains=2,
+        random_seed=42,
+    )
+    assert len(traces) == len(lags)
+    for lag in lags:
+        assert f"lag_{lag}h" in traces
+        assert "gamma" in traces[f"lag_{lag}h"].posterior
+    assert len(df_comp) == len(lags)
+    assert "elpd_loo" in df_comp.columns or "elpd_waic" in df_comp.columns or "rank" in df_comp.columns
 

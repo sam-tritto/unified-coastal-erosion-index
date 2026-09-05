@@ -18,7 +18,7 @@ import pandas as pd
 import arviz as az
 import pymc as pm
 import pytensor.tensor as pt
-from typing import Dict, Any, Tuple, Optional, List
+from typing import Dict, Any, Tuple, Optional, List, Sequence
 
 
 def compute_antecedent_memory_forcing(
@@ -3577,6 +3577,100 @@ def run_critical_threshold_exponent_sensitivity_analysis(
             random_seed=random_seed,
         )
         traces[m_name] = trace_learn
+
+    df_comp = run_arviz_loo_comparison(traces, ic="loo")
+    return df_comp, traces
+
+
+def run_bayesian_memory_window_ablation(
+    df: pd.DataFrame,
+    lags: Sequence[int] = (24, 48, 168, 720),
+    target_col: str = "shoreline_pos_obs_m",
+    forcing_col: Optional[str] = None,
+    draws: int = 500,
+    tune: int = 250,
+    chains: int = 2,
+    random_seed: int = 42,
+) -> Tuple[pd.DataFrame, Dict[str, az.InferenceData]]:
+    """Run systematic Bayesian memory window (max_lag) ablation across candidate horizons.
+
+    Compares Bayesian latent memory models across max_lag in {24, 48, 168, 720} hours
+    (1 day, 2 days, 1 week, 30 days) to evaluate whether a short-term 48h memory window
+    prematurely truncates antecedent wave energy vs. synoptic and seasonal equilibrium relaxation
+    timescales (Yates et al. 2009, Splinter et al. 2014 ShoreFor).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset containing hydrodynamic forcing and morphodynamic observations.
+    lags : sequence of int
+        Candidate memory horizons in hours (default: 24, 48, 168, 720).
+    target_col : str
+        Target column name (e.g., 'shoreline_pos_obs_m' or 'surveyed_delta_x_m').
+    forcing_col : str, optional
+        Forcing column name (e.g., 'upsilon', 'upsilon_excess', 'hs_m', 'p_wave_kwm').
+        If None, auto-selected from available columns in df.
+    draws : int
+        Number of MCMC draws per chain (default 500).
+    tune : int
+        Number of tuning / warmup steps per chain (default 250).
+    chains : int
+        Number of MCMC chains (default 2).
+    random_seed : int
+        Random seed for sampling reproducibility.
+
+    Returns
+    -------
+    df_comp : pd.DataFrame
+        ArviZ model comparison table with ELPD LOO, p_loo, LOO weights, and SE.
+    traces : dict
+        Fitted MCMC InferenceData traces for each candidate lag horizon.
+    """
+    # 1. Resolve target series
+    if target_col in df.columns:
+        y_obs = df[target_col].values
+    elif "surveyed_delta_x_m" in df.columns:
+        y_obs = df["surveyed_delta_x_m"].values
+    elif "delta_x_obs" in df.columns:
+        y_obs = df["delta_x_obs"].values
+    elif "delta_x_m" in df.columns:
+        y_obs = df["delta_x_m"].values
+    else:
+        y_obs = df.iloc[:, 0].values
+
+    # 2. Resolve forcing series
+    if forcing_col is not None and forcing_col in df.columns:
+        forcing = df[forcing_col].values
+    elif "upsilon" in df.columns:
+        forcing = df["upsilon"].values
+    elif "upsilon_excess" in df.columns:
+        forcing = df["upsilon_excess"].values
+    elif "hs_m" in df.columns:
+        forcing = df["hs_m"].values ** 2.5
+    elif "hs" in df.columns:
+        forcing = df["hs"].values ** 2.5
+    else:
+        forcing = np.ones(len(y_obs))
+
+    traces: Dict[str, az.InferenceData] = {}
+
+    for lag in lags:
+        m_name = f"lag_{lag}h"
+        effective_lag = max(1, min(int(lag), len(y_obs)))
+        model, _ = build_latent_memory_bayesian_model(
+            forcing=forcing,
+            delta_x_obs=y_obs,
+            model_name=m_name,
+            max_lag=effective_lag,
+        )
+        trace = fit_bayesian_model(
+            model=model,
+            draws=draws,
+            tune=tune,
+            chains=chains,
+            random_seed=random_seed,
+        )
+        traces[m_name] = trace
 
     df_comp = run_arviz_loo_comparison(traces, ic="loo")
     return df_comp, traces
