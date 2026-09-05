@@ -1685,3 +1685,49 @@ def test_run_bayesian_memory_prior_sensitivity_analysis():
     assert "elpd_loo" in df_comp.columns or "elpd_waic" in df_comp.columns or "rank" in df_comp.columns
 
 
+def test_evaluate_model_performance_baselines():
+    """Verify evaluate_model_performance supports zero-change, persistence, mean, and custom baselines."""
+    # Synthetic shoreline position data with non-zero mean
+    y_true = np.array([10.0, 12.0, 11.0, 15.0, 14.0, 16.0])
+    y_pred = np.array([10.5, 11.8, 11.2, 14.7, 14.2, 15.8])
+
+    # 1. Default (zero baseline)
+    perf_default = evaluate_model_performance(y_true, y_pred)
+    assert "RMSE (m)" in perf_default
+    assert "MAE (m)" in perf_default
+    assert "R2 Score" in perf_default
+    assert "Brier Skill Score (BSS)" in perf_default
+    assert "BSS (Zero-Change)" in perf_default
+    assert "BSS (Persistence)" in perf_default
+
+    # BSS default is against zero baseline
+    assert np.isclose(perf_default["Brier Skill Score (BSS)"], perf_default["BSS (Zero-Change)"])
+
+    # Verify persistence baseline calculation
+    y_b_persist = np.array([10.0, 10.0, 12.0, 11.0, 15.0, 14.0])
+    mse_persist_expected = float(np.mean((y_true - y_b_persist) ** 2))
+    mse_model = float(np.mean((y_true - y_pred) ** 2))
+    bss_persist_expected = float(1.0 - (mse_model / mse_persist_expected))
+    assert np.isclose(perf_default["MSE Persistence"], mse_persist_expected)
+    assert np.isclose(perf_default["BSS (Persistence)"], bss_persist_expected)
+
+    # 2. Explicit baseline_mode="persistence" or y_baseline="persistence"
+    perf_persist_mode = evaluate_model_performance(y_true, y_pred, baseline_mode="persistence")
+    assert np.isclose(perf_persist_mode["Brier Skill Score (BSS)"], bss_persist_expected)
+    assert np.isclose(perf_persist_mode["MSE Baseline"], mse_persist_expected)
+
+    perf_persist_str = evaluate_model_performance(y_true, y_pred, y_baseline="persistence")
+    assert np.isclose(perf_persist_str["Brier Skill Score (BSS)"], bss_persist_expected)
+
+    # 3. Explicit custom baseline array
+    y_custom_base = y_true - 1.0
+    mse_custom_expected = 1.0
+    bss_custom_expected = float(1.0 - (mse_model / mse_custom_expected))
+    perf_custom = evaluate_model_performance(y_true, y_pred, y_baseline=y_custom_base)
+    assert np.isclose(perf_custom["Brier Skill Score (BSS)"], bss_custom_expected)
+    assert np.isclose(perf_custom["MSE Baseline"], mse_custom_expected)
+    assert "BSS (Zero-Change)" in perf_custom
+    assert "BSS (Persistence)" in perf_custom
+
+
+

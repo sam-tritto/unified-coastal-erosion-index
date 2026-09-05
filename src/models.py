@@ -193,36 +193,90 @@ def fit_bayesian_model(
 def evaluate_model_performance(
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    y_baseline: Optional[np.ndarray] = None,
+    y_baseline: Optional[Union[np.ndarray, str]] = None,
+    baseline_mode: Optional[str] = None,
 ) -> Dict[str, float]:
-    """Calculate morphodynamic validation metrics (RMSE, MAE, R^2, and Brier Skill Score)."""
-    y_t = np.asarray(y_true, dtype=float)
-    y_p = np.asarray(y_pred, dtype=float)
+    """Calculate morphodynamic validation metrics (RMSE, MAE, R^2, and Brier Skill Score).
+
+    Supports zero-change baseline (climatological null = "no change" for step-change Δx),
+    persistence baseline (previous observation carried forward for cumulative position x_t),
+    climatological mean baseline, or custom explicit baseline arrays.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+        Ground-truth observed values.
+    y_pred : np.ndarray
+        Model predicted values.
+    y_baseline : Optional[Union[np.ndarray, str]]
+        Explicit baseline array, or string indicating baseline mode ('zero', 'persistence', 'mean').
+    baseline_mode : Optional[str]
+        Optional string indicating baseline mode if y_baseline is None ('zero', 'persistence', 'mean').
+
+    Returns
+    -------
+    Dict[str, float]
+        Dictionary containing RMSE, MAE, R^2, active BSS, BSS (Zero-Change),
+        BSS (Persistence), and corresponding MSE values.
+    """
+    y_t = np.asarray(y_true, dtype=float).ravel()
+    y_p = np.asarray(y_pred, dtype=float).ravel()
     
-    if y_baseline is None:
-        y_b = np.zeros_like(y_t)
+    # Compute standard zero-change and persistence baselines
+    y_b_zero = np.zeros_like(y_t)
+    y_b_persist = np.roll(y_t, 1)
+    if len(y_b_persist) > 0:
+        y_b_persist[0] = y_t[0]
+
+    # Resolve active baseline
+    if isinstance(y_baseline, str):
+        mode = y_baseline.lower()
+        if mode in ("persistence", "persist"):
+            y_b = y_b_persist
+        elif mode in ("mean", "climatology"):
+            y_b = np.full_like(y_t, np.mean(y_t)) if len(y_t) > 0 else np.zeros_like(y_t)
+        else:
+            y_b = y_b_zero
+    elif y_baseline is not None:
+        y_b = np.asarray(y_baseline, dtype=float).ravel()
+    elif baseline_mode is not None:
+        mode = baseline_mode.lower()
+        if mode in ("persistence", "persist"):
+            y_b = y_b_persist
+        elif mode in ("mean", "climatology"):
+            y_b = np.full_like(y_t, np.mean(y_t)) if len(y_t) > 0 else np.zeros_like(y_t)
+        else:
+            y_b = y_b_zero
     else:
-        y_b = np.asarray(y_baseline, dtype=float)
+        y_b = y_b_zero
         
     mse_model = float(np.mean((y_t - y_p) ** 2))
     mse_base = float(np.mean((y_t - y_b) ** 2))
+    mse_zero = float(np.mean((y_t - y_b_zero) ** 2))
+    mse_persist = float(np.mean((y_t - y_b_persist) ** 2))
     
     rmse = float(np.sqrt(mse_model))
     mae = float(np.mean(np.abs(y_t - y_p)))
     
-    ss_tot = np.sum((y_t - np.mean(y_t)) ** 2)
+    ss_tot = np.sum((y_t - np.mean(y_t)) ** 2) if len(y_t) > 0 else 0.0
     ss_res = np.sum((y_t - y_p) ** 2)
     r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > 1e-9 else 0.0
     
     bss = float(1.0 - (mse_model / mse_base)) if mse_base > 1e-9 else 0.0
+    bss_zero = float(1.0 - (mse_model / mse_zero)) if mse_zero > 1e-9 else 0.0
+    bss_persist = float(1.0 - (mse_model / mse_persist)) if mse_persist > 1e-9 else 0.0
     
     return {
         "RMSE (m)": rmse,
         "MAE (m)": mae,
         "R2 Score": r2,
         "Brier Skill Score (BSS)": bss,
+        "BSS (Zero-Change)": bss_zero,
+        "BSS (Persistence)": bss_persist,
         "MSE Model": mse_model,
         "MSE Baseline": mse_base,
+        "MSE Zero": mse_zero,
+        "MSE Persistence": mse_persist,
     }
 
 
