@@ -72,6 +72,7 @@ from src.models import (
     fit_bayesian_model,
     compute_mcmc_summary_table,
     run_bayesian_memory_window_ablation,
+    run_bayesian_memory_prior_sensitivity_analysis,
 )
 
 
@@ -1628,4 +1629,59 @@ def test_run_bayesian_memory_window_ablation():
         assert "gamma" in traces[f"lag_{lag}h"].posterior
     assert len(df_comp) == len(lags)
     assert "elpd_loo" in df_comp.columns or "elpd_waic" in df_comp.columns or "rank" in df_comp.columns
+
+
+def test_latent_bayesian_model_custom_gamma_prior():
+    """Verify custom Beta prior parameters on latent memory gamma."""
+    forcing = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+    y_obs = np.array([-0.1, -0.5, -0.8, -1.2, -1.5])
+    model, meta = build_latent_memory_bayesian_model(
+        forcing=forcing,
+        delta_x_obs=y_obs,
+        gamma_prior=(2.0, 5.0),
+    )
+    assert meta["gamma_prior"] == (2.0, 5.0)
+    assert "gamma" in [v.name for v in model.free_RVs]
+
+
+def test_run_bayesian_memory_prior_sensitivity_analysis():
+    """Verify systematic prior-sensitivity check over Beta(2, 5), Beta(2, 2), and Beta(5, 20)."""
+    df, _ = load_dataset(try_live_api=False)
+    df_sub = df.iloc[:100].copy()
+    candidate_priors = [
+        ("Beta(2, 5)", (2.0, 5.0)),
+        ("Beta(2, 2)", (2.0, 2.0)),
+        ("Beta(5, 20)", (5.0, 20.0)),
+    ]
+    df_comp, traces, df_gamma_summary = run_bayesian_memory_prior_sensitivity_analysis(
+        df=df_sub,
+        priors=candidate_priors,
+        target_col="shoreline_pos_obs_m",
+        max_lag=24,
+        draws=50,
+        tune=50,
+        chains=2,
+        random_seed=42,
+    )
+    assert len(traces) == len(candidate_priors)
+    for prior_name, _ in candidate_priors:
+        clean_suffix = prior_name.replace(" ", "").replace("(", "_").replace(")", "").replace(",", "_")
+        m_name = f"prior_{clean_suffix}"
+        assert m_name in traces
+        assert "gamma" in traces[m_name].posterior
+
+    assert len(df_gamma_summary) == len(candidate_priors)
+    assert "post_mean" in df_gamma_summary.columns
+    assert "post_median" in df_gamma_summary.columns
+    assert "hdi_3%" in df_gamma_summary.columns
+    assert "hdi_97%" in df_gamma_summary.columns
+    assert "half_life_hours" in df_gamma_summary.columns
+
+    for _, row in df_gamma_summary.iterrows():
+        assert 0.0 < row["post_mean"] < 1.0
+        assert 0.0 < row["hdi_3%"] <= row["hdi_97%"] < 1.0
+
+    assert len(df_comp) == len(candidate_priors)
+    assert "elpd_loo" in df_comp.columns or "elpd_waic" in df_comp.columns or "rank" in df_comp.columns
+
 

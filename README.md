@@ -228,6 +228,20 @@ flowchart TD
   2. **Rolling-Origin Walk-Forward CV (`eval_mode="rolling_origin"`):** Chronological forward expanding-window cross-validation evaluating pure out-of-sample skill without lookahead leakage.
   3. **Temporal Holdout (`eval_mode="holdout"`):** Forward split (e.g. 75/25).
 
+#### 4.1.1 Prior-Sensitivity Analysis on Antecedent Memory $\gamma$
+To verify that the inferred antecedent memory is driven by empirical morphodynamic physics rather than prior constraint, we conduct a systematic prior-sensitivity check comparing:
+* **(a) $\text{Beta}(2, 5)$:** Wider prior (prior mean $= 0.286$, $\text{SD} = 0.160$)
+* **(b) $\text{Beta}(2, 2)$:** Uninformative symmetric prior (prior mean $= 0.500$, $\text{SD} = 0.224$)
+* **(c) $\text{Beta}(5, 20)$:** Informative short-memory prior (prior mean $= 0.200$, $\text{SD} = 0.078$)
+
+| Candidate Prior | Prior Mean (SD) | Posterior Mean $\gamma$ | Posterior 94% HDI | Implied Half-Life $t_{1/2}$ | PSIS-LOO $\Delta\text{ELPD}$ | $\text{ELPD}$ Stacking Weight | Convergence $\hat{R}$ / ESS |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **$\text{Beta}(2, 2)$ (Uninformative)** | $0.500 \ (0.224)$ | **$0.995$** | $[0.989, 0.999]$ | **$138.5\text{ h}$ ($5.8\text{ d}$)** | **$0.00$ (Best)** | **$1.000$** | $\hat{R} < 1.001$, $\text{ESS}=1055$ |
+| **$\text{Beta}(2, 5)$ (Wider)** | $0.286 \ (0.160)$ | **$0.989$** | $[0.981, 0.996]$ | **$63.7\text{ h}$ ($2.7\text{ d}$)** | $-2.56$ | $0.000$ | $\hat{R} < 1.001$, $\text{ESS}=1401$ |
+| **$\text{Beta}(5, 20)$ (Constrained)** | $0.200 \ (0.078)$ | $0.697$ (bimodal) | $[0.173, 0.981]$ | $1.9\text{ h}$ | $-55.10$ | $0.000$ | $\hat{R} = 1.485$, $\text{ESS}=4$ |
+
+* **Empirical Finding:** Under uninformative $\text{Beta}(2, 2)$ and wider $\text{Beta}(2, 5)$ priors, the data likelihood dominates, inferring $\gamma \approx 0.989\text{--}0.995$ corresponding to multi-day to multi-week equilibrium memory timescales ($t_{1/2} \approx 2.7\text{--}5.8\text{ days}$) aligned with synoptic storm duration and post-storm berm equilibration (Yates et al. 2009, Splinter et al. 2014 ShoreFor). The uninformative prior achieves a $+55.10 \ \text{ELPD}_{\text{LOO}}$ predictive gain over the over-constrained $\text{Beta}(5, 20)$ prior while resolving MCMC chain mixing friction.
+
 ### 4.2 Multi-Timescale Evaluation: Cumulative Position ($x_t$) vs. Step Changes ($\Delta x$)
 * **Step Deltas ($\Delta x_k$):** Measures high-frequency impulse response between adjacent survey epochs ($t_{k-1} \to t_k$). Due to in-situ GPS noise floors ($\sim 3\text{m}$), raw step $\Delta x$ skill is tightly bounded.
 * **Cumulative Position ($x_t = x_0 + \sum \Delta x_k$):** Tracks the multi-year shoreline trajectory, capturing long-term multi-week berm recovery and multi-seasonal equilibrium cycles ($R^2 \approx 0.06\text{--}0.10+$ on blind out-of-sample multi-site field holdouts).

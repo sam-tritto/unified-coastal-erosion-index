@@ -58,11 +58,12 @@ def build_latent_memory_bayesian_model(
     max_lag: int = 48,
     scale_forcing: bool = True,
     heteroscedastic: bool = True,
+    gamma_prior: Tuple[float, float] = (5.0, 20.0),
 ) -> Tuple[pm.Model, Dict[str, Any]]:
     """Build a PyMC Bayesian model where antecedent memory gamma is inferred as a latent variable.
 
     Formulation:
-    - gamma ~ Beta(alpha=5, beta=20)  (Informative latent memory prior)
+    - gamma ~ Beta(alpha, beta)  (Latent memory prior, default Beta(5, 20))
     - weights_k = gamma^k / sum(gamma^j) for k = 0, ..., max_lag-1
     - E(gamma) = X_lag * weights(gamma)
     - mu_t = alpha + beta_forcing * E_t(gamma)
@@ -83,6 +84,8 @@ def build_latent_memory_bayesian_model(
         Whether to standardize the forcing series.
     heteroscedastic : bool
         Whether to model noise dynamically with storm intensity (Approach A).
+    gamma_prior : Tuple[float, float]
+        Shape parameters (alpha, beta) for the Beta prior on latent memory gamma. Default (5.0, 20.0).
 
     Returns
     -------
@@ -109,6 +112,7 @@ def build_latent_memory_bayesian_model(
         "max_lag": max_lag,
         "n_obs": len(y_obs),
         "heteroscedastic": heteroscedastic,
+        "gamma_prior": gamma_prior,
     }
 
     with pm.Model() as model:
@@ -116,8 +120,9 @@ def build_latent_memory_bayesian_model(
         x_lag = pm.Data("x_lag", lag_mat)
         k_vec = pm.Data("k_vec", k_indices)
         
-        # 1. Latent memory parameter prior (Beta(5, 20) informative prior favoring physical intermediate response windows)
-        gamma = pm.Beta("gamma", alpha=5.0, beta=20.0)
+        # 1. Latent memory parameter prior (configurable Beta(alpha, beta), default Beta(5, 20))
+        gamma_alpha, gamma_beta = float(gamma_prior[0]), float(gamma_prior[1])
+        gamma = pm.Beta("gamma", alpha=gamma_alpha, beta=gamma_beta)
         
         # 2. Differentiable exponential weights in PyTensor
         # weights_k = gamma^k / sum(gamma^j)
@@ -3674,5 +3679,167 @@ def run_bayesian_memory_window_ablation(
 
     df_comp = run_arviz_loo_comparison(traces, ic="loo")
     return df_comp, traces
+
+
+def run_bayesian_memory_prior_sensitivity_analysis(
+    df: pd.DataFrame,
+    priors: Optional[Sequence[Tuple[str, Tuple[float, float]]]] = None,
+    target_col: str = "shoreline_pos_obs_m",
+    forcing_col: Optional[str] = None,
+    max_lag: int = 48,
+    draws: int = 500,
+    tune: int = 250,
+    chains: int = 2,
+    random_seed: int = 42,
+) -> Tuple[pd.DataFrame, Dict[str, az.InferenceData], pd.DataFrame]:
+    """Run systematic prior-sensitivity check across candidate memory priors gamma ~ Beta(alpha, beta).
+
+    Compares:
+      (a) Beta(2, 5)   - Wider prior (mean = 2/7 ≈ 0.286, variance = 0.0255)
+      (b) Beta(2, 2)   - Uninformative / symmetric prior (mean = 0.500, variance = 0.0500)
+      (c) Beta(5, 20)  - Informative short-memory prior (mean = 5/25 = 0.200, variance = 0.0062)
+
+    Evaluates whether the informative Beta(5, 20) prior artificially constrains the inferred
+    antecedent memory retention parameter gamma and equilibrium response timescale, vs. whether
+    the observational data likelihood dominates the posterior under wider and uninformative priors.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset containing hydrodynamic forcing and morphodynamic observations.
+    priors : sequence of (str, (float, float)), optional
+        Candidate prior parameterizations. Defaults to [("Beta(2, 5)", (2.0, 5.0)), ("Beta(2, 2)", (2.0, 2.0)), ("Beta(5, 20)", (5.0, 20.0))].
+    target_col : str
+        Target column name (e.g., 'shoreline_pos_obs_m' or 'surveyed_delta_x_m').
+    forcing_col : str, optional
+        Forcing column name (e.g., 'upsilon', 'upsilon_excess', 'hs_m').
+    max_lag : int
+        Convolution window length in hours (default 48).
+    draws : int
+        Number of MCMC draws per chain (default 500).
+    tune : int
+        Number of tuning / warmup steps per chain (default 250).
+    chains : int
+        Number of MCMC chains (default 2).
+    random_seed : int
+        Random seed for sampling reproducibility.
+
+    Returns
+    -------
+    df_comp : pd.DataFrame
+        ArviZ model comparison table with PSIS-LOO-CV ELPD, p_loo, LOO weights, and SE.
+    traces : dict
+        Fitted MCMC InferenceData traces for each candidate prior.
+    df_gamma_summary : pd.DataFrame
+        Posterior summary table for gamma (mean, median, std, 94% HDI, half-life, prior mean/std).
+    """
+    if priors is None:
+        priors = [
+            ("Beta(2, 5)", (2.0, 5.0)),
+            ("Beta(2, 2)", (2.0, 2.0)),
+            ("Beta(5, 20)", (5.0, 20.0)),
+        ]
+
+    # 1. Resolve target series
+    if target_col in df.columns:
+        y_obs = df[target_col].values
+    elif "surveyed_delta_x_m" in df.columns:
+        y_obs = df["surveyed_delta_x_m"].values
+    elif "delta_x_obs" in df.columns:
+        y_obs = df["delta_x_obs"].values
+    elif "delta_x_m" in df.columns:
+        y_obs = df["delta_x_m"].values
+    else:
+        y_obs = df.iloc[:, 0].values
+
+    # 2. Resolve forcing series
+    if forcing_col is not None and forcing_col in df.columns:
+        forcing = df[forcing_col].values
+    elif "upsilon" in df.columns:
+        forcing = df["upsilon"].values
+    elif "upsilon_excess" in df.columns:
+        forcing = df["upsilon_excess"].values
+    elif "hs_m" in df.columns:
+        forcing = df["hs_m"].values ** 2.5
+    elif "hs" in df.columns:
+        forcing = df["hs"].values ** 2.5
+    else:
+        forcing = np.ones(len(y_obs))
+
+    effective_lag = max(1, min(int(max_lag), len(y_obs)))
+    traces: Dict[str, az.InferenceData] = {}
+    summary_records = []
+
+    for prior_name, (alpha_val, beta_val) in priors:
+        clean_suffix = prior_name.replace(" ", "").replace("(", "_").replace(")", "").replace(",", "_")
+        m_name = f"prior_{clean_suffix}"
+        model, _ = build_latent_memory_bayesian_model(
+            forcing=forcing,
+            delta_x_obs=y_obs,
+            model_name=m_name,
+            max_lag=effective_lag,
+            gamma_prior=(float(alpha_val), float(beta_val)),
+        )
+        trace = fit_bayesian_model(
+            model=model,
+            draws=draws,
+            tune=tune,
+            chains=chains,
+            random_seed=random_seed,
+        )
+        traces[m_name] = trace
+
+        # Compute theoretical prior statistics
+        prior_mean = float(alpha_val / (alpha_val + beta_val))
+        prior_var = float((alpha_val * beta_val) / (((alpha_val + beta_val) ** 2) * (alpha_val + beta_val + 1)))
+        prior_std = float(np.sqrt(prior_var))
+
+        # Compute empirical posterior statistics
+        if "gamma" in trace.posterior:
+            gamma_samples = trace.posterior["gamma"].values.flatten()
+            post_mean = float(np.mean(gamma_samples))
+            post_median = float(np.median(gamma_samples))
+            post_std = float(np.std(gamma_samples))
+            hdi_bounds = az.hdi(trace.posterior["gamma"], hdi_prob=0.94)["gamma"].values
+            hdi_3 = float(hdi_bounds[0])
+            hdi_97 = float(hdi_bounds[1])
+            half_life_h = float(np.log(0.5) / np.log(post_mean)) if (0.0 < post_mean < 1.0) else np.nan
+            try:
+                rhat = float(az.rhat(trace)["gamma"].values)
+            except Exception:
+                rhat = 1.0
+            try:
+                ess_bulk = float(az.ess(trace, var_names=["gamma"], method="bulk")["gamma"].values)
+            except Exception:
+                ess_bulk = np.nan
+            try:
+                ess_tail = float(az.ess(trace, var_names=["gamma"], method="tail")["gamma"].values)
+            except Exception:
+                ess_tail = np.nan
+        else:
+            post_mean = post_median = post_std = hdi_3 = hdi_97 = half_life_h = rhat = ess_bulk = ess_tail = np.nan
+
+        summary_records.append({
+            "model_key": m_name,
+            "prior_name": prior_name,
+            "prior_alpha": float(alpha_val),
+            "prior_beta": float(beta_val),
+            "prior_mean": prior_mean,
+            "prior_std": prior_std,
+            "post_mean": post_mean,
+            "post_median": post_median,
+            "post_std": post_std,
+            "hdi_3%": hdi_3,
+            "hdi_97%": hdi_97,
+            "half_life_hours": half_life_h,
+            "r_hat": rhat,
+            "ess_bulk": ess_bulk,
+            "ess_tail": ess_tail,
+        })
+
+    df_gamma_summary = pd.DataFrame(summary_records).set_index("model_key")
+    df_comp = run_arviz_loo_comparison(traces, ic="loo")
+
+    return df_comp, traces, df_gamma_summary
 
 
