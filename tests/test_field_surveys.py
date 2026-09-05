@@ -176,4 +176,23 @@ def test_narrabeen_three_transect_field_surveys_rotation():
     assert pf1_change > pf2_change > pf4_change
 
 
+def test_evaluate_survey_epoch_loocv():
+    """Verify that survey-epoch Leave-One-Out Cross-Validation (LOOCV) executes across field surveys."""
+    from src.models import evaluate_survey_epoch_loocv
+
+    df_syn, df_site = evaluate_survey_epoch_loocv(
+        sites=["duck_nc", "narrabeen_aus"],
+        use_field_surveys=True,
+    )
+    assert isinstance(df_syn, pd.DataFrame)
+    assert isinstance(df_site, pd.DataFrame)
+    assert not df_syn.empty
+    assert not df_site.empty
+    assert "Macro LOOCV Pos RMSE (m)" in df_syn.columns
+    assert "Macro LOOCV RMSE (m) (Δx)" in df_syn.columns
+    assert "Global Pooled LOOCV RMSE (m) (Δx)" in df_syn.columns
+    assert "Total Survey Epochs Evaluated" in df_syn.columns
+
+
+
 

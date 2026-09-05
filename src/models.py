@@ -3507,6 +3507,277 @@ def evaluate_leave_one_site_out_cv(
     return synthesis_loso_df, held_out_sites_df
 
 
+def evaluate_survey_epoch_loocv(
+    sites: Optional[List[str]] = None,
+    use_field_surveys: bool = True,
+    data_dir: str = "data/processed",
+    eval_interval_hours: int = 24,
+    random_seed: int = 42,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Execute Leave-One-Out Cross-Validation (LOOCV) directly across discrete survey epochs.
+
+    Because field survey datasets contain a moderate number of discrete observation epochs (N ≈ 66–217
+    surveys per site across 2020–2024), standard 4-fold cross-validation leaves only ~8–17 test surveys
+    per fold. LOOCV evaluates every survey epoch as an out-of-sample test point by fitting linear scale
+    parameters on all N-1 remaining survey epochs, ensuring maximal statistical power and unbiased out-of-sample
+    generalization metrics.
+
+    Parameters
+    ----------
+    sites : list of str, optional
+        List of global coastal site keys (default: all 5 sites).
+    use_field_surveys : bool
+        If True (default), evaluates against authentic in-situ GPS/Lidar field surveys.
+    data_dir : str
+        Path to processed sensor parquet datasets (used when use_field_surveys is False).
+    eval_interval_hours : int
+        Subsampling interval for delta displacement evaluation if using sensor data (default 24h).
+    random_seed : int
+        Random seed for baseline simulations.
+
+    Returns
+    -------
+    synthesis_loocv_df : pd.DataFrame
+        Global synthesis table aggregated across all survey epochs and sites.
+    site_loocv_df : pd.DataFrame
+        Detailed per-site LOOCV breakdown across all 5 archetypes.
+    """
+    import os
+    from sklearn.metrics import r2_score, mean_squared_error
+    from src.data import (
+        load_dataset,
+        load_site_field_surveys,
+        align_hydrodynamics_with_field_surveys,
+        simulate_equilibrium_shoreline_evolution,
+        simulate_shorefor_evolution,
+        simulate_xbeach_inspired_morphodynamics,
+    )
+    from src.physics import (
+        COASTAL_SITE_PROFILES,
+        simulate_signed_equilibrium_upsilon_evolution,
+    )
+
+    if sites is None:
+        sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+
+    pooled_preds: Dict[Tuple[str, str], List[float]] = {}
+    pooled_actuals: Dict[Tuple[str, str], List[float]] = {}
+    pooled_pos_preds: Dict[Tuple[str, str], List[float]] = {}
+    pooled_pos_actuals: Dict[Tuple[str, str], List[float]] = {}
+    pooled_norm_preds: Dict[Tuple[str, str], List[float]] = {}
+    pooled_norm_actuals: Dict[Tuple[str, str], List[float]] = {}
+    pooled_norm_pos_preds: Dict[Tuple[str, str], List[float]] = {}
+    pooled_norm_pos_actuals: Dict[Tuple[str, str], List[float]] = {}
+    site_records: List[Dict[str, Any]] = []
+
+    for site in sites:
+        if use_field_surveys:
+            df_surveys = load_site_field_surveys(site, transect_index=None)
+            df_hydro, _ = load_dataset(site=site)
+            if df_hydro.index.tz is not None and df_surveys.index.tz is None:
+                df_surveys.index = df_surveys.index.tz_localize("UTC")
+            elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
+                df_surveys.index = df_surveys.index.tz_convert(None)
+            df_survey = align_hydrodynamics_with_field_surveys(df_hydro, df_surveys)
+
+            n_obs = len(df_survey)
+            if n_obs < 5:
+                continue
+
+            y_all = df_survey["surveyed_delta_x_m"].values
+            pos_all = (
+                df_survey["cumulative_displacement_m"].values
+                if "cumulative_displacement_m" in df_survey.columns
+                else (df_survey["surveyed_pos_mhw_m"].values - df_survey["surveyed_pos_mhw_m"].iloc[0])
+            )
+            shorefor_raw = (
+                df_survey["antecedent_upsilon_memory"].values
+                if "antecedent_upsilon_memory" in df_survey.columns
+                else df_survey["antecedent_log_upsilon"].values
+            )
+
+            model_deltas = {
+                ("Class III (Bayesian)", "Signed Equilibrium Upsilon"): df_survey["upsilon_diseq_simulated_delta_x_m"].values,
+                ("Class I (Analytical)", "ShoreFor (2013) Memory"): shorefor_raw,
+                ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_delta_x_m"].values,
+                ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_delta_x_m"].values,
+            }
+            model_positions = {
+                ("Class III (Bayesian)", "Signed Equilibrium Upsilon"): df_survey["upsilon_diseq_simulated_pos_m"].values,
+                ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_pos_m"].values,
+                ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_pos_m"].values,
+            }
+        else:
+            file_path = os.path.join(data_dir, f"{site}_sensors.parquet")
+            if not os.path.exists(file_path):
+                continue
+            df_site = pd.read_parquet(file_path)
+            target_col = "shoreline_pos_obs_m" if "shoreline_pos_obs_m" in df_site.columns else "shoreline_pos_true_m"
+            y_obs = df_site[target_col].values
+            hs = df_site["hs_m"].values
+            tp = df_site["tp_s"].values
+            surge = df_site["surge_m"].values
+            w_spd = df_site["wind_speed_ms"].values
+            w_dir = df_site["wind_dir_deg"].values
+            ups = df_site["upsilon"].values
+            ws = df_site["w_s_ms"].values.mean() if "w_s_ms" in df_site.columns else 0.045
+            tb = df_site["tan_beta"].iloc[0] if "tan_beta" in df_site.columns else 0.08
+            d50 = df_site["d50_m"].iloc[0] if "d50_m" in df_site.columns else 0.00035
+
+            yates_pos_all, _ = simulate_equilibrium_shoreline_evolution(hs, tp, random_seed=random_seed)
+            shorefor_pos_all, _ = simulate_shorefor_evolution(hs, tp, w_s_ms=ws, random_seed=random_seed)
+            xbeach_pos_all, _ = simulate_xbeach_inspired_morphodynamics(hs, tp, surge, w_spd, w_dir, d50_m=d50, tan_beta=tb, random_seed=random_seed)
+            signed_eq_pos_all, _ = simulate_signed_equilibrium_upsilon_evolution(ups, c_erosion=1.2e-5, c_accretion=1.8e-5, upsilon_eq_mode="expanding")
+
+            interval = max(1, eval_interval_hours)
+            y_sub = y_obs[::interval]
+            y_all = np.diff(y_sub)
+            pos_all = y_sub[1:]
+            n_obs = len(y_all)
+
+            model_deltas = {
+                ("Class III (Bayesian)", "Signed Equilibrium Upsilon"): np.diff(signed_eq_pos_all[::interval]),
+                ("Class I (Analytical)", "ShoreFor (2013) Memory"): np.diff(shorefor_pos_all[::interval]),
+                ("Class I (Analytical)", "Yates (2009) Equilibrium"): np.diff(yates_pos_all[::interval]),
+                ("Class II (Process/PDE)", "XBeach 1D Process Model"): np.diff(xbeach_pos_all[::interval]),
+            }
+            model_positions = {
+                ("Class III (Bayesian)", "Signed Equilibrium Upsilon"): signed_eq_pos_all[::interval][1:],
+                ("Class I (Analytical)", "Yates (2009) Equilibrium"): yates_pos_all[::interval][1:],
+                ("Class II (Process/PDE)", "XBeach 1D Process Model"): xbeach_pos_all[::interval][1:],
+            }
+
+        sigma_site_dy = max(float(np.std(y_all)), 1e-4)
+        sigma_site_pos = max(float(np.std(pos_all)), 1e-4)
+
+        # LOOCV across all n_obs epochs
+        for (p_class, m_name), d_raw in model_deltas.items():
+            loo_pred_dy = np.zeros(n_obs)
+            loo_pred_pos = np.zeros(n_obs)
+
+            for i in range(n_obs):
+                train_idx = [j for j in range(n_obs) if j != i]
+                test_idx = i
+
+                # Fit delta scaling on train epochs
+                if np.std(d_raw[train_idx]) > 1e-6:
+                    slope, intercept = np.polyfit(d_raw[train_idx], y_all[train_idx], 1)
+                    loo_pred_dy[i] = slope * d_raw[test_idx] + intercept
+                else:
+                    loo_pred_dy[i] = d_raw[test_idx]
+
+                # Position prediction
+                if (p_class, m_name) in model_positions:
+                    pos_raw = model_positions[(p_class, m_name)]
+                    if np.std(pos_raw[train_idx]) > 1e-6:
+                        s_p, i_p = np.polyfit(pos_raw[train_idx], pos_all[train_idx], 1)
+                        loo_pred_pos[i] = s_p * pos_raw[test_idx] + i_p
+                    else:
+                        loo_pred_pos[i] = pos_all[max(0, i - 1)] + loo_pred_dy[i]
+                else:
+                    loo_pred_pos[i] = pos_all[max(0, i - 1)] + loo_pred_dy[i]
+
+            key = (p_class, m_name)
+            if key not in pooled_preds:
+                pooled_preds[key] = []
+                pooled_actuals[key] = []
+                pooled_pos_preds[key] = []
+                pooled_pos_actuals[key] = []
+                pooled_norm_preds[key] = []
+                pooled_norm_actuals[key] = []
+                pooled_norm_pos_preds[key] = []
+                pooled_norm_pos_actuals[key] = []
+
+            pooled_preds[key].extend(loo_pred_dy)
+            pooled_actuals[key].extend(y_all)
+            pooled_pos_preds[key].extend(loo_pred_pos)
+            pooled_pos_actuals[key].extend(pos_all)
+            pooled_norm_preds[key].extend(loo_pred_dy / sigma_site_dy)
+            pooled_norm_actuals[key].extend(y_all / sigma_site_dy)
+            pooled_norm_pos_preds[key].extend(loo_pred_pos / sigma_site_pos)
+            pooled_norm_pos_actuals[key].extend(pos_all / sigma_site_pos)
+
+            rmse_dy = float(np.sqrt(mean_squared_error(y_all, loo_pred_dy)))
+            r2_dy = float(r2_score(y_all, loo_pred_dy))
+            var_dy = max(float(np.var(y_all)), 1e-6)
+            bss_dy = float(1.0 - (mean_squared_error(y_all, loo_pred_dy) / var_dy))
+
+            rmse_pos = float(np.sqrt(mean_squared_error(pos_all, loo_pred_pos)))
+            r2_pos = float(r2_score(pos_all, loo_pred_pos))
+            var_pos = max(float(np.var(pos_all)), 1e-6)
+            bss_pos = float(1.0 - (mean_squared_error(pos_all, loo_pred_pos) / var_pos))
+
+            site_records.append({
+                "Site": site,
+                "Site Name": COASTAL_SITE_PROFILES.get(site, {}).get("name", site).split(",")[0],
+                "N Surveys": n_obs,
+                "Paradigm Class": p_class,
+                "Model Name": m_name,
+                "LOOCV RMSE (m) (Δx)": rmse_dy,
+                "LOOCV R2 (Δx)": r2_dy,
+                "LOOCV BSS (Δx)": bss_dy,
+                "LOOCV Pos RMSE (m)": rmse_pos,
+                "LOOCV Pos R2": r2_pos,
+                "LOOCV Pos BSS": bss_pos,
+                "Site Std Δx (m)": sigma_site_dy,
+                "Site Std Pos (m)": sigma_site_pos,
+            })
+
+    site_loocv_df = pd.DataFrame(site_records)
+
+    summary_rows = []
+    for (p_class, m_name) in pooled_preds:
+        y_act = np.array(pooled_actuals[(p_class, m_name)])
+        y_pr = np.array(pooled_preds[(p_class, m_name)])
+        pos_act = np.array(pooled_pos_actuals[(p_class, m_name)])
+        pos_pr = np.array(pooled_pos_preds[(p_class, m_name)])
+
+        y_n_act = np.array(pooled_norm_actuals[(p_class, m_name)])
+        y_n_pr = np.array(pooled_norm_preds[(p_class, m_name)])
+        pos_n_act = np.array(pooled_norm_pos_actuals[(p_class, m_name)])
+        pos_n_pr = np.array(pooled_norm_pos_preds[(p_class, m_name)])
+
+        pool_rmse_dy = float(np.sqrt(mean_squared_error(y_act, y_pr)))
+        pool_r2_dy = float(r2_score(y_act, y_pr))
+        pool_bss_dy = float(1.0 - (mean_squared_error(y_act, y_pr) / max(float(np.var(y_act)), 1e-6)))
+
+        pool_pos_rmse = float(np.sqrt(mean_squared_error(pos_act, pos_pr)))
+        pool_pos_r2 = float(r2_score(pos_act, pos_pr))
+        pool_pos_bss = float(1.0 - (mean_squared_error(pos_act, pos_pr) / max(float(np.var(pos_act)), 1e-6)))
+
+        norm_r2_dy = float(r2_score(y_n_act, y_n_pr))
+        norm_rmse_dy = float(np.sqrt(mean_squared_error(y_n_act, y_n_pr)))
+        norm_pos_r2 = float(r2_score(pos_n_act, pos_n_pr))
+        norm_pos_rmse = float(np.sqrt(mean_squared_error(pos_n_act, pos_n_pr)))
+        norm_pos_bss = float(1.0 - (mean_squared_error(pos_n_act, pos_n_pr) / max(float(np.var(pos_n_act)), 1e-6)))
+
+        grp = site_loocv_df[(site_loocv_df["Paradigm Class"] == p_class) & (site_loocv_df["Model Name"] == m_name)]
+        site_avg_r2_dy = float(grp["LOOCV R2 (Δx)"].mean()) if not grp.empty else pool_r2_dy
+        site_avg_pos_r2 = float(grp["LOOCV Pos R2"].mean()) if not grp.empty else pool_pos_r2
+        site_avg_rmse_dy = float(grp["LOOCV RMSE (m) (Δx)"].mean()) if not grp.empty else pool_rmse_dy
+        site_avg_pos_rmse = float(grp["LOOCV Pos RMSE (m)"].mean()) if not grp.empty else pool_pos_rmse
+
+        summary_rows.append({
+            "Paradigm Class": p_class,
+            "Model Name": m_name,
+            "Macro LOOCV RMSE (m) (Δx)": site_avg_rmse_dy,
+            "Macro LOOCV R2 (Δx)": site_avg_r2_dy,
+            "Macro LOOCV Pos RMSE (m)": site_avg_pos_rmse,
+            "Macro LOOCV Pos R2": site_avg_pos_r2,
+            "Global Pooled LOOCV RMSE (m) (Δx)": pool_rmse_dy,
+            "Global Pooled LOOCV R2 (Δx)": pool_r2_dy,
+            "Global Pooled LOOCV Pos RMSE (m)": pool_pos_rmse,
+            "Global Pooled LOOCV Pos R2": pool_pos_r2,
+            "Normalized LOOCV Pos R2": norm_pos_r2,
+            "Normalized LOOCV Pos RMSE": norm_pos_rmse,
+            "Normalized LOOCV Pos BSS": norm_pos_bss,
+            "Total Survey Epochs Evaluated": len(y_act),
+        })
+
+    synthesis_loocv_df = pd.DataFrame(summary_rows).sort_values(by="Macro LOOCV Pos RMSE (m)", ascending=True).reset_index(drop=True)
+    return synthesis_loocv_df, site_loocv_df
+
+
 def build_learnable_critical_threshold_bayesian_model(
     upsilon_raw: np.ndarray,
     delta_x_obs: np.ndarray,
