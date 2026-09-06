@@ -2357,6 +2357,8 @@ def compute_unified_coastal_vulnerability_index(
 
     if directional_spread_deg is not None:
         sigma_theta_arr = np.broadcast_to(np.asarray(directional_spread_deg, dtype=float), hs_arr.shape) if not np.isscalar(directional_spread_deg) else np.full_like(hs_arr, float(directional_spread_deg))
+        proxy_sigma = np.maximum(5.0, 35.0 * np.exp(-(tp_arr - 4.0) / 8.0) + 8.0)
+        sigma_theta_arr = np.where(np.isnan(sigma_theta_arr), proxy_sigma, sigma_theta_arr)
     else:
         # Physical proxy for wave spreading angle (deg) based on peak period Tp: long swell ~8-15 deg, short wind sea ~35-45 deg
         sigma_theta_arr = np.maximum(5.0, 35.0 * np.exp(-(tp_arr - 4.0) / 8.0) + 8.0)
