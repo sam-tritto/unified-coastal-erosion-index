@@ -2547,7 +2547,7 @@ def evaluate_cross_paradigm_walk_forward_cv(
     for site in sites:
         if use_field_surveys:
             df_surveys = load_site_field_surveys(site, transect_index=None)
-            df_hydro, _ = load_dataset(site=site)
+            df_hydro, _ = load_dataset(site=site, start_year=2020, end_year=2024)
             if df_hydro.index.tz is not None and df_surveys.index.tz is None:
                 df_surveys.index = df_surveys.index.tz_localize("UTC")
             elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
@@ -3149,7 +3149,7 @@ def evaluate_leave_one_site_out_cv(
     for site in sites:
         if use_field_surveys:
             df_surveys = load_site_field_surveys(site, transect_index=None)
-            df_hydro, _ = load_dataset(site=site)
+            df_hydro, _ = load_dataset(site=site, start_year=2020, end_year=2024)
             if df_hydro.index.tz is not None and df_surveys.index.tz is None:
                 df_surveys.index = df_surveys.index.tz_localize("UTC")
             elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
@@ -3573,7 +3573,7 @@ def evaluate_survey_epoch_loocv(
     for site in sites:
         if use_field_surveys:
             df_surveys = load_site_field_surveys(site, transect_index=None)
-            df_hydro, _ = load_dataset(site=site)
+            df_hydro, _ = load_dataset(site=site, start_year=2020, end_year=2024)
             if df_hydro.index.tz is not None and df_surveys.index.tz is None:
                 df_surveys.index = df_surveys.index.tz_localize("UTC")
             elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
@@ -4769,9 +4769,9 @@ def build_learnable_signed_equilibrium_bayesian_model(
     d_ero_raw = np.maximum(ups_arr - ups_eq_arr, 0.0)
     d_acc_raw = np.maximum(ups_eq_arr - ups_arr, 0.0)
 
-    # Scale disequilibrium terms by 1e-5 to match k_erosion / k_accretion scaling
-    d_ero_scaled = d_ero_raw * 1e-5
-    d_acc_scaled = d_acc_raw * 1e-5
+    # Scale disequilibrium terms by 1/1000.0 for well-conditioned MCMC rate inference
+    d_ero_scaled = d_ero_raw / 1000.0
+    d_acc_scaled = d_acc_raw / 1000.0
 
     meta = {
         "model_name": model_name,
@@ -4785,15 +4785,15 @@ def build_learnable_signed_equilibrium_bayesian_model(
         # 1. Physics-informed Priors for Rate Constants
         if parameterization == "ratio":
             k_erosion = pm.HalfNormal("k_erosion", sigma=k_erosion_prior_sigma)
-            r_asym = pm.TruncatedNormal("r_asym", mu=r_asym_prior_mu, sigma=r_asym_prior_sigma, lower=0.1, upper=10.0)
+            r_asym = pm.TruncatedNormal("r_asym", mu=r_asym_prior_mu, sigma=r_asym_prior_sigma, lower=0.2, upper=5.0)
             k_accretion = pm.Deterministic("k_accretion", k_erosion * r_asym)
         else:
             k_erosion = pm.HalfNormal("k_erosion", sigma=k_erosion_prior_sigma)
             k_accretion = pm.HalfNormal("k_accretion", sigma=k_accretion_prior_sigma)
             r_asym = pm.Deterministic("r_asym", k_accretion / pt.maximum(k_erosion, 1e-4))
 
-        c_erosion = pm.Deterministic("c_erosion", k_erosion * 1e-5)
-        c_accretion = pm.Deterministic("c_accretion", k_accretion * 1e-5)
+        c_erosion = pm.Deterministic("c_erosion", k_erosion * 1e-3)
+        c_accretion = pm.Deterministic("c_accretion", k_accretion * 1e-3)
 
         # Intercept offset
         alpha = pm.Normal("alpha", mu=0.0, sigma=0.5)
@@ -4859,7 +4859,7 @@ def evaluate_signed_equilibrium_rate_sensitivity(
 
     for site in sites:
         df_surveys = load_site_field_surveys(site, transect_index=None)
-        df_hydro, _ = load_dataset(site=site)
+        df_hydro, _ = load_dataset(site=site, start_year=2020, end_year=2024)
         if df_hydro.index.tz is not None and df_surveys.index.tz is None:
             df_surveys.index = df_surveys.index.tz_localize("UTC")
         elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
@@ -4946,7 +4946,7 @@ def infer_multi_site_signed_equilibrium_uncertainty(
 
     for site in sites:
         df_surveys = load_site_field_surveys(site, transect_index=None)
-        df_hydro, _ = load_dataset(site=site)
+        df_hydro, _ = load_dataset(site=site, start_year=2020, end_year=2024)
         if df_hydro.index.tz is not None and df_surveys.index.tz is None:
             df_surveys.index = df_surveys.index.tz_localize("UTC")
         elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
@@ -4960,6 +4960,7 @@ def infer_multi_site_signed_equilibrium_uncertainty(
             upsilon=ups_survey,
             delta_x_obs=delta_x_obs,
             model_name=f"signed_eq_{site}",
+            parameterization="ratio",
             heteroscedastic=True,
         )
 
@@ -4972,7 +4973,7 @@ def infer_multi_site_signed_equilibrium_uncertainty(
                 progressbar=False,
             )
 
-        summary = az.summary(idata, var_names=["c_erosion", "c_accretion", "r_asym"], hdi_prob=0.94)
+        summary = az.summary(idata, var_names=["c_erosion", "c_accretion", "r_asym"], hdi_prob=0.94, round_to="none")
 
         results.append({
             "site": site,
