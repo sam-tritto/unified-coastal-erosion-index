@@ -1584,12 +1584,16 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
                 stats["cumulative_power_impulse_MJ_per_m"] = float(total_joules / 1e6)
 
             # Shoreline displacement dynamics
-            if "delta_x_m" in parent_df.columns:
-                dx_start = float(parent_df["delta_x_m"].iloc[0])
-                dx_end = float(parent_df["delta_x_m"].iloc[-1])
-                stats["delta_x_start_m"] = dx_start
-                stats["delta_x_end_m"] = dx_end
-                stats["net_delta_x_m"] = float(dx_end - dx_start)
+            if "shoreline_pos_obs_m" in parent_df.columns:
+                x_start = float(parent_df["shoreline_pos_obs_m"].iloc[0])
+                x_end = float(parent_df["shoreline_pos_obs_m"].iloc[-1])
+                stats["delta_x_start_m"] = x_start
+                stats["delta_x_end_m"] = x_end
+                stats["net_delta_x_m"] = float(x_end - x_start)
+            elif "delta_x_m" in parent_df.columns:
+                stats["net_delta_x_m"] = float(np.sum(parent_df["delta_x_m"].values))
+                stats["delta_x_start_m"] = float(parent_df["delta_x_m"].iloc[0])
+                stats["delta_x_end_m"] = float(parent_df["delta_x_m"].iloc[-1])
 
             # Disequilibrium dynamics
             if "upsilon_diseq" in parent_df.columns:
@@ -2148,15 +2152,19 @@ def evaluate_rag_benchmark_suite(
     df_results = pd.DataFrame(rows)
 
     summary_metrics = {
-        "Mean Precision@1": float(np.mean(p_at_k_accum.get(1, [0.0]))),
-        "Mean Precision@3": float(np.mean(p_at_k_accum.get(3, [0.0]))),
-        "Mean Precision@5": float(np.mean(p_at_k_accum.get(5, [0.0]))),
-        "Mean Precision@10": float(np.mean(p_at_k_accum.get(10, [0.0]))),
+        f"Mean Precision@{k_val}": float(np.mean(p_at_k_accum[k_val])) if p_at_k_accum.get(k_val) else 0.0
+        for k_val in cutoff_ranks
+    }
+    for k_val in [1, 3, 5, 10]:
+        if f"Mean Precision@{k_val}" not in summary_metrics:
+            summary_metrics[f"Mean Precision@{k_val}"] = float(np.mean(p_at_k_accum.get(k_val, [0.0])))
+
+    summary_metrics.update({
         "Mean Regime Purity@5": float(np.mean(purity_accum)) if purity_accum else 0.0,
         "Mean Reciprocal Rank (MRR)": float(np.mean(mrr_accum)) if mrr_accum else 0.0,
         "Mean Recall@5": float(np.mean(recall_accum)) if recall_accum else 0.0,
         "Mean Cosine Similarity@5": float(np.mean(sim_accum)) if sim_accum else 0.0,
-    }
+    })
 
     return df_results, summary_metrics
 
