@@ -28,6 +28,8 @@ DUCK_SHORE_NORMAL_DEG: float = 70.0 # USACE FRF Duck, NC shore-normal azimuth (d
 COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
     "duck_nc": {
         "name": "USACE FRF Duck, NC, USA",
+        "latitude": 36.183,
+        "longitude": -75.750,
         "shore_normal_deg": 70.0,
         "tan_beta": 0.08,
         "d50_m": 0.00035,        # 0.35 mm medium quartz sand
@@ -55,6 +57,8 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
     },
     "narrabeen_aus": {
         "name": "Narrabeen-Collaroy, NSW, Australia",
+        "latitude": -33.720,
+        "longitude": 151.310,
         "shore_normal_deg": 85.0,
         "tan_beta": 0.09,
         "d50_m": 0.00030,        # 0.30 mm medium marine sand
@@ -78,6 +82,8 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
     },
     "torrey_pines_ca": {
         "name": "Torrey Pines Beach, CA, USA",
+        "latitude": 32.900,
+        "longitude": -117.250,
         "shore_normal_deg": 265.0,
         "tan_beta": 0.04,
         "d50_m": 0.00020,        # 0.20 mm fine sand
@@ -105,6 +111,8 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
     },
     "gold_coast_aus": {
         "name": "Gold Coast (Surfers Paradise), QLD, Australia",
+        "latitude": -28.000,
+        "longitude": 153.430,
         "shore_normal_deg": 65.0,
         "tan_beta": 0.05,
         "d50_m": 0.00022,        # 0.22 mm fine quartz sand
@@ -128,6 +136,8 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
     },
     "truc_vert_france": {
         "name": "Truc Vert Beach, Gironde, France",
+        "latitude": 44.730,
+        "longitude": -1.250,
         "shore_normal_deg": 275.0,
         "tan_beta": 0.06,
         "d50_m": 0.00038,        # 0.38 mm medium-coarse sand
@@ -151,6 +161,8 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
     },
     "oahu_north_shore_hi": {
         "name": "Oahu's North Shore (Waimea / Sunset), HI, USA",
+        "latitude": 21.630,
+        "longitude": -158.060,
         "shore_normal_deg": 325.0,
         "tan_beta": 0.09,
         "d50_m": 0.00045,        # 0.45 mm medium-coarse carbonate sand
@@ -179,6 +191,8 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
     },
     "waikiki_hi": {
         "name": "Waikiki Beach (Canoes / Queens), Oahu, HI, USA",
+        "latitude": 21.275,
+        "longitude": -157.825,
         "shore_normal_deg": 210.0,
         "tan_beta": 0.06,
         "d50_m": 0.00030,        # 0.30 mm fine-medium carbonate sand
