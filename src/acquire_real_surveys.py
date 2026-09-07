@@ -215,6 +215,8 @@ def download_and_parse_frf_netcdf_surveys(
                                     "elevation_datum": "NAVD88",
                                     "uncertainty_m": uncertainty,
                                     "storm_context": ctx,
+                                    "data_provenance": "USACE_FRF_CHL_THREDDS_OBSERVED",
+                                    "is_in_situ_observed": True,
                                 }
                             )
         except Exception as err:
@@ -599,6 +601,14 @@ def build_and_save_unified_site_surveys(
     # Parse Global Partner Sites (Narrabeen, Torrey Pines, Truc Vert, Oahu North Shore)
     global_records = generate_global_sites_in_situ_surveys()
     print(f"Added {len(global_records)} in-situ records from global sites (Narrabeen, Torrey Pines, Truc Vert, Oahu North Shore).")
+
+    # Tag provenance explicitly
+    for r in frf_records:
+        r["data_provenance"] = "USACE_FRF_CHL_THREDDS_OBSERVED"
+        r["is_in_situ_observed"] = True
+    for r in global_records:
+        r["data_provenance"] = "HISTORICAL_REPRESENTATIVE_SYNTHESIS"
+        r["is_in_situ_observed"] = False
 
     all_records = frf_records + global_records
     df_all = pd.DataFrame(all_records)

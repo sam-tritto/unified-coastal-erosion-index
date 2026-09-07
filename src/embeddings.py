@@ -729,3 +729,119 @@ def synthesize_target_physics_vector(
         return X_norm[0]
     return X_synth[0]
 
+
+def benchmark_latent_representations(
+    df: pd.DataFrame,
+    sample_size: int = 2000,
+    random_state: int = 42,
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Benchmark Latent Representations: Raw Sensor Vectors vs PCA vs Physics-Anchored Invariant Manifold.
+
+    Evaluates topological quality, regime separation, cluster tightness, and subcritical compression
+    across known physical coastal regimes (Breaker Types: Spilling, Plunging, Surging;
+    Morphodynamic States: Storm Gouging vs Quiet Berm Accretion).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Coastal dataset with hydrodynamics and physical invariants.
+    sample_size : int
+        Subsample size for efficient distance/clustering metrics.
+    random_state : int
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    df_metrics : pd.DataFrame
+        Comparative table with Silhouette, Davies-Bouldin, and Calinski-Harabasz metrics.
+    compression_meta : dict
+        Compression statistics from subcritical noise pruning.
+    """
+    from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+    from sklearn.decomposition import PCA
+
+    # Subsample if dataset is very large
+    if len(df) > sample_size:
+        df_sub = df.sample(n=sample_size, random_state=random_state).copy()
+    else:
+        df_sub = df.copy()
+
+    # 1. Labels
+    # Breaker regime
+    if "breaker_regime" in df_sub.columns and df_sub["breaker_regime"].nunique() > 1:
+        breaker_labels = df_sub["breaker_regime"].values
+    elif "xi_iribarren" in df_sub.columns:
+        xi = df_sub["xi_iribarren"].values
+        b_labels = []
+        for v in xi:
+            if v < 0.5:
+                b_labels.append("Spilling")
+            elif v < 3.3:
+                b_labels.append("Plunging")
+            else:
+                b_labels.append("Surging")
+        breaker_labels = np.array(b_labels)
+    else:
+        breaker_labels = np.array(["Unknown"] * len(df_sub))
+
+    # Morphodynamic regime
+    morph_res = classify_morphodynamic_regimes(df_sub)
+    morph_labels = morph_res._series.values
+
+    # 2. Representations
+    # Baseline 1: Raw Standardized Vectors
+    raw_cols = [c for c in ["hs_m", "tp_s", "surge_m", "wind_normal_ms"] if c in df_sub.columns]
+    X_raw_vals = df_sub[raw_cols].fillna(0.0).values
+    scaler_raw = StandardScaler()
+    X_raw = scaler_raw.fit_transform(X_raw_vals)
+
+    # Baseline 2: PCA Bottleneck
+    n_comp = min(3, X_raw.shape[1])
+    pca = PCA(n_components=n_comp, random_state=random_state)
+    X_pca = pca.fit_transform(X_raw)
+
+    # Proposed: Physics-Anchored Invariant Manifold
+    X_phys_vals, feat_names = build_physics_anchored_feature_matrix(df_sub)
+    scaler_phys = RobustScaler()
+    X_phys = scaler_phys.fit_transform(X_phys_vals)
+
+    representations = {
+        "Baseline 1: Raw Sensor Vector": X_raw,
+        "Baseline 2: PCA Bottleneck": X_pca,
+        "Proposed: Physics-Anchored Manifold": X_phys,
+    }
+
+    rows = []
+    for name, X_rep in representations.items():
+        row = {"Representation": name, "Dimensions": X_rep.shape[1]}
+
+        # Breaker regime clustering metrics
+        if len(np.unique(breaker_labels)) > 1:
+            row["Breaker Silhouette"] = float(silhouette_score(X_rep, breaker_labels))
+            row["Breaker Davies-Bouldin"] = float(davies_bouldin_score(X_rep, breaker_labels))
+            row["Breaker Calinski-Harabasz"] = float(calinski_harabasz_score(X_rep, breaker_labels))
+        else:
+            row["Breaker Silhouette"] = 0.0
+            row["Breaker Davies-Bouldin"] = 0.0
+            row["Breaker Calinski-Harabasz"] = 0.0
+
+        # Morphodynamic regime clustering metrics
+        if len(np.unique(morph_labels)) > 1:
+            row["Morphodynamic Silhouette"] = float(silhouette_score(X_rep, morph_labels))
+            row["Morphodynamic Davies-Bouldin"] = float(davies_bouldin_score(X_rep, morph_labels))
+            row["Morphodynamic Calinski-Harabasz"] = float(calinski_harabasz_score(X_rep, morph_labels))
+        else:
+            row["Morphodynamic Silhouette"] = 0.0
+            row["Morphodynamic Davies-Bouldin"] = 0.0
+            row["Morphodynamic Calinski-Harabasz"] = 0.0
+
+        rows.append(row)
+
+    df_metrics = pd.DataFrame(rows)
+
+    # Subcritical pruning compression stats
+    _, _, comp_stats = prune_subcritical_noise_for_agent(df_sub)
+
+    return df_metrics, comp_stats
+
+

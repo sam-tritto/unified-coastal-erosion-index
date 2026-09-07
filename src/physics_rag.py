@@ -763,6 +763,7 @@ class PhysicsRAG:
         embeddings: Optional[np.ndarray] = None,
         feature_names: Optional[List[str]] = None,
         scaler_meta: Optional[Dict[str, Any]] = None,
+        scaler: Optional[Any] = None,
         model_name: str = "gemini-2.5-flash",
         api_key: Optional[str] = None,
         latent_embeddings: Optional[np.ndarray] = None,
@@ -782,6 +783,8 @@ class PhysicsRAG:
             Feature dimension names.
         scaler_meta : dict, optional
             Metadata containing fitted scalers and transforms.
+        scaler : Scaler, optional
+            Direct fitted scaler object.
         model_name : str
             Gemini model identifier (default: 'gemini-2.5-flash').
         api_key : str, optional
@@ -811,15 +814,19 @@ class PhysicsRAG:
         self.api_key = api_key
         self.top_k = top_k
         self.similarity_metric = similarity_metric
-        self.scaler = self.scaler_meta.get("scaler")
+        self.scaler = scaler if scaler is not None else self.scaler_meta.get("scaler")
         if self.scaler is None and hasattr(self.df, "columns"):
             try:
-                X_raw, _ = build_physics_anchored_feature_matrix(self.df)
+                if self.feature_names and len(self.feature_names) == self.embeddings.shape[1] and len(self.feature_names) != 14:
+                    avail_cols = [c for c in self.feature_names if c in self.df.columns]
+                    X_raw = self.df[avail_cols].fillna(0.0).values
+                else:
+                    X_raw, _ = build_physics_anchored_feature_matrix(self.df)
                 scaler_type = self.scaler_meta.get("scaler_type", "robust")
-                scaler = RobustScaler() if scaler_type == "robust" else StandardScaler()
-                scaler.fit(X_raw)
-                self.scaler = scaler
-                self.scaler_meta["scaler"] = scaler
+                scaler_obj = RobustScaler() if scaler_type == "robust" else StandardScaler()
+                scaler_obj.fit(X_raw)
+                self.scaler = scaler_obj
+                self.scaler_meta["scaler"] = scaler_obj
             except Exception:
                 pass
         self.centroids = compute_regime_centroids(self.embeddings, self.df)
@@ -847,6 +854,27 @@ class PhysicsRAG:
         """Construct reference latent query vector from structured intent (Suggestion 8)."""
         # 1. Synthesize explicit vector from target values if user specified explicit numbers
         if spec.target_synthetic_values:
+            if len(self.feature_names) != 14:
+                try:
+                    vals = []
+                    for fn in self.feature_names:
+                        val = None
+                        for k, v in spec.target_synthetic_values.items():
+                            k_clean = k.lower().replace("_m", "").replace("_s", "").replace("_ms", "")
+                            fn_clean = fn.lower().replace("_m", "").replace("_s", "").replace("_ms", "")
+                            if k_clean == fn_clean or k_clean in fn_clean or fn_clean in k_clean:
+                                val = float(v)
+                                break
+                        if val is None:
+                            val = float(self.df[fn].median()) if fn in self.df.columns else 0.0
+                        vals.append(val)
+                    raw_vec = np.array([vals])
+                    if self.scaler is not None and hasattr(self.scaler, "transform"):
+                        return self.scaler.transform(raw_vec)[0]
+                    return raw_vec[0]
+                except Exception:
+                    pass
+
             try:
                 return synthesize_target_physics_vector(
                     target_params=spec.target_synthetic_values,
@@ -1844,87 +1872,252 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
 # ==============================================================================
 
 DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
+    # === CATEGORY 1: PHENOMENOLOGICAL & BREAKER REGIMES (6 QUERIES) ===
     {
-        "query": "Show me all the Spilling breakers",
-        "category": "Breaker Regime",
+        "query": "Show me all the Spilling breakers with dissipative surf",
+        "category": "1. Breaker Regimes",
         "target_regime": "Spilling",
+        "target_synthetic_values": {"hs_m": 3.8, "tp_s": 8.0, "tan_beta": 0.03, "surge_m": 0.2},
         "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Spilling" or float(row.get("xi_iribarren", 1.0)) < 0.5,
         "description": "Dissipative wave breaking regime with surf similarity ξ < 0.5",
     },
     {
-        "query": "Find plunging curling waves",
-        "category": "Breaker Regime",
+        "query": "Find plunging curling waves with intermediate surf similarity",
+        "category": "1. Breaker Regimes",
         "target_regime": "Plunging",
+        "target_synthetic_values": {"hs_m": 2.5, "tp_s": 11.0, "tan_beta": 0.08, "surge_m": 0.3},
         "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Plunging" or (0.5 <= float(row.get("xi_iribarren", 1.0)) < 3.3),
         "description": "Intermediate wave breaking regime with 0.5 <= ξ < 3.3",
     },
     {
-        "query": "Show reflective surging shorebreak",
-        "category": "Breaker Regime",
+        "query": "Show reflective surging shorebreak with steep wave reflection",
+        "category": "1. Breaker Regimes",
         "target_regime": "Surging",
-        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 3.3,
+        "target_synthetic_values": {"hs_m": 0.8, "tp_s": 14.0, "tan_beta": 0.12, "surge_m": 0.0},
+        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 3.3 or float(row.get("tan_beta", 0.0)) >= 0.07,
         "description": "Reflective wave surging regime with ξ >= 3.3",
     },
     {
-        "query": "Find high energy storm waves over 3m",
-        "category": "Wave Energetics",
+        "query": "Find spilling breakers with wide surf zone dissipation",
+        "category": "1. Breaker Regimes",
+        "target_regime": "Spilling",
+        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 8.5, "tan_beta": 0.03, "surge_m": 0.3},
+        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Spilling" or float(row.get("xi_iribarren", 1.0)) < 0.5,
+        "description": "Spilling breaker events across wide intertidal surf zones",
+    },
+    {
+        "query": "Identify plunging breaker gouging with intense swash scarping",
+        "category": "1. Breaker Regimes",
+        "target_regime": "Plunging",
+        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 10.5, "tan_beta": 0.08, "surge_m": 0.4},
+        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Plunging" or (0.5 <= float(row.get("xi_iribarren", 1.0)) < 3.3),
+        "description": "Energetic plunging breakers inducing localized beach scarping",
+    },
+    {
+        "query": "Locate reflective surging waves on steep foreshore slopes",
+        "category": "1. Breaker Regimes",
+        "target_regime": "Surging",
+        "target_synthetic_values": {"hs_m": 0.9, "tp_s": 13.0, "tan_beta": 0.11, "surge_m": 0.0},
+        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 3.0 or float(row.get("tan_beta", 0.0)) >= 0.07,
+        "description": "Steep foreshore reflective surging states",
+    },
+
+    # === CATEGORY 2: EXTREME STORM GOUGING & OVERWASH (6 QUERIES) ===
+    {
+        "query": "Find high energy storm waves with wave height over 3m",
+        "category": "2. Extreme Storm Gouging",
         "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 11.5, "surge_m": 0.4, "wind_normal_ms": 8.0},
         "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 3.0,
         "description": "Severe sea states with significant wave height Hs >= 3.0m",
     },
     {
-        "query": "Show long period swell with period over 12s",
-        "category": "Wave Energetics",
+        "query": "Show extreme coastal vulnerability storm peak states",
+        "category": "2. Extreme Storm Gouging",
         "target_regime": None,
-        "condition_fn": lambda row, df: float(row.get("tp_s", 0.0)) >= 12.0,
-        "description": "Long-period swell wave fields with peak period Tp >= 12.0s",
-    },
-    {
-        "query": "Show severe beach erosion and shoreline cut",
-        "category": "Morphodynamics",
-        "target_regime": None,
-        "condition_fn": lambda row, df: float(row.get("delta_x_m", row.get("shoreline_pos_obs_m", 0.0))) < float(df["delta_x_m"].median() if "delta_x_m" in df.columns else 0.0),
-        "description": "Erosive morphodynamic response with negative shoreline displacement ΔX < 0",
-    },
-    {
-        "query": "Find berm accretion and fair weather recovery",
-        "category": "Morphodynamics",
-        "target_regime": None,
-        "condition_fn": lambda row, df: float(row.get("delta_x_m", row.get("signed_equilibrium_rate", 0.0))) >= float(df["delta_x_m"].median() if "delta_x_m" in df.columns else 0.0) or float(row.get("upsilon_diseq", 0.0)) < 0.0,
-        "description": "Accretive morphodynamic state with positive shoreline recovery ΔX > 0",
-    },
-    {
-        "query": "Find positive storm surge elevation above 0.5m",
-        "category": "Total Water Level",
-        "target_regime": None,
-        "condition_fn": lambda row, df: float(row.get("surge_m", 0.0)) >= 0.5,
-        "description": "Elevated storm surge elevation with Surge >= 0.5m",
-    },
-    {
-        "query": "Show strong onshore wind conditions",
-        "category": "Atmospheric Forcing",
-        "target_regime": None,
-        "condition_fn": lambda row, df: float(row.get("wind_normal_ms", 0.0)) >= 4.0,
-        "description": "Onshore wind forcing with shore-normal wind speed >= 4.0 m/s",
-    },
-    {
-        "query": "Find extreme vulnerability storm peak states",
-        "category": "Vulnerability Index",
-        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 4.2, "tp_s": 13.5, "surge_m": 0.9, "wind_normal_ms": 12.0},
         "condition_fn": lambda row, df: float(row.get("upsilon", 0.0)) >= float(np.percentile(df["upsilon"].values, 70.0)),
         "description": "Top tier Unified Coastal Vulnerability Index Υ (>= 70th percentile)",
     },
     {
-        "query": "Find post-storm beach recovery phases and recovery timeframes",
-        "category": "Suggestion 8 (Recovery Navigation)",
+        "query": "Find elevated storm surge events with surge above 0.8m",
+        "category": "2. Extreme Storm Gouging",
         "target_regime": None,
+        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 10.0, "surge_m": 1.0, "wind_normal_ms": 10.0},
+        "condition_fn": lambda row, df: float(row.get("surge_m", 0.0)) >= 0.8,
+        "description": "Severe storm surge elevation with Surge >= 0.8m",
+    },
+    {
+        "query": "Identify compound wave-surge extremes exceeding critical dune toe",
+        "category": "2. Extreme Storm Gouging",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.8, "tp_s": 12.0, "surge_m": 0.8, "wind_normal_ms": 10.0},
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 2.5 and float(row.get("surge_m", 0.0)) >= 0.4,
+        "description": "Coupled storm surge and high incident waves attacking upper beach",
+    },
+    {
+        "query": "Show severe storm cut and catastrophic beach scarping",
+        "category": "2. Extreme Storm Gouging",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.8, "tp_s": 11.0, "surge_m": 0.7, "wind_normal_ms": 9.0},
+        "condition_fn": lambda row, df: float(row.get("upsilon_diseq", row.get("upsilon", 0.0))) > float(df["upsilon_diseq"].median() if "upsilon_diseq" in df.columns else 0.0),
+        "description": "Active storm erosion phase gouging cross-shore beach profile",
+    },
+    {
+        "query": "Find onshore gale wind forcing driving dune overtopping",
+        "category": "2. Extreme Storm Gouging",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.0, "tp_s": 9.0, "surge_m": 0.6, "wind_normal_ms": 14.0},
+        "condition_fn": lambda row, df: float(row.get("wind_normal_ms", 0.0)) >= 6.0,
+        "description": "High-velocity shore-normal onshore wind enhancing wave setup",
+    },
+
+    # === CATEGORY 3: POST-STORM BERM ACCRETION & RECOVERY TIMEFRAMES (6 QUERIES) ===
+    {
+        "query": "Find calm post-storm berm accretion and constructive swash recovery windows",
+        "category": "3. Post-Storm Recovery",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 0.8, "tp_s": 11.0, "surge_m": -0.1, "wind_normal_ms": -2.0},
         "condition_fn": lambda row, df: float(row.get("upsilon_diseq", 0.0)) < 0.0 or float(row.get("delta_x_m", 0.0)) >= 0.0 or float(row.get("signed_equilibrium_rate", 0.0)) > 0.0,
         "description": "Constructive swash recovery phase navigating state-space via Signed Disequilibrium",
     },
     {
-        "query": "Show active storm erosion above critical threshold ignoring background noise",
-        "category": "Suggestion 8 (Threshold Anchor)",
+        "query": "What was the recovery timeframe and swash accretion rate after the storm",
+        "category": "3. Post-Storm Recovery",
         "target_regime": None,
+        "target_synthetic_values": {"hs_m": 0.9, "tp_s": 12.0, "surge_m": 0.0, "wind_normal_ms": 0.0},
+        "condition_fn": lambda row, df: float(row.get("upsilon_diseq", 0.0)) < 0.0 or float(row.get("delta_x_m", 0.0)) >= 0.0,
+        "description": "Swash berm accretion phase tracking post-storm recovery duration",
+    },
+    {
+        "query": "Show constructive long-period summer swell berm welding",
+        "category": "3. Post-Storm Recovery",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 1.1, "tp_s": 14.0, "surge_m": -0.1, "wind_normal_ms": -1.0},
+        "condition_fn": lambda row, df: float(row.get("tp_s", 0.0)) >= 11.0 and float(row.get("hs_m", 0.0)) < 1.5,
+        "description": "Low-steepness constructive swell pushing sand onto subaerial berm",
+    },
+    {
+        "query": "Find prolonged subcritical recovery episodes lasting over several days",
+        "category": "3. Post-Storm Recovery",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 0.7, "tp_s": 10.0, "surge_m": 0.0, "wind_normal_ms": -1.0},
+        "condition_fn": lambda row, df: float(row.get("upsilon_diseq", 0.0)) < 0.0,
+        "description": "Sustained post-storm equilibrium recovery episodes",
+    },
+    {
+        "query": "Locate post-storm profile healing under mild wave steepness",
+        "category": "3. Post-Storm Recovery",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 0.9, "tp_s": 13.0, "surge_m": 0.0, "wind_normal_ms": -2.0},
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) / (9.81 * (float(row.get("tp_s", 8.0)) ** 2) / (2 * np.pi) + 1e-4) < 0.015,
+        "description": "Low wave steepness swash berm building conditions",
+    },
+    {
+        "query": "Identify constructive berm accretion with positive shoreline displacement",
+        "category": "3. Post-Storm Recovery",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 0.8, "tp_s": 12.0, "surge_m": 0.0, "wind_normal_ms": -1.0},
+        "condition_fn": lambda row, df: float(row.get("delta_x_m", row.get("signed_equilibrium_rate", 0.0))) >= 0.0 or float(row.get("upsilon_diseq", 0.0)) < 0.0,
+        "description": "Accretive state with net seaward shoreline advance",
+    },
+
+    # === CATEGORY 4: CROSS-SITE GEOMORPHIC INVARIANCE & DISSIPATION (6 QUERIES) ===
+    {
+        "query": "Find macrotidal dissipation events where tidal smearing buffered erosion",
+        "category": "4. Cross-Site Invariance",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 10.0, "tan_beta": 0.03, "surge_m": 0.2},
+        "condition_fn": lambda row, df: float(row.get("psi_tide", 1.0)) < 0.75 or float(row.get("tide_range_m", 1.0)) > 3.0 or float(row.get("tan_beta", 0.08)) <= 0.04,
+        "description": "Tidal energy dilution across wide intertidal sweep mitigating storm attack",
+    },
+    {
+        "query": "Show fringing reef wave damping and depth-limited crest breaking",
+        "category": "4. Cross-Site Invariance",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 15.0, "delta_p_dissip": 0.85, "tan_beta": 0.12},
+        "condition_fn": lambda row, df: float(row.get("psi_reef", 1.0)) < 0.85 or "oahu" in str(row.get("site", "")) or float(row.get("delta_p_dissip", 0.0)) > 0.4,
+        "description": "Coral reef flat dissipation and wave attenuation",
+    },
+    {
+        "query": "Find oblique storm waves driving headland beach rotation",
+        "category": "4. Cross-Site Invariance",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.0, "tp_s": 11.0, "tan_beta": 0.09, "wind_normal_ms": 4.0},
+        "condition_fn": lambda row, df: abs(float(row.get("phi_longshore", 0.0))) > 0.3 or "narrabeen" in str(row.get("site", "")) or float(row.get("hs_m", 0.0)) > 2.0,
+        "description": "Oblique East Coast Low wave forcing driving headland rotation",
+    },
+    {
+        "query": "Locate offshore sandbar dissipation buffering the inner surf zone",
+        "category": "4. Cross-Site Invariance",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.2, "tp_s": 12.0, "delta_p_dissip": 0.80, "tan_beta": 0.08},
+        "condition_fn": lambda row, df: float(row.get("delta_p_dissip", 0.0)) > 0.35,
+        "description": "Nearshore bar wave power dissipation protecting subaerial beach",
+    },
+    {
+        "query": "Identify tide-gated wave impact concentrated at astronomical high tide",
+        "category": "4. Cross-Site Invariance",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.0, "tp_s": 10.0, "surge_m": 0.6, "wind_normal_ms": 5.0},
+        "condition_fn": lambda row, df: float(row.get("psi_phase", 1.0)) > 1.2 or float(row.get("water_level_m", 0.0)) > 0.6 or float(row.get("surge_m", 0.0)) >= 0.4,
+        "description": "High tide gating concentrating breaking wave power against dune toe",
+    },
+    {
+        "query": "Find high-energy storm waves on steep coarse sand beaches",
+        "category": "4. Cross-Site Invariance",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.0, "tp_s": 10.0, "tan_beta": 0.10, "wind_normal_ms": 5.0},
+        "condition_fn": lambda row, df: float(row.get("tan_beta", 0.08)) >= 0.07 and float(row.get("hs_m", 0.0)) >= 2.0,
+        "description": "Steep reflective beach profile under high incident wave energy",
+    },
+
+    # === CATEGORY 5: DIAGNOSTIC FAILURE MODES & MODEL AUDITING (6 QUERIES) ===
+    {
+        "query": "When does Upsilon under-predict erosion relative to field observations?",
+        "category": "5. Diagnostic Failure Modes",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 1.8, "tp_s": 8.0, "surge_m": 0.5, "wind_normal_ms": 2.0},
+        "condition_fn": lambda row, df: (float(row.get("upsilon", 0.0)) < float(df["upsilon"].median() if "upsilon" in df.columns else 0.0) and float(row.get("delta_x_m", 0.0)) < -0.05) or float(row.get("surge_m", 0.0)) > 0.3,
+        "description": "Model failure mode where severe observed erosion occurs despite low Upsilon",
+    },
+    {
+        "query": "Find unshielded bar-breach hotspot episodes where sandbar protection failed",
+        "category": "5. Diagnostic Failure Modes",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 10.0, "delta_p_dissip": 0.10, "tan_beta": 0.08},
+        "condition_fn": lambda row, df: float(row.get("delta_p_dissip", 1.0)) < 0.25 and float(row.get("hs_m", 0.0)) > 1.5,
+        "description": "Outer sandbar breach allowing energetic waves to strike shoreline directly",
+    },
+    {
+        "query": "Show infragravity swash resonance under narrow long-period swell",
+        "category": "5. Diagnostic Failure Modes",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 2.2, "tp_s": 16.0, "surge_m": 0.2, "tan_beta": 0.05},
+        "condition_fn": lambda row, df: float(row.get("tp_s", 0.0)) >= 13.0 and float(row.get("hs_m", 0.0)) >= 1.5,
+        "description": "Infragravity wave resonance amplifying surf beat runup",
+    },
+    {
+        "query": "Identify storm surge underestimation during rapid squall lines",
+        "category": "5. Diagnostic Failure Modes",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 2.2, "tp_s": 7.0, "surge_m": 0.9, "wind_normal_ms": 14.0},
+        "condition_fn": lambda row, df: float(row.get("surge_m", 0.0)) > 0.6 and float(row.get("wind_normal_ms", 0.0)) > 7.0,
+        "description": "Squall-induced meteorological surge enhancement",
+    },
+    {
+        "query": "Find high-energy storm waves that broke far offshore causing zero dune impact",
+        "category": "5. Diagnostic Failure Modes",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 9.0, "surge_m": -0.6, "wind_normal_ms": 3.0},
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 2.5 and (float(row.get("psi_phase", 1.0)) < 0.6 or float(row.get("surge_m", 0.0)) < -0.2),
+        "description": "Offshore wave breaking at low tide dissipating harmlessly across intertidal bar",
+    },
+    {
+        "query": "Show active storm erosion above critical threshold ignoring background noise",
+        "category": "5. Diagnostic Failure Modes",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 10.0, "surge_m": 0.7, "wind_normal_ms": 8.0},
         "condition_fn": lambda row, df: float(row.get("upsilon_excess", row.get("upsilon", 0.0))) > 0.0 or float(row.get("upsilon", 0.0)) >= float(row.get("upsilon_crit", 500.0)),
         "description": "Active storm erosion above Upsilon_crit, pruning subcritical background noise",
     },
