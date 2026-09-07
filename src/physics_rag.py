@@ -15,7 +15,9 @@ import pandas as pd
 from pydantic import BaseModel, Field
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import RobustScaler, StandardScaler
+from sklearn.preprocessing import RobustScaler, StandardScaler, normalize
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
 
 try:
     import duckdb
@@ -2124,8 +2126,172 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
 ]
 
 
+class TextRAG:
+    """Baseline 1: Dense text embeddings over serialized sensor rows."""
+
+    def __init__(self, df: pd.DataFrame, n_components: int = 64):
+        self.df = df.copy().reset_index(drop=True)
+        self.docs = []
+        for _, row in self.df.iterrows():
+            doc = (
+                f"Timestamp: {row.get('timestamp', '')}. Site: {row.get('site', '')}. "
+                f"Significant wave height Hs: {row.get('hs_m', 0.0):.2f} meters. "
+                f"Peak wave period Tp: {row.get('tp_s', 0.0):.1f} seconds. "
+                f"Storm surge level: {row.get('surge_m', 0.0):.2f} meters. "
+                f"Shore-normal wind speed: {row.get('wind_normal_ms', 0.0):.1f} m/s. "
+                f"Breaker regime: {row.get('breaker_regime', '')}. "
+                f"Beach slope tan beta: {row.get('tan_beta', 0.05):.3f}. "
+                f"Coastal vulnerability index Upsilon: {row.get('upsilon', 0.0):.1f} kg/s."
+            )
+            self.docs.append(doc)
+
+        self.tfidf = TfidfVectorizer(max_features=2500, stop_words="english", ngram_range=(1, 2))
+        X_tfidf = self.tfidf.fit_transform(self.docs)
+        self.svd = TruncatedSVD(n_components=min(n_components, max(2, len(self.docs) - 1)), random_state=42)
+        X_dense = self.svd.fit_transform(X_tfidf)
+        self.embeddings = normalize(X_dense, norm="l2")
+        self.nn = NearestNeighbors(metric="cosine").fit(self.embeddings)
+
+    def query(self, query_text: str, top_k: int = 5, **kwargs: Any) -> PhysicsRAGResult:
+        q_tfidf = self.tfidf.transform([query_text])
+        q_dense = self.svd.transform(q_tfidf)
+        q_norm = normalize(q_dense, norm="l2")
+        distances, indices = self.nn.kneighbors(q_norm, n_neighbors=min(top_k, len(self.df)))
+        sims = 1.0 - distances[0]
+        matches = self.df.iloc[indices[0]].copy()
+        return PhysicsRAGResult(
+            query=query_text,
+            matches_df=matches,
+            similarities=np.array(sims),
+            explanation="Text-RAG dense embedding search result",
+            parsed_criteria={},
+        )
+
+
+class RawDataRAG:
+    """Baseline 2: Nearest-neighbor search directly on raw sensor channels."""
+
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy().reset_index(drop=True)
+        self.raw_cols = ["hs_m", "tp_s", "surge_m", "wind_normal_ms"]
+        for col in self.raw_cols:
+            if col not in self.df.columns:
+                self.df[col] = 0.0
+        X_raw = self.df[self.raw_cols].fillna(0.0).values
+        self.scaler = RobustScaler().fit(X_raw)
+        self.embeddings = self.scaler.transform(X_raw)
+        self.nn = NearestNeighbors(metric="cosine").fit(self.embeddings)
+
+    def query(self, query_text: str, top_k: int = 5, target_synthetic_values: Optional[Dict[str, Any]] = None, **kwargs: Any) -> PhysicsRAGResult:
+        vals = target_synthetic_values or {}
+        q_vec = np.array([[
+            vals.get("hs_m", self.df["hs_m"].mean()),
+            vals.get("tp_s", self.df["tp_s"].mean()),
+            vals.get("surge_m", self.df["surge_m"].mean()),
+            vals.get("wind_normal_ms", self.df["wind_normal_ms"].mean()),
+        ]])
+        q_scaled = self.scaler.transform(q_vec)
+        distances, indices = self.nn.kneighbors(q_scaled, n_neighbors=min(top_k, len(self.df)))
+        sims = 1.0 - distances[0]
+        matches = self.df.iloc[indices[0]].copy()
+        return PhysicsRAGResult(
+            query=query_text,
+            matches_df=matches,
+            similarities=np.array(sims),
+            explanation="Raw-Data RAG nearest-neighbor result",
+            parsed_criteria={},
+        )
+
+
+class RuleBasedSQLRAG:
+    """Baseline 3: Rule-based keyword and threshold filtering (SQL filter simulation)."""
+
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy().reset_index(drop=True)
+
+    def query(self, query_text: str, top_k: int = 5, **kwargs: Any) -> PhysicsRAGResult:
+        q_lower = query_text.lower()
+        sub = self.df.copy()
+
+        # Rule 1: Breaker regime keywords
+        if "spilling" in q_lower:
+            sub = sub[sub["breaker_regime"] == "Spilling"]
+        elif "plunging" in q_lower:
+            sub = sub[sub["breaker_regime"] == "Plunging"]
+        elif "surging" in q_lower:
+            sub = sub[sub["breaker_regime"] == "Surging"]
+
+        # Rule 2: Wave height / storm extremes
+        if "over 3m" in q_lower or "wave height over" in q_lower or "high energy storm" in q_lower:
+            sub = sub[sub["hs_m"] >= 3.0]
+        elif "over 4m" in q_lower:
+            sub = sub[sub["hs_m"] >= 4.0]
+
+        # Rule 3: Surge extremes
+        if "surge above 0.8" in q_lower or "surge over 0.8" in q_lower:
+            sub = sub[sub["surge_m"] >= 0.8]
+        elif "high storm surge" in q_lower or "elevated storm surge" in q_lower:
+            sub = sub[sub["surge_m"] >= 0.4]
+
+        # Rule 4: Compound wave-surge
+        if "compound" in q_lower:
+            sub = sub[(sub["hs_m"] >= 2.5) & (sub["surge_m"] >= 0.3)]
+
+        # Rule 5: Gale wind
+        if "gale" in q_lower or "wind forcing" in q_lower:
+            sub = sub[sub["wind_normal_ms"] >= 6.0]
+
+        # Rule 6: Berm accretion / recovery
+        if "accretion" in q_lower or "recovery" in q_lower or "swash recovery" in q_lower or "healing" in q_lower:
+            if "delta_x_m" in sub.columns and "upsilon_diseq" in sub.columns:
+                sub = sub[(sub["delta_x_m"] >= 0.0) | (sub["upsilon_diseq"] < 0.0)]
+            elif "delta_x_m" in sub.columns:
+                sub = sub[sub["delta_x_m"] >= 0.0]
+
+        # Rule 7: Summer swell
+        if "summer swell" in q_lower:
+            sub = sub[(sub["tp_s"] >= 11.0) & (sub["hs_m"] < 1.5)]
+
+        # Rule 8: Tide / Macrotidal
+        if "macrotidal" in q_lower or "tidal smearing" in q_lower:
+            if "tan_beta" in sub.columns:
+                sub = sub[sub["tan_beta"] <= 0.05]
+
+        # Rule 9: Oblique waves
+        if "oblique" in q_lower or "headland" in q_lower:
+            if "phi_longshore" in sub.columns:
+                sub = sub[sub["phi_longshore"].abs() > 0.2]
+
+        # Rule 10: Sandbar dissipation
+        if "sandbar dissipation" in q_lower or "buffering" in q_lower:
+            if "delta_p_dissip" in sub.columns:
+                sub = sub[sub["delta_p_dissip"] > 0.35]
+
+        # Fallback if too few matches: rank by most relevant variable
+        if len(sub) < top_k:
+            if "storm" in q_lower or "high" in q_lower or "wave" in q_lower:
+                sub = self.df.sort_values("hs_m", ascending=False)
+            elif "accretion" in q_lower or "recovery" in q_lower:
+                if "delta_x_m" in self.df.columns:
+                    sub = self.df.sort_values("delta_x_m", ascending=False)
+                else:
+                    sub = self.df
+            else:
+                sub = self.df
+
+        matches = sub.head(top_k).copy()
+        sims = [1.0 - (i * 0.05) for i in range(len(matches))]
+        return PhysicsRAGResult(
+            query=query_text,
+            matches_df=matches,
+            similarities=np.array(sims),
+            explanation="Rule-based SQL filter result",
+            parsed_criteria={},
+        )
+
+
 def evaluate_retrieval_query(
-    rag: PhysicsRAG,
+    rag: Any,
     query_spec_or_text: Union[str, Dict[str, Any]],
     condition_fn: Optional[Any] = None,
     target_regime: Optional[str] = None,
