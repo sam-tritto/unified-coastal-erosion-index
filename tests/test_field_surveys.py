@@ -244,6 +244,23 @@ def test_evaluate_signed_equilibrium_rate_sensitivity():
     assert "pos_r2" in df_sens.columns
 
 
+def test_all_three_duck_transects_independent_resolution():
+    """Verify that all three Duck NC transects (FRF_0058, FRF_0109, FRF_m091) resolve and load independently."""
+    from src.data import load_site_field_surveys
 
+    df_58 = load_site_field_surveys(site="duck_nc", transect_id="FRF_0058")
+    df_109 = load_site_field_surveys(site="duck_nc", transect_id="FRF_0109")
+    df_m91 = load_site_field_surveys(site="duck_nc", transect_id="FRF_m091")
 
+    assert len(df_58) == 68
+    assert len(df_109) == 82
+    assert len(df_m91) == 67
 
+    assert (df_58["transect_id"] == "FRF_0058").all()
+    assert (df_109["transect_id"] == "FRF_0109").all()
+    assert (df_m91["transect_id"] == "FRF_m091").all()
+
+    # Verify all are authentic in-situ surveys
+    assert df_58["is_in_situ_observed"].all()
+    assert df_109["is_in_situ_observed"].all()
+    assert df_m91["is_in_situ_observed"].all()

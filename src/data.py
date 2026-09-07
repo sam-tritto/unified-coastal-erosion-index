@@ -1768,19 +1768,6 @@ def load_site_field_surveys(
     site_cfg = COASTAL_SITE_PROFILES[site_key]
     default_transects = site_cfg.get("default_transects", ["FRF_0058", "FRF_0109"])
 
-    # Resolve default transect if provided or if specific index is requested
-    resolved_transect = None
-    if transect_id is not None and transect_id.lower() != "all":
-        if transect_id in default_transects:
-            resolved_transect = transect_id
-        else:
-            # If an incompatible transect is passed, gracefully map it
-            idx = 1 if ("0109" in str(transect_id) or "south" in str(transect_id).lower() or "4" in str(transect_id)) else 0
-            resolved_transect = default_transects[min(idx, len(default_transects) - 1)]
-    elif transect_index is not None:
-        idx = max(0, min(transect_index, len(default_transects) - 1))
-        resolved_transect = default_transects[idx]
-
     # Locate dataset CSV (Unified site_field_surveys.csv)
     possible_paths = [
         csv_path if csv_path is not None else None,
@@ -1807,6 +1794,25 @@ def load_site_field_surveys(
         df_site = df[df["site"] == site_key]
         if not df_site.empty:
             df = df_site
+
+    available_transects = df["transect_id"].unique().tolist() if "transect_id" in df.columns else default_transects
+
+    # Resolve default transect if provided or if specific index is requested
+    resolved_transect = None
+    if transect_id is not None and transect_id.lower() != "all":
+        # Direct match or case-insensitive match
+        match = next((t for t in available_transects if t.lower() == transect_id.lower()), None)
+        if match is not None:
+            resolved_transect = match
+        elif transect_id in default_transects:
+            resolved_transect = transect_id
+        else:
+            # If an incompatible transect is passed, gracefully map it
+            idx = 1 if ("0109" in str(transect_id) or "south" in str(transect_id).lower() or "4" in str(transect_id)) else 0
+            resolved_transect = default_transects[min(idx, len(default_transects) - 1)]
+    elif transect_index is not None:
+        idx = max(0, min(transect_index, len(available_transects) - 1))
+        resolved_transect = available_transects[idx]
 
     if resolved_transect is not None and "transect_id" in df.columns:
         df_t = df[df["transect_id"] == resolved_transect]

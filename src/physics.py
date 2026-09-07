@@ -48,8 +48,8 @@ COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
         "l_beach_m": 1000.0,     # FRF experimental zone alongshore span (m)
         "y_center_m": 500.0,     # FRF central research pier coordinate (m)
         "alpha_rot": 0.0,        # No headland-bounded rotation
-        "default_transects": ["FRF_0058", "FRF_0109"],
-        "transect_coords_m": {"FRF_0058": 580.0, "FRF_0109": 1090.0},
+        "default_transects": ["FRF_0058", "FRF_0109", "FRF_m091"],
+        "transect_coords_m": {"FRF_0058": 580.0, "FRF_0109": 1090.0, "FRF_m091": -910.0},
         "coops_station_id": "8651370",
         "primary_buoy_id": "44056",
         "outer_buoy_id": "44100",
