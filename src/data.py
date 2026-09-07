@@ -2155,7 +2155,7 @@ def export_unified_feature_engineered_datasets(
     )
 
     if sites is None:
-        sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+        sites = ["duck_nc", "narrabeen_aus"]
 
     for out_dir in output_dirs:
         os.makedirs(out_dir, exist_ok=True)

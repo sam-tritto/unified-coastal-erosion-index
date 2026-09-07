@@ -106,10 +106,10 @@ def test_field_survey_correlation_evaluation():
 
 
 def test_load_global_sites_field_surveys():
-    """Verify that all global sites (Duck, Narrabeen, Torrey Pines, Truc Vert, Oahu North Shore) load real in-situ surveys."""
+    """Verify that authentic survey sites (Duck, NC and Narrabeen) load real in-situ surveys."""
     from src.data import load_site_field_surveys
 
-    sites = ["duck_nc", "narrabeen_aus", "torrey_pines_ca", "truc_vert_france", "oahu_north_shore_hi"]
+    sites = ["duck_nc", "narrabeen_aus"]
     for site in sites:
         df = load_site_field_surveys(site=site)
         assert not df.empty, f"Site {site} surveys should not be empty"

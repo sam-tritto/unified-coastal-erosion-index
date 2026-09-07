@@ -2531,7 +2531,7 @@ def evaluate_cross_paradigm_walk_forward_cv(
     )
 
     if sites is None:
-        sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+        sites = ["duck_nc", "narrabeen_aus"]
 
     pooled_preds = {}
     pooled_actuals = {}
@@ -3142,7 +3142,7 @@ def evaluate_leave_one_site_out_cv(
     )
 
     if sites is None:
-        sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+        sites = ["duck_nc", "narrabeen_aus"]
 
     site_data = {}
 
@@ -3558,7 +3558,7 @@ def evaluate_survey_epoch_loocv(
     )
 
     if sites is None:
-        sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+        sites = ["duck_nc", "narrabeen_aus"]
 
     pooled_preds: Dict[Tuple[str, str], List[float]] = {}
     pooled_actuals: Dict[Tuple[str, str], List[float]] = {}
@@ -4853,7 +4853,7 @@ def evaluate_signed_equilibrium_rate_sensitivity(
     from src.physics import simulate_signed_equilibrium_upsilon_evolution, COASTAL_SITE_PROFILES
 
     if sites is None:
-        sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+        sites = ["duck_nc", "narrabeen_aus"]
 
     records = []
 
@@ -4940,7 +4940,7 @@ def infer_multi_site_signed_equilibrium_uncertainty(
     from src.physics import COASTAL_SITE_PROFILES
 
     if sites is None:
-        sites = ["duck_nc", "narrabeen_aus", "oahu_north_shore_hi", "torrey_pines_ca", "truc_vert_france"]
+        sites = ["duck_nc", "narrabeen_aus"]
 
     results = []
 

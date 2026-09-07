@@ -2036,7 +2036,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "category": "4. Cross-Site Invariance",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 3.5, "tp_s": 15.0, "delta_p_dissip": 0.85, "tan_beta": 0.12},
-        "condition_fn": lambda row, df: float(row.get("psi_reef", 1.0)) < 0.85 or "oahu" in str(row.get("site", "")) or float(row.get("delta_p_dissip", 0.0)) > 0.4,
+        "condition_fn": lambda row, df: float(row.get("psi_reef", 1.0)) < 0.85 or float(row.get("delta_p_dissip", 0.0)) > 0.4,
         "description": "Coral reef flat dissipation and wave attenuation",
     },
     {

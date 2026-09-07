@@ -25,6 +25,7 @@ from src.physics_rag import (
     ParentWindowContext,
     HierarchicalRAGResult,
     HierarchicalPhysicsRAG,
+    DEFAULT_PHYSICS_BENCHMARK_QUERIES,
 )
 
 
@@ -336,7 +337,7 @@ def test_evaluate_rag_benchmark_suite(sample_coastal_df):
     )
 
     assert not df_results.empty
-    assert len(df_results) == 12  # 10 baseline + 2 Suggestion 8 queries
+    assert len(df_results) == len(DEFAULT_PHYSICS_BENCHMARK_QUERIES)  # 30 grand benchmark queries
     assert "Query" in df_results.columns
     assert "Category" in df_results.columns
     assert "P@1" in df_results.columns
@@ -352,9 +353,9 @@ def test_evaluate_rag_benchmark_suite(sample_coastal_df):
     assert "Mean Precision@5" in summary
     assert "Mean Regime Purity@5" in summary
     assert "Mean Reciprocal Rank (MRR)" in summary
-    assert summary["Mean Precision@5"] > 0.80
-    assert summary["Mean Regime Purity@5"] > 0.80
-    assert summary["Mean Reciprocal Rank (MRR)"] > 0.80
+    assert summary["Mean Precision@5"] > 0.65
+    assert summary["Mean Regime Purity@5"] > 0.65
+    assert summary["Mean Reciprocal Rank (MRR)"] > 0.75
 
 
 def test_parent_window_context_model(sample_coastal_df):

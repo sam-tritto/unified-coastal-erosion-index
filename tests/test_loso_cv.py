@@ -44,8 +44,8 @@ def test_calibrate_signed_equilibrium_parameters():
 
 def test_evaluate_leave_one_site_out_cv_smoke():
     """Verify execution of Leave-One-Site-Out CV across sites."""
-    # Run with 3 sites, fast MCMC settings
-    test_sites = ["duck_nc", "narrabeen_aus", "torrey_pines_ca"]
+    # Run with authentic sites, fast MCMC settings
+    test_sites = ["duck_nc", "narrabeen_aus"]
     
     df_synthesis, df_held_out = evaluate_leave_one_site_out_cv(
         sites=test_sites,
