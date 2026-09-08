@@ -1772,6 +1772,7 @@ def load_site_field_surveys(
     possible_paths = [
         csv_path if csv_path is not None else None,
         "data/site_field_surveys.csv",
+        "data/site_field_surveys_2012_2017.csv",
         "data/frf_duck_field_surveys.csv",
     ]
     resolved_path = None

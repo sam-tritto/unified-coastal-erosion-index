@@ -41,6 +41,10 @@ from src.physics import (
     compute_dynamic_grain_size,
     compute_site_reference_flux,
     compute_dimensionless_upsilon,
+    compute_wave_steepness,
+    compute_radiation_stress_tensor,
+    compute_sallenger_impact_ratio,
+    compute_multiscale_memory_decay,
     COASTAL_SITE_PROFILES,
 )
 from src.data import (
@@ -1878,6 +1882,116 @@ def test_cross_archetype_dimensionless_calibration_invariance():
         # Normalized mean relative forcing across typical conditions must be O(1), e.g. within [0.2, 5.0]
         assert 0.2 < mean_u_star < 5.0, f"Site {site_key} Upsilon* out of bounds: {mean_u_star}"
         assert np.all(df["upsilon_star_excess"] >= 0.0)
+
+
+def test_wave_steepness_formulation():
+    """Verify wave steepness calculation s0 = Hs / L0 and bounded continuous modulator Psi_steep."""
+    # Calm swell: Hs = 1.0m, Tp = 14.0s -> very low steepness (< 0.01)
+    s0_swell, psi_swell = compute_wave_steepness(1.0, 14.0)
+    assert s0_swell < 0.01
+    assert 0.2 <= psi_swell < 1.0
+
+    # Steep storm seas: Hs = 4.5m, Tp = 8.0s -> high steepness (> 0.04)
+    s0_storm, psi_storm = compute_wave_steepness(4.5, 8.0)
+    assert s0_storm > 0.04
+    assert psi_storm > 1.0
+
+    # Vectorized check
+    hs = np.array([1.0, 2.0, 4.5])
+    tp = np.array([14.0, 10.0, 8.0])
+    s0_arr, psi_arr = compute_wave_steepness(hs, tp)
+    assert len(s0_arr) == 3
+    assert np.all(np.diff(s0_arr) > 0)  # Monotonically increasing steepness
+
+
+def test_radiation_stress_tensor_formulation():
+    """Verify Longuet-Higgins & Stewart (1964) deepwater radiation stress S_xx, S_xy, and Psi_Sxx."""
+    # Shore-normal wave approach (theta_wave == shore_normal) -> theta_rel = 0
+    # S_xx = 0.5 * E, S_xy = 0, Psi_Sxx = 0.5
+    s_xx, s_xy, psi_sxx, e_energy = compute_radiation_stress_tensor(
+        hs=2.0, tp=10.0, wave_dir_deg=70.0, shore_normal_deg=70.0
+    )
+    assert np.isclose(psi_sxx, 0.5)
+    assert np.isclose(s_xy, 0.0)
+    assert np.isclose(s_xx, 0.5 * e_energy)
+    assert e_energy > 0.0
+
+    # Highly oblique approach (theta_wave - shore_normal = 45 deg)
+    # cos^2(45) = 0.5 -> S_xx = 0.25 * E, sin(90) = 1.0 -> S_xy = 0.25 * E
+    s_xx_ob, s_xy_ob, psi_sxx_ob, e_ob = compute_radiation_stress_tensor(
+        hs=2.0, tp=10.0, wave_dir_deg=115.0, shore_normal_deg=70.0
+    )
+    assert np.isclose(psi_sxx_ob, 0.25)
+    assert np.isclose(s_xy_ob, 0.25 * e_ob)
+    assert s_xx_ob < s_xx  # Oblique waves transmit less shore-normal momentum flux
+
+
+def test_sallenger_impact_ratio_formulation():
+    """Verify Sallenger (2000) storm impact scale classification and continuous ratio Psi_impact."""
+    # Swash regime: TWL = 1.8m < berm crest 2.5m
+    psi_swash, regime_swash = compute_sallenger_impact_ratio(twl=1.8, berm_crest_m=2.5, hs=2.0)
+    assert np.isclose(psi_swash, 1.0)
+    assert regime_swash == "swash"
+
+    # Collision regime: TWL = 2.9m > berm crest 2.5m
+    psi_coll, regime_coll = compute_sallenger_impact_ratio(twl=2.9, berm_crest_m=2.5, hs=2.0)
+    assert psi_coll > 1.0
+    assert regime_coll == "collision"
+
+    # Overwash regime: TWL = 4.0m >> berm crest 2.5m
+    psi_over, regime_over = compute_sallenger_impact_ratio(twl=4.0, berm_crest_m=2.5, hs=2.0)
+    assert psi_over > psi_coll
+    assert regime_over == "overwash"
+
+
+def test_multiscale_memory_decay_formulation():
+    """Verify multi-scale antecedent exponential memory decay convolutions for tau in {7, 30, 90, 365} days."""
+    # Constant series: decay should equal the constant value, disequilibrium should be 0.0
+    n = 200
+    const_ups = np.full(n, 2500.0)
+    out_const = compute_multiscale_memory_decay(const_ups)
+    for tau in [7, 30, 90, 365]:
+        np.testing.assert_allclose(out_const[f"upsilon_decay_{tau}d"], 2500.0, rtol=1e-3)
+        np.testing.assert_allclose(out_const[f"upsilon_diseq_{tau}d"], 0.0, atol=1e-3)
+
+    # Step function / storm pulse: baseline 1000, sudden jump to 5000 at index 100
+    step_ups = np.full(n, 1000.0)
+    step_ups[100:] = 5000.0
+    out_step = compute_multiscale_memory_decay(step_ups)
+    # 7-day memory should adapt faster to the new high level than 365-day memory
+    assert out_step["upsilon_decay_7d"][-1] > out_step["upsilon_decay_365d"][-1]
+    # Immediately after the step (index 100), disequilibrium is positive
+    assert out_step["upsilon_diseq_7d"][100] > 0.0
+
+
+def test_compute_unified_coastal_vulnerability_index_new_physics_columns():
+    """Verify that compute_unified_coastal_vulnerability_index includes all 4 new physical terms."""
+    hs = np.array([1.5, 2.5, 3.5])
+    tp = np.array([8.0, 10.0, 12.0])
+    surge = np.array([0.1, 0.4, 0.9])
+    wind_spd = np.array([6.0, 12.0, 18.0])
+    wind_dir = np.array([70.0, 70.0, 70.0])
+
+    df = compute_unified_coastal_vulnerability_index(
+        hs=hs,
+        tp=tp,
+        surge=surge,
+        wind_speed=wind_spd,
+        wind_dir_deg=wind_dir,
+        site="duck_nc",
+    )
+
+    expected_cols = [
+        "wave_steepness_s0", "psi_steep",
+        "s_xx_Wm", "s_xy_Wm", "psi_sxx", "e_energy_Jm2",
+        "psi_impact", "impact_regime",
+        "upsilon_full",
+        "upsilon_decay_7d", "upsilon_decay_30d", "upsilon_decay_90d", "upsilon_decay_365d",
+        "upsilon_diseq_7d", "upsilon_diseq_30d", "upsilon_diseq_90d", "upsilon_diseq_365d",
+    ]
+    for col in expected_cols:
+        assert col in df.columns, f"Missing expected physics column: {col}"
+
 
 
 

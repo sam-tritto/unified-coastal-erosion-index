@@ -1450,6 +1450,246 @@ def simulate_coupled_2d_embayment_evolution(
     return x_net, x_obs
 
 
+def compute_wave_steepness(
+    hs: Union[float, np.ndarray],
+    tp: Union[float, np.ndarray],
+    g: float = G_CONST,
+    tau: float = TAU_CONST,
+    s_crit: float = 0.025,
+    gamma: float = 0.5,
+) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
+    """Compute deep-water wave steepness (s_0 = H_s / L_0) and non-dimensional steepness modulator Psi_steep.
+
+    Physical Formulation:
+    ---------------------
+    Deep-water wavelength:
+        L_0 = (g * T_p^2) / (2 * pi)
+    Wave steepness:
+        s_0 = H_s / L_0 = (2 * pi * H_s) / (g * T_p^2)
+
+    Morphodynamic Scaling:
+    ----------------------
+    Wave steepness controls whether incoming wave energy drives constructive berm accretion (long swell, s_0 < 0.025)
+    or erosive bar cutting and dune gouging (short steep storm seas, s_0 > 0.025).
+    The dimensionless steepness modulator scales as:
+        Psi_steep = clip( (s_0 / s_crit)^gamma, 0.2, 2.5 )
+    where s_crit = 0.025 is the classical empirical threshold and gamma = 0.5 is the sublinear scaling exponent.
+
+    Parameters
+    ----------
+    hs : float or np.ndarray
+        Significant wave height (m).
+    tp : float or np.ndarray
+        Peak wave period (s).
+    g : float
+        Gravitational acceleration (9.81 m/s^2).
+    tau : float
+        2 * pi.
+    s_crit : float
+        Critical threshold between swell and erosive seas (default 0.025).
+    gamma : float
+        Steepness scaling exponent (default 0.5).
+
+    Returns
+    -------
+    s_0 : float or np.ndarray
+        Dimensionless wave steepness [-].
+    psi_steep : float or np.ndarray
+        Bounded continuous steepness modulator [-].
+    """
+    hs_arr = np.asarray(hs, dtype=float)
+    tp_arr = np.asarray(tp, dtype=float)
+
+    l_0 = (g * (np.maximum(tp_arr, 0.1) ** 2)) / tau
+    s_0 = np.maximum(hs_arr, 0.01) / np.maximum(l_0, 1.0)
+    psi_steep = np.clip((s_0 / max(float(s_crit), 1e-4)) ** float(gamma), 0.2, 2.5)
+
+    if np.isscalar(hs) and np.isscalar(tp):
+        return float(s_0), float(psi_steep)
+    return s_0, psi_steep
+
+
+def compute_radiation_stress_tensor(
+    hs: Union[float, np.ndarray],
+    tp: Optional[Union[float, np.ndarray]] = None,
+    wave_dir_deg: Optional[Union[float, np.ndarray]] = None,
+    shore_normal_deg: float = DUCK_SHORE_NORMAL_DEG,
+    rho: float = RHO_WATER,
+    g: float = G_CONST,
+) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray], Union[float, np.ndarray], Union[float, np.ndarray]]:
+    """Compute exact radiation stress tensor components (S_xx, S_xy) and normalized stress ratio Psi_Sxx.
+
+    Theoretical Formulation (Longuet-Higgins & Stewart, 1964):
+    ---------------------------------------------------------
+    Wave energy density per unit horizontal area:
+        E = (1 / 8) * rho * g * H_s^2   [J / m^2]
+    Relative wave incidence angle to shore-normal azimuth:
+        theta_rel = (wave_dir_deg - shore_normal_deg) * (pi / 180)
+    In deep water (group velocity c_g / c = n = 1/2):
+        S_xx = E * (n * (1 + cos^2(theta_rel)) - 1/2) = E * (1/2) * cos^2(theta_rel)   [N / m]
+        S_xy = E * (n / 2) * sin(2 * theta_rel) = E * (1/4) * sin(2 * theta_rel)       [N / m]
+
+    The normalized shore-normal radiation stress ratio:
+        Psi_Sxx = S_xx / E = (1/2) * cos^2(theta_rel)
+    which directly quantifies the excess cross-shore momentum flux driving wave set-up and beach gouging.
+
+    Parameters
+    ----------
+    hs : float or np.ndarray
+        Significant wave height (m).
+    tp : float or np.ndarray, optional
+        Peak wave period (s).
+    wave_dir_deg : float or np.ndarray, optional
+        Wave direction in degrees True.
+    shore_normal_deg : float
+        Shore-normal orientation azimuth (deg True).
+    rho : float
+        Seawater density (1025 kg/m^3).
+    g : float
+        Gravitational acceleration (9.81 m/s^2).
+
+    Returns
+    -------
+    s_xx : float or np.ndarray
+        Shore-normal cross-shore radiation stress (N/m).
+    s_xy : float or np.ndarray
+        Longshore shear radiation stress driving littoral currents (N/m).
+    psi_sxx : float or np.ndarray
+        Dimensionless radiation stress ratio S_xx / E [-].
+    e_energy : float or np.ndarray
+        Total wave energy density E (J/m^2).
+    """
+    hs_arr = np.asarray(hs, dtype=float)
+    if wave_dir_deg is not None:
+        w_dir = np.asarray(wave_dir_deg, dtype=float)
+    else:
+        w_dir = np.full_like(hs_arr, float(shore_normal_deg))
+
+    theta_rel = np.radians(w_dir - float(shore_normal_deg))
+    e_energy = (1.0 / 8.0) * rho * g * (np.maximum(hs_arr, 0.0) ** 2)
+
+    s_xx = e_energy * 0.5 * (np.cos(theta_rel) ** 2)
+    s_xy = e_energy * 0.25 * np.sin(2.0 * theta_rel)
+    psi_sxx = 0.5 * (np.cos(theta_rel) ** 2)
+
+    if np.isscalar(hs) and (wave_dir_deg is None or np.isscalar(wave_dir_deg)):
+        return float(s_xx), float(s_xy), float(psi_sxx), float(e_energy)
+    return s_xx, s_xy, psi_sxx, e_energy
+
+
+def compute_sallenger_impact_ratio(
+    twl: Union[float, np.ndarray],
+    berm_crest_m: Union[float, np.ndarray] = 2.5,
+    hs: Optional[Union[float, np.ndarray]] = None,
+    alpha_impact: float = 0.5,
+) -> Tuple[Union[float, np.ndarray], np.ndarray]:
+    """Compute Sallenger (2000) storm impact scale regime classification and collision/overwash ratio Psi_impact.
+
+    Theoretical Formulation (Sallenger, 2000):
+    -----------------------------------------
+    The Sallenger storm impact scale establishes 4 discrete regimes based on Total Water Level (TWL = Tide + Surge + R_2%):
+    1. Swash Regime (TWL < z_berm):
+       Wave runup is confined to the foreshore; typical mild-weather or minor storm conditions.
+       Psi_impact = 1.0 (baseline).
+    2. Collision Regime (z_berm <= TWL < z_dune):
+       Wave runup directly collides with the base of the berm or dune toe, triggering scarping, slumping, and rapid gouging.
+       Psi_impact = 1.0 + alpha_impact * (TWL - z_berm) / max(H_s, 0.5)
+    3. Overwash Regime (TWL >= z_dune, or severe TWL > z_berm + 1.2m):
+       Wave runup crests over the berm/dune, transporting sediment landward into washover fans.
+
+    Parameters
+    ----------
+    twl : float or np.ndarray
+        Total Water Level elevation above vertical datum (m).
+    berm_crest_m : float or np.ndarray
+        Elevation of berm/dune toe crest above vertical datum (m).
+    hs : float or np.ndarray, optional
+        Significant wave height (m) used for scale normalization.
+    alpha_impact : float
+        Collision scaling multiplier (default 0.5).
+
+    Returns
+    -------
+    psi_impact : float or np.ndarray
+        Continuous non-negative impact amplification factor (>= 1.0) [-].
+    regimes : np.ndarray of str
+        Regime string array ('swash', 'collision', 'overwash').
+    """
+    twl_arr = np.asarray(twl, dtype=float)
+    z_berm_arr = np.broadcast_to(np.asarray(berm_crest_m, dtype=float), twl_arr.shape) if not np.isscalar(berm_crest_m) else np.full_like(twl_arr, float(berm_crest_m))
+
+    if hs is not None:
+        hs_scale = np.maximum(np.asarray(hs, dtype=float), 0.5)
+    else:
+        hs_scale = np.ones_like(twl_arr)
+
+    freeboard_excess = np.maximum(0.0, twl_arr - z_berm_arr)
+    psi_impact = 1.0 + float(alpha_impact) * (freeboard_excess / hs_scale)
+
+    regimes = np.full(twl_arr.shape, "swash", dtype=object)
+    regimes[twl_arr >= z_berm_arr] = "collision"
+    regimes[twl_arr >= (z_berm_arr + 1.2)] = "overwash"
+
+    if np.isscalar(twl):
+        return float(psi_impact.item()), regimes.item()
+    return psi_impact, regimes
+
+
+def compute_multiscale_memory_decay(
+    upsilon: Union[float, np.ndarray],
+    tau_days: Tuple[int, ...] = (7, 30, 90, 365),
+    dt_hours: float = 1.0,
+) -> Dict[str, Union[float, np.ndarray]]:
+    """Compute multi-scale exponential memory decay convolutions for Upsilon across multiple physical timescales.
+
+    Theoretical Formulation:
+    ------------------------
+    Beach morphology responds to past storm forcing over multiple decaying timescales:
+        tau in {7 days (synoptic storm relaxation), 30 days (monthly spring-neap envelope),
+                90 days (seasonal bar transition), 365 days (interannual carryover)}.
+
+    The antecedent exponentially weighted moving average is:
+        Upsilon_decay_tau(t) = integral_0^infty Upsilon(t - s) * exp(-s / tau) / tau ds
+    and the corresponding non-equilibrium anomaly is:
+        Delta_Upsilon_tau(t) = Upsilon(t) - Upsilon_decay_tau(t)
+
+    Parameters
+    ----------
+    upsilon : float or np.ndarray
+        Hourly Unified Coastal Vulnerability Index series.
+    tau_days : tuple of int
+        Decay timescales in days (default: 7, 30, 90, 365).
+    dt_hours : float
+        Sampling interval in hours (default: 1.0).
+
+    Returns
+    -------
+    results : dict
+        Dictionary containing:
+        - 'upsilon_decay_{tau}d': Convolved antecedent memory series for each tau.
+        - 'upsilon_diseq_{tau}d': Instantaneous disequilibrium pulse relative to tau memory.
+    """
+    ups_arr = np.asarray(upsilon, dtype=float)
+    out_dict: Dict[str, Union[float, np.ndarray]] = {}
+
+    if ups_arr.ndim == 0 or len(ups_arr) <= 1:
+        scalar_val = float(ups_arr.item()) if ups_arr.ndim == 0 else float(ups_arr[0])
+        for tau in tau_days:
+            out_dict[f"upsilon_decay_{tau}d"] = scalar_val
+            out_dict[f"upsilon_diseq_{tau}d"] = 0.0
+        return out_dict
+
+    s_ups = pd.Series(ups_arr)
+    for tau in tau_days:
+        halflife_hours = float(tau) * 24.0 / float(dt_hours)
+        decay_series = s_ups.ewm(halflife=halflife_hours, min_periods=1).mean().values
+        diseq_series = ups_arr - decay_series
+        out_dict[f"upsilon_decay_{tau}d"] = decay_series
+        out_dict[f"upsilon_diseq_{tau}d"] = diseq_series
+
+    return out_dict
+
+
 def compute_shields_critical_shear_stress_soulsby(
     d50_m: Union[float, np.ndarray] = 0.00035,
     water_temp_c: Optional[Union[float, np.ndarray]] = None,
@@ -1952,6 +2192,11 @@ def compute_unified_coastal_vulnerability_index(
     rho: float = RHO_WATER,
     g: float = G_CONST,
     tau: float = TAU_CONST,
+    enable_steepness_scaling: bool = False,
+    enable_sallenger_impact: bool = False,
+    s_crit: float = 0.025,
+    steepness_gamma: float = 0.5,
+    alpha_impact: float = 0.5,
     **kwargs: Any,
 ) -> pd.DataFrame:
     """Compute the Unified Coastal Vulnerability Index (Υ) with continuous dimensionless modulators and site parameterization.
@@ -2182,7 +2427,20 @@ def compute_unified_coastal_vulnerability_index(
     p_flux = compute_wave_energy_flux(hs_eff, tp_arr, rho=rho, g=g, tau=tau)
     dean = compute_dean_number(hs_eff, tp_arr, ws=ws)
     accretion_pot = compute_constructive_accretion_potential(hs_eff, tp_arr, g=g, tau=tau)
-    
+
+    # 6b. Wave steepness scaling & exact radiation stress tensor
+    s_0, psi_steep = compute_wave_steepness(hs_eff, tp_arr, g=g, tau=tau, s_crit=s_crit, gamma=steepness_gamma)
+    s_xx, s_xy, psi_sxx, e_energy = compute_radiation_stress_tensor(
+        hs=hs_eff, tp=tp_arr, wave_dir_deg=w_dir_arr, shore_normal_deg=eff_shore_normal, rho=rho, g=g
+    )
+
+    # 6c. Sallenger storm impact scale (Collision / Overwash)
+    site_berm = site_cfg.get("berm_crest_m", 2.5)
+    twl_elev = tide_arr + surge_arr + r_2
+    psi_impact, impact_regimes = compute_sallenger_impact_ratio(
+        twl=twl_elev, berm_crest_m=site_berm, hs=hs_eff, alpha_impact=alpha_impact
+    )
+
     # 7. Cross-array wave dissipation & sandbar / reef shielding
     if p_outer_Wm is not None:
         delta_p, shielding = compute_cross_array_dissipation_ratio(p_outer_Wm, p_flux)
@@ -2252,7 +2510,16 @@ def compute_unified_coastal_vulnerability_index(
     )
     
     # 12. Unified Coastal Vulnerability Index (Upsilon_unified)
-    upsilon = prefactor * tan_beta_arr * wave_sed_core * twl_amplification * psi_tide * psi_phase * psi_dir * wind_amplification
+    upsilon_base = prefactor * tan_beta_arr * wave_sed_core * twl_amplification * psi_tide * psi_phase * psi_dir * wind_amplification
+    upsilon = upsilon_base.copy()
+    if enable_steepness_scaling:
+        upsilon = upsilon * psi_steep
+    if enable_sallenger_impact:
+        upsilon = upsilon * psi_impact
+    upsilon_full = upsilon_base * psi_steep * psi_impact
+
+    # Multi-scale antecedent memory decay convolutions
+    multiscale_decay = compute_multiscale_memory_decay(upsilon, tau_days=(7, 30, 90, 365))
     
     # 13. Critical Threshold Shear Activation (Upsilon_excess = max(0, Upsilon - Upsilon_crit))
     if upsilon_crit is not None:
@@ -2448,6 +2715,23 @@ def compute_unified_coastal_vulnerability_index(
         "upsilon_star": upsilon_star,
         "upsilon_star_excess": upsilon_star_excess,
         "upsilon_star_crit": upsilon_star_crit,
+        "wave_steepness_s0": s_0,
+        "psi_steep": psi_steep,
+        "s_xx_Wm": s_xx,
+        "s_xy_Wm": s_xy,
+        "psi_sxx": psi_sxx,
+        "e_energy_Jm2": e_energy,
+        "psi_impact": psi_impact,
+        "impact_regime": impact_regimes,
+        "upsilon_full": upsilon_full,
+        "upsilon_decay_7d": multiscale_decay["upsilon_decay_7d"],
+        "upsilon_decay_30d": multiscale_decay["upsilon_decay_30d"],
+        "upsilon_decay_90d": multiscale_decay["upsilon_decay_90d"],
+        "upsilon_decay_365d": multiscale_decay["upsilon_decay_365d"],
+        "upsilon_diseq_7d": multiscale_decay["upsilon_diseq_7d"],
+        "upsilon_diseq_30d": multiscale_decay["upsilon_diseq_30d"],
+        "upsilon_diseq_90d": multiscale_decay["upsilon_diseq_90d"],
+        "upsilon_diseq_365d": multiscale_decay["upsilon_diseq_365d"],
     })
     if water_temp_c is not None:
         df_out["water_temp_c"] = water_temp_c

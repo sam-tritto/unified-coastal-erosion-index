@@ -92,3 +92,40 @@ def test_export_unified_feature_engineered_datasets(tmp_path):
         assert "runup_r_ig_m" in df.columns
         assert df["site"].iloc[0] == s
 
+
+def test_option_b_authentic_multisite_datasets():
+    """Verify that Option B authentic multi-site datasets (2012-2016, 5 years) exist, are non-synthetic, and contain all physics terms."""
+    import os
+    sites = ["duck_nc", "narrabeen_aus", "torrey_pines_ca", "truc_vert_france"]
+
+    # 1. Verify 5-year sensor parquets (43,848 hours each: 366*2 + 365*3 = 1827 days = 43,848 hours)
+    expected_hours = 43848
+    for s in sites:
+        parquet_path = f"data/processed/{s}_2012_2016_sensors.parquet"
+        assert os.path.exists(parquet_path), f"Missing parquet for {s} at {parquet_path}"
+        df_parquet = pd.read_parquet(parquet_path)
+        assert len(df_parquet) == expected_hours, f"Expected {expected_hours} hours for {s}, got {len(df_parquet)}"
+
+        # Verify new physics terms
+        for col in [
+            "wave_steepness_s0", "psi_steep",
+            "s_xx_Wm", "s_xy_Wm", "psi_sxx",
+            "psi_impact", "impact_regime",
+            "upsilon_full",
+            "upsilon_decay_7d", "upsilon_diseq_7d",
+            "upsilon_decay_30d", "upsilon_diseq_30d",
+            "upsilon_decay_90d", "upsilon_diseq_90d",
+            "upsilon_decay_365d", "upsilon_diseq_365d",
+        ]:
+            assert col in df_parquet.columns, f"Missing physics column {col} in {s}"
+
+    # 2. Verify authentic unified survey catalog (N=1228)
+    survey_path = "data/site_field_surveys_2012_2017.csv"
+    assert os.path.exists(survey_path)
+    df_surveys = pd.read_csv(survey_path)
+    assert len(df_surveys) >= 1200
+    assert set(df_surveys["site"].unique()) == set(sites)
+    assert np.all(df_surveys["is_in_situ_observed"] == True)
+    assert not df_surveys["shoreline_pos_mhw_m"].isna().any()
+
+
