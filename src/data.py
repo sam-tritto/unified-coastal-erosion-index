@@ -1722,6 +1722,14 @@ def load_multi_year_dataset(
     label : str
         Summary provenance label.
     """
+    # Fast path for processed 2012-2016 Option B datasets
+    if start_year == 2012 and end_year == 2016:
+        golden_parquet = f"data/processed/{site}_2012_2016_sensors.parquet"
+        if os.path.exists(golden_parquet):
+            df_multi = pd.read_parquet(golden_parquet)
+            label = f"Processed Golden Window 2012–2016 ({site.upper()}, N={len(df_multi):,})"
+            return df_multi, label
+
     frames = []
     for yr in range(start_year, end_year + 1):
         df_yr, _ = load_annual_dataset(year=yr, site=site, morph_model=morph_model, try_live_api=try_live_api, cache_dir=cache_dir)
@@ -1885,8 +1893,24 @@ def align_hydrodynamics_with_field_surveys(
             c_accretion=1.8e-5,
             upsilon_eq_mode="expanding",
         )
+        if all(k in df_hydro.columns for k in ["psi_steepness", "psi_radiation_stress_xx", "psi_sallenger_impact"]):
+            ups_aug_vals = (
+                df_hydro["upsilon"].values
+                * df_hydro["psi_steepness"].values
+                * df_hydro["psi_radiation_stress_xx"].values
+                * df_hydro["psi_sallenger_impact"].values
+            )
+            ups_aug_diseq_full, _ = simulate_signed_equilibrium_upsilon_evolution(
+                upsilon=ups_aug_vals,
+                c_erosion=1.2e-5,
+                c_accretion=1.8e-5,
+                upsilon_eq_mode="expanding",
+            )
+        else:
+            ups_aug_diseq_full = ups_diseq_full
     else:
         ups_diseq_full = np.zeros(len(df_hydro))
+        ups_aug_diseq_full = np.zeros(len(df_hydro))
 
     if "hs_m" in df_hydro.columns and "tp_s" in df_hydro.columns:
         hs_vals = df_hydro["hs_m"].values
@@ -1931,6 +1955,8 @@ def align_hydrodynamics_with_field_surveys(
 
         ups_diseq_delta = float(ups_diseq_full[exact_pos] - ups_diseq_full[prev_pos]) if exact_pos < len(ups_diseq_full) and prev_pos < len(ups_diseq_full) else 0.0
         ups_diseq_pos = float(ups_diseq_full[exact_pos]) if exact_pos < len(ups_diseq_full) else 0.0
+        ups_aug_delta = float(ups_aug_diseq_full[exact_pos] - ups_aug_diseq_full[prev_pos]) if exact_pos < len(ups_aug_diseq_full) and prev_pos < len(ups_aug_diseq_full) else 0.0
+        ups_aug_pos = float(ups_aug_diseq_full[exact_pos]) if exact_pos < len(ups_aug_diseq_full) else 0.0
         yates_delta = float(yates_full[exact_pos] - yates_full[prev_pos]) if exact_pos < len(yates_full) and prev_pos < len(yates_full) else 0.0
         yates_pos = float(yates_full[exact_pos]) if exact_pos < len(yates_full) else 0.0
         xbeach_delta = float(xbeach_full[exact_pos] - xbeach_full[prev_pos]) if exact_pos < len(xbeach_full) and prev_pos < len(xbeach_full) else 0.0
@@ -2002,6 +2028,8 @@ def align_hydrodynamics_with_field_surveys(
             "antecedent_max_power_Wm": max_power,
             "upsilon_diseq_simulated_delta_x_m": ups_diseq_delta,
             "upsilon_diseq_simulated_pos_m": ups_diseq_pos,
+            "upsilon_aug_diseq_simulated_delta_x_m": ups_aug_delta,
+            "upsilon_aug_diseq_simulated_pos_m": ups_aug_pos,
             "yates_simulated_delta_x_m": yates_delta,
             "yates_simulated_pos_m": yates_pos,
             "xbeach_simulated_delta_x_m": xbeach_delta,

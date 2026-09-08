@@ -2486,6 +2486,8 @@ def evaluate_cross_paradigm_walk_forward_cv(
     cores: int = 1,
     random_seed: int = 42,
     use_field_surveys: bool = True,
+    start_year: int = 2012,
+    end_year: int = 2016,
     data_dir: str = "data/processed",
     eval_interval_hours: int = 24,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -2497,12 +2499,14 @@ def evaluate_cross_paradigm_walk_forward_cv(
     Parameters
     ----------
     sites : list of str, optional
-        List of global site keys (default: all 5 sites).
+        List of global site keys (default: all 4 Option B sites).
     n_splits : int
         Number of walk-forward temporal folds (default 4).
     draws, tune, chains, cores, random_seed : MCMC sampling config.
     use_field_surveys : bool
         If True (default), evaluates against authentic in-situ GPS/Lidar field surveys.
+    start_year, end_year : int
+        Calendar year range for continuous hydrodynamic forcing (default 2012-2016).
     data_dir : str
         Path to processed sensor parquet datasets (used when use_field_surveys is False).
     eval_interval_hours : int
@@ -2531,7 +2535,7 @@ def evaluate_cross_paradigm_walk_forward_cv(
     )
 
     if sites is None:
-        sites = ["duck_nc", "narrabeen_aus"]
+        sites = ["duck_nc", "narrabeen_aus", "torrey_pines_ca", "truc_vert_france"]
 
     pooled_preds = {}
     pooled_actuals = {}
@@ -2547,7 +2551,7 @@ def evaluate_cross_paradigm_walk_forward_cv(
     for site in sites:
         if use_field_surveys:
             df_surveys = load_site_field_surveys(site, transect_index=None)
-            df_hydro, _ = load_dataset(site=site, start_year=2020, end_year=2024)
+            df_hydro, _ = load_dataset(site=site, start_year=start_year, end_year=end_year)
             if df_hydro.index.tz is not None and df_surveys.index.tz is None:
                 df_surveys.index = df_surveys.index.tz_localize("UTC")
             elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
@@ -2570,12 +2574,14 @@ def evaluate_cross_paradigm_walk_forward_cv(
 
             model_deltas = {
                 ("Class III (Bayesian)", "Signed Equilibrium Upsilon"): df_survey["upsilon_diseq_simulated_delta_x_m"].values,
+                ("Class III (Bayesian)", "Physics-Augmented Upsilon (Steep/Rad/Impact)"): df_survey["upsilon_aug_diseq_simulated_delta_x_m"].values if "upsilon_aug_diseq_simulated_delta_x_m" in df_survey.columns else df_survey["upsilon_diseq_simulated_delta_x_m"].values,
                 ("Class I (Analytical)", "ShoreFor (2013) Memory"): shorefor_delta,
                 ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_delta_x_m"].values,
                 ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_delta_x_m"].values,
             }
             model_positions = {
                 ("Class III (Bayesian)", "Signed Equilibrium Upsilon"): df_survey["upsilon_diseq_simulated_pos_m"].values,
+                ("Class III (Bayesian)", "Physics-Augmented Upsilon (Steep/Rad/Impact)"): df_survey["upsilon_aug_diseq_simulated_pos_m"].values if "upsilon_aug_diseq_simulated_pos_m" in df_survey.columns else df_survey["upsilon_diseq_simulated_pos_m"].values,
                 ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_pos_m"].values,
                 ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_pos_m"].values,
             }
@@ -3096,6 +3102,8 @@ def evaluate_leave_one_site_out_cv(
     cores: int = 1,
     random_seed: int = 42,
     use_field_surveys: bool = True,
+    start_year: int = 2012,
+    end_year: int = 2016,
     data_dir: str = "data/processed",
     eval_interval_hours: int = 24,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -3110,10 +3118,12 @@ def evaluate_leave_one_site_out_cv(
     Parameters
     ----------
     sites : list of str, optional
-        List of global site keys (default: all 5 sites).
+        List of global site keys (default: all 4 Option B sites).
     draws, tune, chains, cores, random_seed : MCMC sampling config.
     use_field_surveys : bool
         If True (default), evaluates against authentic in-situ GPS/Lidar field surveys.
+    start_year, end_year : int
+        Calendar year range for continuous hydrodynamic forcing (default 2012-2016).
     data_dir : str
         Path to processed sensor parquet datasets (used when use_field_surveys is False).
     eval_interval_hours : int
@@ -3142,14 +3152,14 @@ def evaluate_leave_one_site_out_cv(
     )
 
     if sites is None:
-        sites = ["duck_nc", "narrabeen_aus"]
+        sites = ["duck_nc", "narrabeen_aus", "torrey_pines_ca", "truc_vert_france"]
 
     site_data = {}
 
     for site in sites:
         if use_field_surveys:
             df_surveys = load_site_field_surveys(site, transect_index=None)
-            df_hydro, _ = load_dataset(site=site, start_year=2020, end_year=2024)
+            df_hydro, _ = load_dataset(site=site, start_year=start_year, end_year=end_year)
             if df_hydro.index.tz is not None and df_surveys.index.tz is None:
                 df_surveys.index = df_surveys.index.tz_localize("UTC")
             elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
@@ -3174,6 +3184,7 @@ def evaluate_leave_one_site_out_cv(
                 "deltas": {
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Calibrated)"): df_survey["upsilon_diseq_simulated_delta_x_m"].values,
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Global Default)"): df_survey["upsilon_diseq_simulated_delta_x_m"].values,
+                    ("Class III (Bayesian)", "Physics-Augmented Upsilon (Steep/Rad/Impact)"): df_survey["upsilon_aug_diseq_simulated_delta_x_m"].values if "upsilon_aug_diseq_simulated_delta_x_m" in df_survey.columns else df_survey["upsilon_diseq_simulated_delta_x_m"].values,
                     ("Class I (Analytical)", "ShoreFor (2013) Memory"): shorefor_delta,
                     ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_delta_x_m"].values,
                     ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_delta_x_m"].values,
@@ -3181,6 +3192,7 @@ def evaluate_leave_one_site_out_cv(
                 "positions": {
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Calibrated)"): df_survey["upsilon_diseq_simulated_pos_m"].values,
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Global Default)"): df_survey["upsilon_diseq_simulated_pos_m"].values,
+                    ("Class III (Bayesian)", "Physics-Augmented Upsilon (Steep/Rad/Impact)"): df_survey["upsilon_aug_diseq_simulated_pos_m"].values if "upsilon_aug_diseq_simulated_pos_m" in df_survey.columns else df_survey["upsilon_diseq_simulated_pos_m"].values,
                     ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_pos_m"].values,
                     ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_pos_m"].values,
                 }
@@ -4826,6 +4838,8 @@ def evaluate_signed_equilibrium_rate_sensitivity(
     c_asym_ratios: Sequence[float] = (0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0),
     c_erosion_base: float = 1.2e-5,
     upsilon_eq_mode: str = "expanding",
+    start_year: int = 2012,
+    end_year: int = 2016,
     data_dir: str = "data/processed",
 ) -> pd.DataFrame:
     """Evaluate shoreline prediction sensitivity across recovery asymmetry ratios c_acc / c_ero in [0.5, 3.0].
@@ -4833,13 +4847,15 @@ def evaluate_signed_equilibrium_rate_sensitivity(
     Parameters
     ----------
     sites : list of str, optional
-        Target sites (default: all 5 global sites).
+        Target sites (default: all 4 Option B sites).
     c_asym_ratios : sequence of float
         Asymmetry ratios c_accretion / c_erosion to sweep (default: 0.5 to 3.0).
     c_erosion_base : float
         Baseline erosion rate constant (default: 1.2e-5).
     upsilon_eq_mode : str
         Equilibrium baseline mode ('expanding', 'annual', 'causal').
+    start_year, end_year : int
+        Calendar year range for continuous hydrodynamic forcing (default 2012-2016).
     data_dir : str
         Path to processed survey and sensor archives.
 
@@ -4853,13 +4869,13 @@ def evaluate_signed_equilibrium_rate_sensitivity(
     from src.physics import simulate_signed_equilibrium_upsilon_evolution, COASTAL_SITE_PROFILES
 
     if sites is None:
-        sites = ["duck_nc", "narrabeen_aus"]
+        sites = ["duck_nc", "narrabeen_aus", "torrey_pines_ca", "truc_vert_france"]
 
     records = []
 
     for site in sites:
         df_surveys = load_site_field_surveys(site, transect_index=None)
-        df_hydro, _ = load_dataset(site=site, start_year=2020, end_year=2024)
+        df_hydro, _ = load_dataset(site=site, start_year=start_year, end_year=end_year)
         if df_hydro.index.tz is not None and df_surveys.index.tz is None:
             df_surveys.index = df_surveys.index.tz_localize("UTC")
         elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
@@ -4922,14 +4938,18 @@ def infer_multi_site_signed_equilibrium_uncertainty(
     tune: int = 200,
     chains: int = 2,
     random_seed: int = 42,
+    start_year: int = 2012,
+    end_year: int = 2016,
 ) -> pd.DataFrame:
     """Fit learnable Bayesian Signed Equilibrium models across global site archetypes and compute 94% HDIs.
 
     Parameters
     ----------
     sites : list of str, optional
-        Target sites (default: all 5 global sites).
+        Target sites (default: all 4 Option B sites).
     draws, tune, chains, random_seed : MCMC sampling configuration.
+    start_year, end_year : int
+        Calendar year range for continuous hydrodynamic forcing (default 2012-2016).
 
     Returns
     -------
@@ -4940,13 +4960,13 @@ def infer_multi_site_signed_equilibrium_uncertainty(
     from src.physics import COASTAL_SITE_PROFILES
 
     if sites is None:
-        sites = ["duck_nc", "narrabeen_aus"]
+        sites = ["duck_nc", "narrabeen_aus", "torrey_pines_ca", "truc_vert_france"]
 
     results = []
 
     for site in sites:
         df_surveys = load_site_field_surveys(site, transect_index=None)
-        df_hydro, _ = load_dataset(site=site, start_year=2020, end_year=2024)
+        df_hydro, _ = load_dataset(site=site, start_year=start_year, end_year=end_year)
         if df_hydro.index.tz is not None and df_surveys.index.tz is None:
             df_surveys.index = df_surveys.index.tz_localize("UTC")
         elif df_hydro.index.tz is None and df_surveys.index.tz is not None:
