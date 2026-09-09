@@ -2525,5 +2525,13 @@ def evaluate_rag_benchmark_suite(
         "Mean Cosine Similarity@5": float(np.mean(sim_accum)) if sim_accum else 0.0,
     })
 
+    # Add snake_case aliases for flexible programmatic access
+    for k_val in set(cutoff_ranks + [1, 3, 5, 10]):
+        if f"Mean Precision@{k_val}" in summary_metrics:
+            summary_metrics[f"mean_p_at_{k_val}"] = summary_metrics[f"Mean Precision@{k_val}"]
+    summary_metrics["mean_mrr"] = summary_metrics["Mean Reciprocal Rank (MRR)"]
+    summary_metrics["regime_purity_at_5"] = summary_metrics["Mean Regime Purity@5"]
+    summary_metrics["mean_recall_at_5"] = summary_metrics["Mean Recall@5"]
+
     return df_results, summary_metrics
 
