@@ -1532,13 +1532,42 @@ class HybridPhysicsRAG(PhysicsRAG):
         Ranking formula:
             final_score = α × cosine_sim + (1 - α) × constraint_score + regime_boost_if_match
         """
-        # 1. Parse query intent
+        # 1. Parse query intent — crucially, always extract NL constraints for hybrid scoring
         if spec is None:
+            # First, always extract constraints from query text via deterministic parser
+            nl_spec = GeminiPhysicsQueryParser._fallback_parse(query_text)
+
             if target_synthetic_values is not None:
+                # Merge: use target_synthetic_values for vector synthesis,
+                # but carry over NL-parsed constraints for constraint satisfaction scoring
                 spec = PhysicsQuerySpec(
                     raw_query=query_text,
-                    intent_summary=f"Target parameter query for '{query_text}'",
+                    intent_summary=f"Hybrid target parameter query for '{query_text}'",
                     target_synthetic_values=target_synthetic_values,
+                    # Carry NL-parsed physical constraints for constraint satisfaction
+                    breaker_regime=nl_spec.breaker_regime,
+                    morphology=nl_spec.morphology,
+                    phase=nl_spec.phase,
+                    filter_background_noise=nl_spec.filter_background_noise,
+                    query_recovery_timeframe=nl_spec.query_recovery_timeframe,
+                    target_state=nl_spec.target_state,
+                    focus=nl_spec.focus,
+                    site_id=nl_spec.site_id,
+                    geomorphic_regime=nl_spec.geomorphic_regime,
+                    hs_min=nl_spec.hs_min,
+                    hs_max=nl_spec.hs_max,
+                    tp_min=nl_spec.tp_min,
+                    tp_max=nl_spec.tp_max,
+                    surge_min=nl_spec.surge_min,
+                    surge_max=nl_spec.surge_max,
+                    xi_min=nl_spec.xi_min,
+                    xi_max=nl_spec.xi_max,
+                    delta_x_min=nl_spec.delta_x_min,
+                    delta_x_max=nl_spec.delta_x_max,
+                    wind_normal_min=nl_spec.wind_normal_min,
+                    wind_normal_max=nl_spec.wind_normal_max,
+                    min_upsilon_percentile=nl_spec.min_upsilon_percentile,
+                    max_upsilon_percentile=nl_spec.max_upsilon_percentile,
                 )
             elif use_llm_parser:
                 spec = GeminiPhysicsQueryParser.parse(
@@ -1547,7 +1576,7 @@ class HybridPhysicsRAG(PhysicsRAG):
                     api_key=self.api_key,
                 )
             else:
-                spec = GeminiPhysicsQueryParser._fallback_parse(query_text)
+                spec = nl_spec
 
         # 2. Build target query embedding vector
         query_vec = self._build_query_vector(spec)
