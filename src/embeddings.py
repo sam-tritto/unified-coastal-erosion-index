@@ -59,7 +59,9 @@ def build_physics_anchored_feature_matrix(
             feature_dict["Hs"] = df["hs_m"].values
         if "tp_s" in df.columns:
             feature_dict["Tp"] = df["tp_s"].values
-        if "surge_m" in df.columns:
+        if "total_water_level_m" in df.columns:
+            feature_dict["Surge_S"] = df["total_water_level_m"].values
+        elif "surge_m" in df.columns:
             feature_dict["Surge_S"] = df["surge_m"].values
         if "wind_normal_ms" in df.columns:
             feature_dict["Wind_Wa"] = df["wind_normal_ms"].values
@@ -669,7 +671,8 @@ def synthesize_target_physics_vector(
         "hs": "hs_m", "hs_m": "hs_m", "significant_wave_height": "hs_m",
         "tp": "tp_s", "tp_s": "tp_s", "peak_period": "tp_s",
         "surge": "surge_m", "surge_m": "surge_m", "water_level": "surge_m",
-        "wind": "wind_normal_ms", "wind_normal_ms": "wind_normal_ms", "wind_wa": "wind_normal_ms",
+        "total_water_level_m": "total_water_level_m", "twl": "total_water_level_m", "water_level_m": "total_water_level_m",
+        "wind": "wind_normal_ms", "wind_normal_ms": "wind_normal_ms", "wind_wa": "wind_normal_ms", "wind_speed_ms": "wind_normal_ms",
         "temp": "water_temp_c", "water_temp_c": "water_temp_c",
         "slope": "tan_beta", "tan_beta": "tan_beta",
         "ws": "w_s_ms", "w_s_ms": "w_s_ms",
@@ -697,6 +700,7 @@ def synthesize_target_physics_vector(
             tan_beta=baseline["tan_beta"],
             hs_exponent=hs_exp,
         )
+        synth_df["total_water_level_m"] = baseline.get("total_water_level_m", baseline.get("surge_m", 0.85))
         synth_df["delta_p_dissip"] = baseline["delta_p_dissip"]
         synth_df["tan_beta"] = baseline["tan_beta"]
         synth_df["w_s_ms"] = baseline["w_s_ms"]
@@ -714,6 +718,7 @@ def synthesize_target_physics_vector(
         ups = (1025.0 * (g ** 1.5) / (16.0 * (2 * np.pi) ** 1.5)) * tan_b * ((hs ** hs_exp) * tp / ws)
         synth_df = pd.DataFrame([{
             "hs_m": hs, "tp_s": tp, "surge_m": baseline["surge_m"],
+            "total_water_level_m": baseline.get("total_water_level_m", baseline.get("surge_m", 0.85)),
             "wind_normal_ms": baseline["wind_normal_ms"], "water_temp_c": baseline["water_temp_c"],
             "tan_beta": tan_b, "w_s_ms": ws, "xi_iribarren": xi,
             "log_upsilon": np.log10(max(ups, 1e-4)), "dean_number": dean,

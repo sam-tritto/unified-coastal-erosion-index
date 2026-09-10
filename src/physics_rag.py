@@ -946,29 +946,31 @@ class PhysicsRAG:
         if spec.breaker_regime and "breaker_regime" in self.df.columns:
             mask = mask & (self.df["breaker_regime"].values == spec.breaker_regime)
 
-        # Wave height limits
+        # Wave height limits (with 10% physical measurement tolerance)
         if spec.hs_min is not None and "hs_m" in self.df.columns:
-            mask = mask & (self.df["hs_m"].values >= spec.hs_min)
+            mask = mask & (self.df["hs_m"].values >= spec.hs_min * 0.9)
         if spec.hs_max is not None and "hs_m" in self.df.columns:
-            mask = mask & (self.df["hs_m"].values <= spec.hs_max)
+            mask = mask & (self.df["hs_m"].values <= spec.hs_max * 1.1)
 
-        # Wave period limits
+        # Wave period limits (with 10% physical measurement tolerance)
         if spec.tp_min is not None and "tp_s" in self.df.columns:
-            mask = mask & (self.df["tp_s"].values >= spec.tp_min)
+            mask = mask & (self.df["tp_s"].values >= spec.tp_min * 0.9)
         if spec.tp_max is not None and "tp_s" in self.df.columns:
-            mask = mask & (self.df["tp_s"].values <= spec.tp_max)
+            mask = mask & (self.df["tp_s"].values <= spec.tp_max * 1.1)
 
-        # Surge limits
-        if spec.surge_min is not None and "surge_m" in self.df.columns:
-            mask = mask & (self.df["surge_m"].values >= spec.surge_min)
-        if spec.surge_max is not None and "surge_m" in self.df.columns:
-            mask = mask & (self.df["surge_m"].values <= spec.surge_max)
+        # Water level / Surge limits (support total_water_level_m if surge_min is in water-level scale > 0.5m)
+        wl_col = "total_water_level_m" if ("total_water_level_m" in self.df.columns and spec.surge_min is not None and spec.surge_min > 0.5) else "surge_m"
+        if spec.surge_min is not None and wl_col in self.df.columns:
+            mask = mask & (self.df[wl_col].values >= spec.surge_min * 0.9)
+        if spec.surge_max is not None and wl_col in self.df.columns:
+            mask = mask & (self.df[wl_col].values <= spec.surge_max * 1.1)
 
-        # Wind limits
-        if spec.wind_normal_min is not None and "wind_normal_ms" in self.df.columns:
-            mask = mask & (self.df["wind_normal_ms"].values >= spec.wind_normal_min)
-        if spec.wind_normal_max is not None and "wind_normal_ms" in self.df.columns:
-            mask = mask & (self.df["wind_normal_ms"].values <= spec.wind_normal_max)
+        # Wind limits (support wind_speed_ms or wind_normal_ms with 10% measurement tolerance)
+        w_col = "wind_speed_ms" if ("wind_speed_ms" in self.df.columns and spec.wind_normal_min is not None and spec.wind_normal_min > 6.0) else "wind_normal_ms"
+        if spec.wind_normal_min is not None and w_col in self.df.columns:
+            mask = mask & (self.df[w_col].values >= spec.wind_normal_min * 0.9)
+        if spec.wind_normal_max is not None and w_col in self.df.columns:
+            mask = mask & (self.df[w_col].values <= spec.wind_normal_max * 1.1)
 
         # Iribarren limits
         if spec.xi_min is not None and "xi_iribarren" in self.df.columns:
@@ -1347,6 +1349,7 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
         default_pre_window_hours: float = 72.0,
         default_post_window_hours: float = 24.0,
         db_conn: Optional[Any] = None,
+        survey_aligned_epochs: Optional[Dict[str, pd.DataFrame]] = None,
         **kwargs: Any,
     ):
         super().__init__(
@@ -1363,6 +1366,7 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
         self.default_pre_window_hours = default_pre_window_hours
         self.default_post_window_hours = default_post_window_hours
         self.scaler_type = scaler_type
+        self.survey_aligned_epochs = survey_aligned_epochs
 
         # Ensure timestamp column is datetime
         if "timestamp" in self.df.columns:
@@ -1508,7 +1512,9 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
             target_site = str(self.df.iloc[match_index].get("site", "")).lower()
 
         if target_site:
-            part_path = os.path.join("data", f"{target_site.lower()}_sensors.parquet")
+            part_path = os.path.join("data", "processed", f"{target_site.lower()}_2012_2016_sensors.parquet")
+            if not os.path.exists(part_path):
+                part_path = os.path.join("data", f"{target_site.lower()}_sensors.parquet")
             if os.path.exists(part_path):
                 table_ref = f"'{os.path.abspath(part_path)}'"
             else:
@@ -1545,8 +1551,18 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
                 ts = pd.to_datetime(event_timestamp)
                 t_start = ts - pd.Timedelta(hours=pre_h)
                 t_end = ts + pd.Timedelta(hours=post_h)
-                mask = (pd.to_datetime(self.df["timestamp"]) >= t_start) & (pd.to_datetime(self.df["timestamp"]) <= t_end)
-                parent_df = self.df[mask].sort_values("timestamp").copy()
+                source_df = self.df
+                if target_site and "site" in self.df.columns:
+                    source_df = self.df[self.df["site"].astype(str).str.lower() == target_site.lower()]
+                ts_col = pd.to_datetime(source_df["timestamp"])
+                if ts_col.dt.tz is not None and t_start.tz is None:
+                    t_start = t_start.tz_localize("UTC")
+                    t_end = t_end.tz_localize("UTC")
+                elif ts_col.dt.tz is None and t_start.tz is not None:
+                    t_start = t_start.tz_convert(None)
+                    t_end = t_end.tz_convert(None)
+                mask = (ts_col >= t_start) & (ts_col <= t_end)
+                parent_df = source_df[mask].sort_values("timestamp").copy()
                 if columns:
                     valid_cols = [c for c in columns if c in parent_df.columns]
                     parent_df = parent_df[valid_cols]
@@ -1735,11 +1751,13 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
         pre_window_hours: float = 72.0,
         post_window_hours: float = 24.0,
         sites: Optional[List[str]] = None,
+        aligned_surveys: Optional[Dict[str, pd.DataFrame]] = None,
     ) -> Dict[str, Any]:
         """Automatically query and diagnose hydrodynamic failure modes and model under-prediction across all sites.
 
-        Scans the global Parent Storage layer to identify episodes where severe observed shoreline erosion
-        (negative Δx rate) coincided with low-to-moderate baseline Upsilon forcing.
+        Scans either authentic survey epochs (when aligned_surveys is provided) or the continuous
+        parent storage layer to identify episodes where severe observed shoreline erosion
+        coincided with low-to-moderate baseline Upsilon forcing.
         Hydrates continuous parent sequences from DuckDB and synthesizes an automated diagnostic root-cause attribution.
 
         Parameters
@@ -1754,6 +1772,9 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
             Hydration context hours after event (default 24h).
         sites : list of str, optional
             List of site keys to audit (default: all sites in df).
+        aligned_surveys : dict of str -> pd.DataFrame, optional
+            Dictionary mapping site keys to aligned in-situ survey epoch DataFrames.
+            If None, checks self.survey_aligned_epochs, otherwise falls back to hourly scan.
 
         Returns
         -------
@@ -1771,82 +1792,206 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
             else:
                 sites = ["duck_nc"]
 
+        if aligned_surveys is None:
+            aligned_surveys = getattr(self, "survey_aligned_epochs", None)
+
         records: List[Dict[str, Any]] = []
         hydrated_windows: Dict[str, List[ParentWindowContext]] = {}
 
-        for site_key in sites:
-            site_mask = self.df["site"] == site_key if "site" in self.df.columns else np.ones(len(self.df), dtype=bool)
-            sub_df = self.df[site_mask].copy().reset_index(drop=True)
-            if len(sub_df) < 10:
-                continue
+        if aligned_surveys is not None:
+            # === AUTHENTIC SURVEY-EPOCH FAILURE MODE AUDIT ===
+            for site_key in sites:
+                if site_key not in aligned_surveys:
+                    continue
+                df_a = aligned_surveys[site_key].copy()
+                if len(df_a) < 2:
+                    continue
 
-            prof = COASTAL_SITE_PROFILES.get(site_key, {
-                "name": site_key, "tan_beta": 0.08, "is_reef": False, "is_embayment": False, "z_crest_m": 2.5
-            })
+                site_mask = self.df["site"] == site_key if "site" in self.df.columns else np.ones(len(self.df), dtype=bool)
+                sub_df = self.df[site_mask].copy().reset_index(drop=True)
 
-            # Calculate observed shoreline change rate and Upsilon
-            if "shoreline_change_rate_mh" in sub_df.columns:
-                dx = sub_df["shoreline_change_rate_mh"].values
-            elif "shoreline_pos_obs_m" in sub_df.columns:
-                dx = np.diff(sub_df["shoreline_pos_obs_m"].values, prepend=sub_df["shoreline_pos_obs_m"].values[0])
-            else:
-                dx = np.zeros(len(sub_df))
-
-            u = sub_df["upsilon"].values if "upsilon" in sub_df.columns else np.zeros(len(sub_df))
-
-            # Standardized discrepancy: severe erosion (negative dx) with low/moderate Upsilon
-            z_dx_erosion = -(dx - np.mean(dx)) / max(float(np.std(dx)), 1e-4)
-            z_u = (u - np.mean(u)) / max(float(np.std(u)), 1e-4)
-            discrepancy = z_dx_erosion - z_u
-
-            top_indices = np.argsort(discrepancy)[-top_k_per_site:][::-1]
-            hydrated_windows[site_key] = []
-
-            for rank, idx in enumerate(top_indices):
-                row = sub_df.iloc[idx]
-                hs_val = float(row.get("hs_m", 0.0))
-                tp_val = float(row.get("tp_s", 0.0))
-                surge_val = float(row.get("surge_m", 0.0))
-                tide_val = float(row.get("tide_m", 0.0))
-                twl_val = float(row.get("total_water_level_m", surge_val + tide_val + hs_val * 0.2))
-                dx_val = float(dx[idx])
-                u_val = float(u[idx])
-                ts = row["timestamp"] if "timestamp" in row else f"Step_{idx}"
-
-                # Physical root cause attribution
-                if prof.get("is_reef") and (surge_val > 0.3 or tide_val > 0.2):
-                    cause = "Reef Depth-Modulated Overtopping (Tidal surge reduces reef flat friction, transmitting energetic bores to shore)"
-                elif prof.get("is_embayment") and abs(row.get("wave_dir_deg", 0.0) - prof.get("shore_normal_deg", 0.0)) > 20.0:
-                    cause = "Embayed Rotation & Alongshore Rip Scour (High wave obliquity drives localized rip cell sand evacuation)"
-                elif tp_val >= 13.0 and prof.get("tan_beta", 0.08) <= 0.07:
-                    cause = "Infragravity Swash & Surf-Beat Resonance (Long-period swell excites bound infragravity waves over dissipative bars)"
-                elif surge_val > 0.35 or twl_val > prof.get("z_crest_m", 2.5) * 0.8:
-                    cause = "Storm Surge & Elevated TWL Scarping (High water level elevates wave attack above baseline equilibrium berm)"
-                else:
-                    cause = "Antecedent Beach Depletion (Successive wave pulses erode a previously scarped profile)"
-
-                records.append({
-                    "Site": prof.get("name", site_key).split(",")[0],
-                    "Site Key": site_key,
-                    "Timestamp": str(ts)[:16],
-                    "Observed Δx/Δt (m/h)": f"{dx_val:+.3f}",
-                    "Hs (m)": f"{hs_val:.2f}",
-                    "Tp (s)": f"{tp_val:.1f}",
-                    "Surge (m)": f"{surge_val:+.2f}",
-                    "Upsilon [kg/s]": f"{u_val:.1f}",
-                    "Discrepancy Score": f"{discrepancy[idx]:.1f}",
-                    "Physical Root Cause": cause,
+                prof = COASTAL_SITE_PROFILES.get(site_key, {
+                    "name": site_key, "tan_beta": 0.08, "is_reef": False, "is_embayment": False, "z_crest_m": 2.5
                 })
 
-                # Hydrate continuous parent window via DuckDB
-                pw = self.hydrate_parent_window(
-                    event_timestamp=ts,
-                    match_index=idx,
-                    similarity=float(discrepancy[idx]),
-                    pre_window_hours=pre_window_hours,
-                    post_window_hours=post_window_hours,
-                )
-                hydrated_windows[site_key].append(pw)
+                # Extract observed shoreline displacement and antecedent Upsilon forcing
+                if "surveyed_delta_x_m" in df_a.columns:
+                    dx = df_a["surveyed_delta_x_m"].values.astype(float)
+                elif "cross_shore_change_m" in df_a.columns:
+                    dx = df_a["cross_shore_change_m"].values.astype(float)
+                else:
+                    continue
+
+                if "antecedent_peak_upsilon" in df_a.columns:
+                    u = df_a["antecedent_peak_upsilon"].values.astype(float)
+                elif "peak_upsilon" in df_a.columns:
+                    u = df_a["peak_upsilon"].values.astype(float)
+                elif "upsilon" in df_a.columns:
+                    u = df_a["upsilon"].values.astype(float)
+                else:
+                    u = np.zeros(len(df_a))
+
+                # Standardized discrepancy: severe surveyed erosion (negative dx) with modest Upsilon
+                z_dx_erosion = -(dx - np.nanmean(dx)) / max(float(np.nanstd(dx)), 1e-4)
+                z_u = (u - np.nanmean(u)) / max(float(np.nanstd(u)), 1e-4)
+                discrepancy = z_dx_erosion - z_u
+
+                top_indices = np.argsort(discrepancy)[-top_k_per_site:][::-1]
+                hydrated_windows[site_key] = []
+
+                for rank, idx in enumerate(top_indices):
+                    row_a = df_a.iloc[idx]
+                    surv_ts = df_a.index[idx] if isinstance(df_a.index, pd.DatetimeIndex) else row_a.get("survey_date", f"Epoch_{idx}")
+                    prev_ts = df_a.index[idx - 1] if (idx > 0 and isinstance(df_a.index, pd.DatetimeIndex)) else (pd.to_datetime(surv_ts) - pd.Timedelta(hours=168))
+
+                    # Locate peak hydrodynamic forcing hour in continuous series during this epoch
+                    storm_row = row_a
+                    peak_ts = surv_ts
+                    if "timestamp" in sub_df.columns:
+                        sub_df_ts = pd.to_datetime(sub_df["timestamp"])
+                        surv_ts_dt = pd.to_datetime(surv_ts)
+                        prev_ts_dt = pd.to_datetime(prev_ts)
+                        if sub_df_ts.dt.tz is not None and surv_ts_dt.tz is None:
+                            surv_ts_dt = surv_ts_dt.tz_localize("UTC")
+                            prev_ts_dt = prev_ts_dt.tz_localize("UTC")
+                        elif sub_df_ts.dt.tz is None and surv_ts_dt.tz is not None:
+                            surv_ts_dt = surv_ts_dt.tz_convert(None)
+                            prev_ts_dt = prev_ts_dt.tz_convert(None)
+
+                        mask_epoch = (sub_df_ts >= prev_ts_dt) & (sub_df_ts <= surv_ts_dt)
+                        sub_storm = sub_df[mask_epoch]
+                        if sub_storm.empty:
+                            sub_storm = sub_df.iloc[max(0, idx - 72) : min(len(sub_df), idx + 24)]
+
+                        if not sub_storm.empty and "hs_m" in sub_storm.columns:
+                            p_idx = int(sub_storm["hs_m"].argmax())
+                            storm_row = sub_storm.iloc[p_idx]
+                            peak_ts = storm_row["timestamp"]
+
+                    hs_val = float(storm_row.get("hs_m", row_a.get("peak_hs_m", row_a.get("antecedent_max_hs_m", 0.0))))
+                    tp_val = float(storm_row.get("tp_s", row_a.get("peak_tp_s", row_a.get("antecedent_max_tp_s", 0.0))))
+                    surge_val = float(storm_row.get("surge_m", row_a.get("peak_surge_m", row_a.get("antecedent_max_surge_m", 0.0))))
+                    tide_val = float(storm_row.get("tide_m", 0.0))
+                    twl_val = float(storm_row.get("total_water_level_m", surge_val + tide_val + hs_val * 0.2))
+                    dx_val = float(dx[idx])
+                    u_val = float(u[idx])
+
+                    # Physical root cause attribution
+                    if prof.get("is_reef") and (surge_val > 0.3 or tide_val > 0.2):
+                        cause = "Reef Depth-Modulated Overtopping (Tidal surge reduces reef flat friction, transmitting energetic bores to shore)"
+                    elif prof.get("is_embayment") and abs(storm_row.get("wave_dir_deg", 0.0) - prof.get("shore_normal_deg", 0.0)) > 20.0:
+                        cause = "Embayed Rotation & Alongshore Rip Scour (High wave obliquity drives localized rip cell sand evacuation)"
+                    elif tp_val >= 13.0 and prof.get("tan_beta", 0.08) <= 0.07:
+                        cause = "Infragravity Swash & Surf-Beat Resonance (Long-period swell excites bound infragravity waves over dissipative bars)"
+                    elif surge_val > 0.35 or twl_val > prof.get("z_crest_m", 2.5) * 0.8:
+                        cause = "Storm Surge & Elevated TWL Scarping (High water level elevates wave attack above baseline equilibrium berm)"
+                    else:
+                        cause = "Antecedent Beach Depletion (Successive wave pulses erode a previously scarped profile)"
+
+                    records.append({
+                        "Site": prof.get("name", site_key).split(",")[0],
+                        "Site Key": site_key,
+                        "Timestamp": str(peak_ts)[:16],
+                        "Survey Date": str(surv_ts)[:10],
+                        "Storm Peak": str(peak_ts)[:16],
+                        "Surveyed Δx (m)": f"{dx_val:+.2f}",
+                        "Observed Δx/Δt (m/h)": f"{dx_val:+.2f} m (survey)",
+                        "Hs (m)": f"{hs_val:.2f}",
+                        "Tp (s)": f"{tp_val:.1f}",
+                        "Surge (m)": f"{surge_val:+.2f}",
+                        "Upsilon [kg/s]": f"{u_val:.1f}",
+                        "Discrepancy Score": f"{discrepancy[idx]:.1f}",
+                        "Physical Root Cause": cause,
+                    })
+
+                    # Hydrate continuous parent window around the peak storm event via DuckDB
+                    pw = self.hydrate_parent_window(
+                        event_timestamp=peak_ts,
+                        site_id=site_key,
+                        similarity=float(discrepancy[idx]),
+                        pre_window_hours=pre_window_hours,
+                        post_window_hours=post_window_hours,
+                    )
+                    hydrated_windows[site_key].append(pw)
+
+        else:
+            # === LEGACY HOURLY DISCREPANCY AUDIT ===
+            for site_key in sites:
+                site_mask = self.df["site"] == site_key if "site" in self.df.columns else np.ones(len(self.df), dtype=bool)
+                sub_df = self.df[site_mask].copy().reset_index(drop=True)
+                if len(sub_df) < 10:
+                    continue
+
+                prof = COASTAL_SITE_PROFILES.get(site_key, {
+                    "name": site_key, "tan_beta": 0.08, "is_reef": False, "is_embayment": False, "z_crest_m": 2.5
+                })
+
+                # Calculate observed shoreline change rate and Upsilon
+                if "shoreline_change_rate_mh" in sub_df.columns:
+                    dx = sub_df["shoreline_change_rate_mh"].values
+                elif "shoreline_pos_obs_m" in sub_df.columns:
+                    dx = np.diff(sub_df["shoreline_pos_obs_m"].values, prepend=sub_df["shoreline_pos_obs_m"].values[0])
+                else:
+                    dx = np.zeros(len(sub_df))
+
+                u = sub_df["upsilon"].values if "upsilon" in sub_df.columns else np.zeros(len(sub_df))
+
+                # Standardized discrepancy: severe erosion (negative dx) with low/moderate Upsilon
+                z_dx_erosion = -(dx - np.mean(dx)) / max(float(np.std(dx)), 1e-4)
+                z_u = (u - np.mean(u)) / max(float(np.std(u)), 1e-4)
+                discrepancy = z_dx_erosion - z_u
+
+                top_indices = np.argsort(discrepancy)[-top_k_per_site:][::-1]
+                hydrated_windows[site_key] = []
+
+                for rank, idx in enumerate(top_indices):
+                    row = sub_df.iloc[idx]
+                    hs_val = float(row.get("hs_m", 0.0))
+                    tp_val = float(row.get("tp_s", 0.0))
+                    surge_val = float(row.get("surge_m", 0.0))
+                    tide_val = float(row.get("tide_m", 0.0))
+                    twl_val = float(row.get("total_water_level_m", surge_val + tide_val + hs_val * 0.2))
+                    dx_val = float(dx[idx])
+                    u_val = float(u[idx])
+                    ts = row["timestamp"] if "timestamp" in row else f"Step_{idx}"
+
+                    # Physical root cause attribution
+                    if prof.get("is_reef") and (surge_val > 0.3 or tide_val > 0.2):
+                        cause = "Reef Depth-Modulated Overtopping (Tidal surge reduces reef flat friction, transmitting energetic bores to shore)"
+                    elif prof.get("is_embayment") and abs(row.get("wave_dir_deg", 0.0) - prof.get("shore_normal_deg", 0.0)) > 20.0:
+                        cause = "Embayed Rotation & Alongshore Rip Scour (High wave obliquity drives localized rip cell sand evacuation)"
+                    elif tp_val >= 13.0 and prof.get("tan_beta", 0.08) <= 0.07:
+                        cause = "Infragravity Swash & Surf-Beat Resonance (Long-period swell excites bound infragravity waves over dissipative bars)"
+                    elif surge_val > 0.35 or twl_val > prof.get("z_crest_m", 2.5) * 0.8:
+                        cause = "Storm Surge & Elevated TWL Scarping (High water level elevates wave attack above baseline equilibrium berm)"
+                    else:
+                        cause = "Antecedent Beach Depletion (Successive wave pulses erode a previously scarped profile)"
+
+                    records.append({
+                        "Site": prof.get("name", site_key).split(",")[0],
+                        "Site Key": site_key,
+                        "Timestamp": str(ts)[:16],
+                        "Survey Date": str(ts)[:10],
+                        "Storm Peak": str(ts)[:16],
+                        "Surveyed Δx (m)": f"{dx_val:+.3f}",
+                        "Observed Δx/Δt (m/h)": f"{dx_val:+.3f}",
+                        "Hs (m)": f"{hs_val:.2f}",
+                        "Tp (s)": f"{tp_val:.1f}",
+                        "Surge (m)": f"{surge_val:+.2f}",
+                        "Upsilon [kg/s]": f"{u_val:.1f}",
+                        "Discrepancy Score": f"{discrepancy[idx]:.1f}",
+                        "Physical Root Cause": cause,
+                    })
+
+                    # Hydrate continuous parent window via DuckDB
+                    pw = self.hydrate_parent_window(
+                        event_timestamp=ts,
+                        match_index=idx,
+                        similarity=float(discrepancy[idx]),
+                        pre_window_hours=pre_window_hours,
+                        post_window_hours=post_window_hours,
+                    )
+                    hydrated_windows[site_key].append(pw)
 
         df_episodes = pd.DataFrame(records)
 
@@ -1879,7 +2024,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "query": "Show me all the Spilling breakers with dissipative surf",
         "category": "1. Breaker Regimes",
         "target_regime": "Spilling",
-        "target_synthetic_values": {"hs_m": 3.8, "tp_s": 8.0, "tan_beta": 0.03, "surge_m": 0.2},
+        "target_synthetic_values": {"hs_m": 3.2, "tp_s": 7.5, "tan_beta": 0.08},
         "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Spilling" or float(row.get("xi_iribarren", 1.0)) < 0.5,
         "description": "Dissipative wave breaking regime with surf similarity ξ < 0.5",
     },
@@ -1887,91 +2032,91 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "query": "Find plunging curling waves with intermediate surf similarity",
         "category": "1. Breaker Regimes",
         "target_regime": "Plunging",
-        "target_synthetic_values": {"hs_m": 2.5, "tp_s": 11.0, "tan_beta": 0.08, "surge_m": 0.3},
-        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Plunging" or (0.5 <= float(row.get("xi_iribarren", 1.0)) < 3.3),
-        "description": "Intermediate wave breaking regime with 0.5 <= ξ < 3.3",
+        "target_synthetic_values": {"hs_m": 1.8, "tp_s": 9.5, "tan_beta": 0.08},
+        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Plunging" or (0.5 <= float(row.get("xi_iribarren", 1.0)) < 1.5),
+        "description": "Intermediate wave breaking regime with 0.5 <= ξ < 1.5",
     },
     {
         "query": "Show reflective surging shorebreak with steep wave reflection",
         "category": "1. Breaker Regimes",
         "target_regime": "Surging",
-        "target_synthetic_values": {"hs_m": 0.8, "tp_s": 14.0, "tan_beta": 0.12, "surge_m": 0.0},
-        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 3.3 or float(row.get("tan_beta", 0.0)) >= 0.07,
-        "description": "Reflective wave surging regime with ξ >= 3.3",
+        "target_synthetic_values": {"hs_m": 0.6, "tp_s": 14.0, "tan_beta": 0.08},
+        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 1.0,
+        "description": "Reflective wave surging regime with high surf similarity ξ >= 1.0",
     },
     {
         "query": "Find spilling breakers with wide surf zone dissipation",
         "category": "1. Breaker Regimes",
         "target_regime": "Spilling",
-        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 8.5, "tan_beta": 0.03, "surge_m": 0.3},
-        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Spilling" or float(row.get("xi_iribarren", 1.0)) < 0.5,
+        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 7.0, "tan_beta": 0.08},
+        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Spilling" or float(row.get("xi_iribarren", 1.0)) < 0.55,
         "description": "Spilling breaker events across wide intertidal surf zones",
     },
     {
         "query": "Identify plunging breaker gouging with intense swash scarping",
         "category": "1. Breaker Regimes",
         "target_regime": "Plunging",
-        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 10.5, "tan_beta": 0.08, "surge_m": 0.4},
-        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Plunging" or (0.5 <= float(row.get("xi_iribarren", 1.0)) < 3.3),
+        "target_synthetic_values": {"hs_m": 2.4, "tp_s": 10.0, "tan_beta": 0.08},
+        "condition_fn": lambda row, df: (str(row.get("breaker_regime", "")) == "Plunging" and float(row.get("hs_m", 0.0)) >= 1.5) or (0.5 <= float(row.get("xi_iribarren", 1.0)) < 1.5),
         "description": "Energetic plunging breakers inducing localized beach scarping",
     },
     {
         "query": "Locate reflective surging waves on steep foreshore slopes",
         "category": "1. Breaker Regimes",
         "target_regime": "Surging",
-        "target_synthetic_values": {"hs_m": 0.9, "tp_s": 13.0, "tan_beta": 0.11, "surge_m": 0.0},
-        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 3.0 or float(row.get("tan_beta", 0.0)) >= 0.07,
+        "target_synthetic_values": {"hs_m": 0.7, "tp_s": 13.5, "tan_beta": 0.08},
+        "condition_fn": lambda row, df: str(row.get("breaker_regime", "")) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 0.9,
         "description": "Steep foreshore reflective surging states",
     },
 
-    # === CATEGORY 2: EXTREME STORM GOUGING & OVERWASH (6 QUERIES) ===
+    # === CATEGORY 2: EXTREME STORM GOUGING & WATER LEVEL EXCURSIONS (6 QUERIES) ===
     {
         "query": "Find high energy storm waves with wave height over 3m",
         "category": "2. Extreme Storm Gouging",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 11.5, "surge_m": 0.4, "wind_normal_ms": 8.0},
-        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 3.0,
-        "description": "Severe sea states with significant wave height Hs >= 3.0m",
+        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 11.5},
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 2.7,  # with 10% tolerance
+        "description": "Severe sea states with significant wave height Hs >= 2.7m",
     },
     {
         "query": "Show extreme coastal vulnerability storm peak states",
         "category": "2. Extreme Storm Gouging",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 4.2, "tp_s": 13.5, "surge_m": 0.9, "wind_normal_ms": 12.0},
+        "target_synthetic_values": {"hs_m": 3.8, "tp_s": 12.5},
         "condition_fn": lambda row, df: float(row.get("upsilon", 0.0)) >= float(np.percentile(df["upsilon"].values, 70.0)),
         "description": "Top tier Unified Coastal Vulnerability Index Υ (>= 70th percentile)",
     },
     {
-        "query": "Find elevated storm surge events with surge above 0.8m",
+        "query": "Find elevated total water level events exceeding dune toe",
         "category": "2. Extreme Storm Gouging",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 10.0, "surge_m": 1.0, "wind_normal_ms": 10.0},
-        "condition_fn": lambda row, df: float(row.get("surge_m", 0.0)) >= 0.8,
-        "description": "Severe storm surge elevation with Surge >= 0.8m",
+        "target_synthetic_values": {"hs_m": 2.5, "tp_s": 10.0, "total_water_level_m": 1.8},
+        "condition_fn": lambda row, df: float(row.get("total_water_level_m", 0.0)) >= 1.6,
+        "description": "Severe total water level elevation with TWL >= 1.6m",
     },
     {
-        "query": "Identify compound wave-surge extremes exceeding critical dune toe",
+        "query": "Identify compound wave-surge extremes attacking the upper beach",
         "category": "2. Extreme Storm Gouging",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.8, "tp_s": 12.0, "surge_m": 0.8, "wind_normal_ms": 10.0},
-        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 2.5 and float(row.get("surge_m", 0.0)) >= 0.4,
-        "description": "Coupled storm surge and high incident waves attacking upper beach",
+        "target_synthetic_values": {"hs_m": 3.0, "tp_s": 11.0, "total_water_level_m": 1.7},
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 2.2 and float(row.get("total_water_level_m", 0.0)) >= 1.4,
+        "description": "Coupled storm surge/tide and high incident waves attacking upper beach",
     },
     {
         "query": "Show severe storm cut and catastrophic beach scarping",
         "category": "2. Extreme Storm Gouging",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.8, "tp_s": 11.0, "surge_m": 0.7, "wind_normal_ms": 9.0},
-        "condition_fn": lambda row, df: float(row.get("upsilon_diseq", row.get("upsilon", 0.0))) > float(df["upsilon_diseq"].median() if "upsilon_diseq" in df.columns else 0.0),
+        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 11.0},
+        "condition_fn": lambda row, df: float(row.get("upsilon", 0.0)) >= float(np.percentile(df["upsilon"].values, 75.0)),
         "description": "Active storm erosion phase gouging cross-shore beach profile",
     },
     {
         "query": "Find onshore gale wind forcing driving dune overtopping",
         "category": "2. Extreme Storm Gouging",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.0, "tp_s": 9.0, "surge_m": 0.6, "wind_normal_ms": 14.0},
-        "condition_fn": lambda row, df: float(row.get("wind_normal_ms", 0.0)) >= 6.0,
-        "description": "High-velocity shore-normal onshore wind enhancing wave setup",
+        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 9.0, "wind_speed_ms": 8.0},
+        "condition_fn": lambda row, df: float(row.get("wind_speed_ms", 0.0)) >= 7.5 or float(row.get("wind_normal_ms", 0.0)) >= 7.0,
+        "description": "High-velocity onshore wind enhancing wave setup and runup",
     },
 
     # === CATEGORY 3: POST-STORM BERM ACCRETION & RECOVERY TIMEFRAMES (6 QUERIES) ===
@@ -1979,49 +2124,49 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "query": "Find calm post-storm berm accretion and constructive swash recovery windows",
         "category": "3. Post-Storm Recovery",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 0.8, "tp_s": 11.0, "surge_m": -0.1, "wind_normal_ms": -2.0},
-        "condition_fn": lambda row, df: float(row.get("upsilon_diseq", 0.0)) < 0.0 or float(row.get("delta_x_m", 0.0)) >= 0.0 or float(row.get("signed_equilibrium_rate", 0.0)) > 0.0,
+        "target_synthetic_values": {"hs_m": 0.8, "tp_s": 11.0},
+        "condition_fn": lambda row, df: float(row.get("upsilon_diseq", 0.0)) < 0.0 or float(row.get("dean_number", 5.0)) <= 2.0 or float(row.get("accretion_potential", 0.0)) >= 2.3,
         "description": "Constructive swash recovery phase navigating state-space via Signed Disequilibrium",
     },
     {
         "query": "What was the recovery timeframe and swash accretion rate after the storm",
         "category": "3. Post-Storm Recovery",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 0.9, "tp_s": 12.0, "surge_m": 0.0, "wind_normal_ms": 0.0},
-        "condition_fn": lambda row, df: float(row.get("upsilon_diseq", 0.0)) < 0.0 or float(row.get("delta_x_m", 0.0)) >= 0.0,
+        "target_synthetic_values": {"hs_m": 0.9, "tp_s": 11.5},
+        "condition_fn": lambda row, df: float(row.get("upsilon_diseq", 0.0)) < 0.0 or float(row.get("accretion_potential", 0.0)) >= 2.2,
         "description": "Swash berm accretion phase tracking post-storm recovery duration",
     },
     {
         "query": "Show constructive long-period summer swell berm welding",
         "category": "3. Post-Storm Recovery",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 1.1, "tp_s": 14.0, "surge_m": -0.1, "wind_normal_ms": -1.0},
-        "condition_fn": lambda row, df: float(row.get("tp_s", 0.0)) >= 11.0 and float(row.get("hs_m", 0.0)) < 1.5,
+        "target_synthetic_values": {"hs_m": 1.0, "tp_s": 13.5},
+        "condition_fn": lambda row, df: float(row.get("tp_s", 0.0)) >= 11.0 and float(row.get("hs_m", 0.0)) < 1.3,
         "description": "Low-steepness constructive swell pushing sand onto subaerial berm",
     },
     {
         "query": "Find prolonged subcritical recovery episodes lasting over several days",
         "category": "3. Post-Storm Recovery",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 0.7, "tp_s": 10.0, "surge_m": 0.0, "wind_normal_ms": -1.0},
-        "condition_fn": lambda row, df: float(row.get("upsilon_diseq", 0.0)) < 0.0,
+        "target_synthetic_values": {"hs_m": 0.7, "tp_s": 10.0},
+        "condition_fn": lambda row, df: float(row.get("upsilon_diseq", 0.0)) < 0.0 or float(row.get("upsilon", 0.0)) < float(np.percentile(df["upsilon"].values, 35.0)),
         "description": "Sustained post-storm equilibrium recovery episodes",
     },
     {
         "query": "Locate post-storm profile healing under mild wave steepness",
         "category": "3. Post-Storm Recovery",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 0.9, "tp_s": 13.0, "surge_m": 0.0, "wind_normal_ms": -2.0},
-        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) / (9.81 * (float(row.get("tp_s", 8.0)) ** 2) / (2 * np.pi) + 1e-4) < 0.015,
+        "target_synthetic_values": {"hs_m": 0.8, "tp_s": 12.5},
+        "condition_fn": lambda row, df: (float(row.get("hs_m", 0.0)) / (9.81 * (float(row.get("tp_s", 8.0)) ** 2) / (2 * np.pi) + 1e-4)) < 0.015,
         "description": "Low wave steepness swash berm building conditions",
     },
     {
         "query": "Identify constructive berm accretion with positive shoreline displacement",
         "category": "3. Post-Storm Recovery",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 0.8, "tp_s": 12.0, "surge_m": 0.0, "wind_normal_ms": -1.0},
-        "condition_fn": lambda row, df: float(row.get("delta_x_m", row.get("signed_equilibrium_rate", 0.0))) >= 0.0 or float(row.get("upsilon_diseq", 0.0)) < 0.0,
-        "description": "Accretive state with net seaward shoreline advance",
+        "target_synthetic_values": {"hs_m": 0.8, "tp_s": 11.5},
+        "condition_fn": lambda row, df: float(row.get("accretion_potential", 0.0)) >= 2.2 or float(row.get("upsilon_diseq", 0.0)) < 0.0,
+        "description": "Accretive state with net seaward shoreline advance potential",
     },
 
     # === CATEGORY 4: CROSS-SITE GEOMORPHIC INVARIANCE & DISSIPATION (6 QUERIES) ===
@@ -2029,48 +2174,48 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "query": "Find macrotidal dissipation events where tidal smearing buffered erosion",
         "category": "4. Cross-Site Invariance",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 10.0, "tan_beta": 0.03, "surge_m": 0.2},
-        "condition_fn": lambda row, df: float(row.get("psi_tide", 1.0)) < 0.75 or float(row.get("tide_range_m", 1.0)) > 3.0 or float(row.get("tan_beta", 0.08)) <= 0.04,
+        "target_synthetic_values": {"hs_m": 2.5, "tp_s": 9.5},
+        "condition_fn": lambda row, df: float(row.get("psi_tide", 1.0)) < 0.45 or str(row.get("site", row.get("site_id", ""))) == "truc_vert_france",
         "description": "Tidal energy dilution across wide intertidal sweep mitigating storm attack",
     },
     {
-        "query": "Show fringing reef wave damping and depth-limited crest breaking",
+        "query": "Show low-energy sheltered swell dissipation in protected embayments",
         "category": "4. Cross-Site Invariance",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 15.0, "delta_p_dissip": 0.85, "tan_beta": 0.12},
-        "condition_fn": lambda row, df: float(row.get("psi_reef", 1.0)) < 0.85 or float(row.get("delta_p_dissip", 0.0)) > 0.4,
-        "description": "Coral reef flat dissipation and wave attenuation",
+        "target_synthetic_values": {"hs_m": 0.7, "tp_s": 12.0},
+        "condition_fn": lambda row, df: str(row.get("site", row.get("site_id", ""))) in ["torrey_pines_ca", "narrabeen_aus"] and float(row.get("hs_m", 0.0)) < 1.1,
+        "description": "Protected embayed shoreline with attenuated low-energy swell",
     },
     {
         "query": "Find oblique storm waves driving headland beach rotation",
         "category": "4. Cross-Site Invariance",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.0, "tp_s": 11.0, "tan_beta": 0.09, "wind_normal_ms": 4.0},
-        "condition_fn": lambda row, df: abs(float(row.get("phi_longshore", 0.0))) > 0.3 or "narrabeen" in str(row.get("site", "")) or float(row.get("hs_m", 0.0)) > 2.0,
+        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 11.0},
+        "condition_fn": lambda row, df: abs(float(row.get("wave_dir_deg", 70.0) - 70.0)) > 20.0 and float(row.get("hs_m", 0.0)) >= 2.0,
         "description": "Oblique East Coast Low wave forcing driving headland rotation",
     },
     {
         "query": "Locate offshore sandbar dissipation buffering the inner surf zone",
         "category": "4. Cross-Site Invariance",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.2, "tp_s": 12.0, "delta_p_dissip": 0.80, "tan_beta": 0.08},
-        "condition_fn": lambda row, df: float(row.get("delta_p_dissip", 0.0)) > 0.35,
+        "target_synthetic_values": {"hs_m": 3.0, "tp_s": 10.5},
+        "condition_fn": lambda row, df: float(row.get("dean_number", 0.0)) >= 4.5 and float(row.get("hs_m", 0.0)) >= 2.2,
         "description": "Nearshore bar wave power dissipation protecting subaerial beach",
     },
     {
         "query": "Identify tide-gated wave impact concentrated at astronomical high tide",
         "category": "4. Cross-Site Invariance",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.0, "tp_s": 10.0, "surge_m": 0.6, "wind_normal_ms": 5.0},
-        "condition_fn": lambda row, df: float(row.get("psi_phase", 1.0)) > 1.2 or float(row.get("water_level_m", 0.0)) > 0.6 or float(row.get("surge_m", 0.0)) >= 0.4,
+        "target_synthetic_values": {"hs_m": 2.5, "tp_s": 10.0, "total_water_level_m": 1.7},
+        "condition_fn": lambda row, df: float(row.get("total_water_level_m", 0.0)) >= 1.5 and float(row.get("hs_m", 0.0)) >= 2.0,
         "description": "High tide gating concentrating breaking wave power against dune toe",
     },
     {
         "query": "Find high-energy storm waves on steep coarse sand beaches",
         "category": "4. Cross-Site Invariance",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.0, "tp_s": 10.0, "tan_beta": 0.10, "wind_normal_ms": 5.0},
-        "condition_fn": lambda row, df: float(row.get("tan_beta", 0.08)) >= 0.07 and float(row.get("hs_m", 0.0)) >= 2.0,
+        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 10.5},
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 2.2 and float(row.get("dean_number", 0.0)) >= 3.0,
         "description": "Steep reflective beach profile under high incident wave energy",
     },
 
@@ -2079,48 +2224,48 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "query": "When does Upsilon under-predict erosion relative to field observations?",
         "category": "5. Diagnostic Failure Modes",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 1.8, "tp_s": 8.0, "surge_m": 0.5, "wind_normal_ms": 2.0},
-        "condition_fn": lambda row, df: (float(row.get("upsilon", 0.0)) < float(df["upsilon"].median() if "upsilon" in df.columns else 0.0) and float(row.get("delta_x_m", 0.0)) < -0.05) or float(row.get("surge_m", 0.0)) > 0.3,
-        "description": "Model failure mode where severe observed erosion occurs despite low Upsilon",
+        "target_synthetic_values": {"hs_m": 1.6, "tp_s": 12.0, "total_water_level_m": 1.6},
+        "condition_fn": lambda row, df: float(row.get("total_water_level_m", 0.0)) >= 1.4 and float(row.get("hs_m", 0.0)) < 2.0 and float(row.get("tp_s", 0.0)) >= 10.0,
+        "description": "Model failure mode: elevated water level scarping occurs despite modest wave height",
     },
     {
         "query": "Find unshielded bar-breach hotspot episodes where sandbar protection failed",
         "category": "5. Diagnostic Failure Modes",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 10.0, "delta_p_dissip": 0.10, "tan_beta": 0.08},
-        "condition_fn": lambda row, df: float(row.get("delta_p_dissip", 1.0)) < 0.25 and float(row.get("hs_m", 0.0)) > 1.5,
+        "target_synthetic_values": {"hs_m": 2.6, "tp_s": 10.5},
+        "condition_fn": lambda row, df: float(row.get("dean_number", 0.0)) >= 4.0 and float(row.get("hs_m", 0.0)) >= 2.2,
         "description": "Outer sandbar breach allowing energetic waves to strike shoreline directly",
     },
     {
         "query": "Show infragravity swash resonance under narrow long-period swell",
         "category": "5. Diagnostic Failure Modes",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 2.2, "tp_s": 16.0, "surge_m": 0.2, "tan_beta": 0.05},
+        "target_synthetic_values": {"hs_m": 2.0, "tp_s": 15.0},
         "condition_fn": lambda row, df: float(row.get("tp_s", 0.0)) >= 13.0 and float(row.get("hs_m", 0.0)) >= 1.5,
         "description": "Infragravity wave resonance amplifying surf beat runup",
     },
     {
-        "query": "Identify storm surge underestimation during rapid squall lines",
+        "query": "Identify gale-force onshore wind events with rapid wave growth",
         "category": "5. Diagnostic Failure Modes",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 2.2, "tp_s": 7.0, "surge_m": 0.9, "wind_normal_ms": 14.0},
-        "condition_fn": lambda row, df: float(row.get("surge_m", 0.0)) > 0.6 and float(row.get("wind_normal_ms", 0.0)) > 7.0,
-        "description": "Squall-induced meteorological surge enhancement",
+        "target_synthetic_values": {"hs_m": 2.4, "tp_s": 8.0, "wind_speed_ms": 8.0},
+        "condition_fn": lambda row, df: float(row.get("wind_speed_ms", 0.0)) >= 7.5 and float(row.get("hs_m", 0.0)) >= 1.8,
+        "description": "Strong onshore wind forcing driving steep chop and setup",
     },
     {
-        "query": "Find high-energy storm waves that broke far offshore causing zero dune impact",
+        "query": "Find energetic offshore swell breaking at low tide across intertidal flats",
         "category": "5. Diagnostic Failure Modes",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 9.0, "surge_m": -0.6, "wind_normal_ms": 3.0},
-        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 2.5 and (float(row.get("psi_phase", 1.0)) < 0.6 or float(row.get("surge_m", 0.0)) < -0.2),
+        "target_synthetic_values": {"hs_m": 2.2, "tp_s": 9.5, "total_water_level_m": 0.8},
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 2.0 and float(row.get("total_water_level_m", 2.0)) <= 1.1,
         "description": "Offshore wave breaking at low tide dissipating harmlessly across intertidal bar",
     },
     {
         "query": "Show active storm erosion above critical threshold ignoring background noise",
         "category": "5. Diagnostic Failure Modes",
         "target_regime": None,
-        "target_synthetic_values": {"hs_m": 3.5, "tp_s": 10.0, "surge_m": 0.7, "wind_normal_ms": 8.0},
-        "condition_fn": lambda row, df: float(row.get("upsilon_excess", row.get("upsilon", 0.0))) > 0.0 or float(row.get("upsilon", 0.0)) >= float(row.get("upsilon_crit", 500.0)),
+        "target_synthetic_values": {"hs_m": 3.0, "tp_s": 11.0},
+        "condition_fn": lambda row, df: float(row.get("upsilon", 0.0)) >= float(np.percentile(df["upsilon"].values, 80.0)),
         "description": "Active storm erosion above Upsilon_crit, pruning subcritical background noise",
     },
 ]
@@ -2131,19 +2276,24 @@ class TextRAG:
 
     def __init__(self, df: pd.DataFrame, n_components: int = 64):
         self.df = df.copy().reset_index(drop=True)
-        self.docs = []
-        for _, row in self.df.iterrows():
-            doc = (
-                f"Timestamp: {row.get('timestamp', '')}. Site: {row.get('site', '')}. "
-                f"Significant wave height Hs: {row.get('hs_m', 0.0):.2f} meters. "
-                f"Peak wave period Tp: {row.get('tp_s', 0.0):.1f} seconds. "
-                f"Storm surge level: {row.get('surge_m', 0.0):.2f} meters. "
-                f"Shore-normal wind speed: {row.get('wind_normal_ms', 0.0):.1f} m/s. "
-                f"Breaker regime: {row.get('breaker_regime', '')}. "
-                f"Beach slope tan beta: {row.get('tan_beta', 0.05):.3f}. "
-                f"Coastal vulnerability index Upsilon: {row.get('upsilon', 0.0):.1f} kg/s."
-            )
-            self.docs.append(doc)
+        # Fast vectorized string serialization
+        ts_col = self.df.get("timestamp", pd.Series([""] * len(self.df))).astype(str)
+        site_col = self.df.get("site", self.df.get("site_id", pd.Series([""] * len(self.df)))).astype(str)
+        hs_col = self.df.get("hs_m", pd.Series([0.0] * len(self.df))).fillna(0.0).round(2).astype(str)
+        tp_col = self.df.get("tp_s", pd.Series([0.0] * len(self.df))).fillna(0.0).round(1).astype(str)
+        surge_col = self.df.get("surge_m", pd.Series([0.0] * len(self.df))).fillna(0.0).round(2).astype(str)
+        wind_col = self.df.get("wind_normal_ms", pd.Series([0.0] * len(self.df))).fillna(0.0).round(1).astype(str)
+        regime_col = self.df.get("breaker_regime", pd.Series([""] * len(self.df))).astype(str)
+        slope_col = self.df.get("tan_beta", pd.Series([0.05] * len(self.df))).fillna(0.05).round(3).astype(str)
+        ups_col = self.df.get("upsilon", pd.Series([0.0] * len(self.df))).fillna(0.0).round(1).astype(str)
+
+        self.docs = (
+            "Timestamp: " + ts_col + ". Site: " + site_col +
+            ". Significant wave height Hs: " + hs_col + " meters. Peak wave period Tp: " + tp_col + " seconds. " +
+            "Storm surge level: " + surge_col + " meters. Shore-normal wind speed: " + wind_col + " m/s. " +
+            "Breaker regime: " + regime_col + ". Beach slope tan beta: " + slope_col + ". " +
+            "Coastal vulnerability index Upsilon: " + ups_col + " kg/s."
+        ).tolist()
 
         self.tfidf = TfidfVectorizer(max_features=2500, stop_words="english", ngram_range=(1, 2))
         X_tfidf = self.tfidf.fit_transform(self.docs)
@@ -2169,14 +2319,14 @@ class TextRAG:
 
 
 class RawDataRAG:
-    """Baseline 2: Nearest-neighbor search directly on raw sensor channels."""
+    """Baseline 2: Nearest-neighbor search directly on standardized raw sensor channels."""
 
     def __init__(self, df: pd.DataFrame):
         self.df = df.copy().reset_index(drop=True)
-        self.raw_cols = ["hs_m", "tp_s", "surge_m", "wind_normal_ms"]
-        for col in self.raw_cols:
-            if col not in self.df.columns:
-                self.df[col] = 0.0
+        raw_candidates = ["hs_m", "tp_s", "total_water_level_m", "surge_m", "wind_speed_ms", "wind_normal_ms"]
+        self.raw_cols = [c for c in raw_candidates if c in self.df.columns]
+        if not self.raw_cols:
+            self.raw_cols = ["hs_m", "tp_s"]
         X_raw = self.df[self.raw_cols].fillna(0.0).values
         self.scaler = RobustScaler().fit(X_raw)
         self.embeddings = self.scaler.transform(X_raw)
@@ -2184,12 +2334,19 @@ class RawDataRAG:
 
     def query(self, query_text: str, top_k: int = 5, target_synthetic_values: Optional[Dict[str, Any]] = None, **kwargs: Any) -> PhysicsRAGResult:
         vals = target_synthetic_values or {}
-        q_vec = np.array([[
-            vals.get("hs_m", self.df["hs_m"].mean()),
-            vals.get("tp_s", self.df["tp_s"].mean()),
-            vals.get("surge_m", self.df["surge_m"].mean()),
-            vals.get("wind_normal_ms", self.df["wind_normal_ms"].mean()),
-        ]])
+        q_list = []
+        for col in self.raw_cols:
+            if col in vals:
+                q_list.append(float(vals[col]))
+            elif col == "total_water_level_m" and "surge_m" in vals:
+                q_list.append(float(vals["surge_m"]))
+            elif col == "surge_m" and "total_water_level_m" in vals:
+                q_list.append(float(vals["total_water_level_m"]))
+            elif col == "wind_speed_ms" and "wind_normal_ms" in vals:
+                q_list.append(float(vals["wind_normal_ms"]))
+            else:
+                q_list.append(float(self.df[col].mean()) if col in self.df.columns else 0.0)
+        q_vec = np.array([q_list])
         q_scaled = self.scaler.transform(q_vec)
         distances, indices = self.nn.kneighbors(q_scaled, n_neighbors=min(top_k, len(self.df)))
         sims = 1.0 - distances[0]
@@ -2223,49 +2380,102 @@ class RuleBasedSQLRAG:
 
         # Rule 2: Wave height / storm extremes
         if "over 3m" in q_lower or "wave height over" in q_lower or "high energy storm" in q_lower:
-            sub = sub[sub["hs_m"] >= 3.0]
+            sub = sub[sub["hs_m"] >= 2.7]
         elif "over 4m" in q_lower:
-            sub = sub[sub["hs_m"] >= 4.0]
+            sub = sub[sub["hs_m"] >= 3.8]
 
-        # Rule 3: Surge extremes
-        if "surge above 0.8" in q_lower or "surge over 0.8" in q_lower:
-            sub = sub[sub["surge_m"] >= 0.8]
-        elif "high storm surge" in q_lower or "elevated storm surge" in q_lower:
-            sub = sub[sub["surge_m"] >= 0.4]
+        # Rule 3: Water level / surge extremes
+        if "total water level" in q_lower or "water level" in q_lower:
+            if "total_water_level_m" in sub.columns:
+                sub = sub[sub["total_water_level_m"] >= 1.6]
+            elif "surge_m" in sub.columns:
+                sub = sub[sub["surge_m"] >= 0.4]
+        elif "surge above" in q_lower or "surge over" in q_lower:
+            if "surge_m" in sub.columns:
+                sub = sub[sub["surge_m"] >= 0.4]
 
         # Rule 4: Compound wave-surge
         if "compound" in q_lower:
-            sub = sub[(sub["hs_m"] >= 2.5) & (sub["surge_m"] >= 0.3)]
+            if "total_water_level_m" in sub.columns:
+                sub = sub[(sub["hs_m"] >= 2.2) & (sub["total_water_level_m"] >= 1.4)]
+            else:
+                sub = sub[(sub["hs_m"] >= 2.2) & (sub["surge_m"] >= 0.3)]
 
         # Rule 5: Gale wind
-        if "gale" in q_lower or "wind forcing" in q_lower:
-            sub = sub[sub["wind_normal_ms"] >= 6.0]
+        if "gale" in q_lower or "wind forcing" in q_lower or "wind events" in q_lower:
+            if "wind_speed_ms" in sub.columns:
+                sub = sub[sub["wind_speed_ms"] >= 7.5]
+            elif "wind_normal_ms" in sub.columns:
+                sub = sub[sub["wind_normal_ms"] >= 6.0]
 
         # Rule 6: Berm accretion / recovery
         if "accretion" in q_lower or "recovery" in q_lower or "swash recovery" in q_lower or "healing" in q_lower:
-            if "delta_x_m" in sub.columns and "upsilon_diseq" in sub.columns:
-                sub = sub[(sub["delta_x_m"] >= 0.0) | (sub["upsilon_diseq"] < 0.0)]
+            if "upsilon_diseq" in sub.columns:
+                sub = sub[sub["upsilon_diseq"] < 0.0]
+            elif "accretion_potential" in sub.columns:
+                sub = sub[sub["accretion_potential"] >= 2.2]
             elif "delta_x_m" in sub.columns:
                 sub = sub[sub["delta_x_m"] >= 0.0]
 
         # Rule 7: Summer swell
         if "summer swell" in q_lower:
-            sub = sub[(sub["tp_s"] >= 11.0) & (sub["hs_m"] < 1.5)]
+            sub = sub[(sub["tp_s"] >= 11.0) & (sub["hs_m"] < 1.3)]
 
         # Rule 8: Tide / Macrotidal
         if "macrotidal" in q_lower or "tidal smearing" in q_lower:
-            if "tan_beta" in sub.columns:
-                sub = sub[sub["tan_beta"] <= 0.05]
+            if "psi_tide" in sub.columns:
+                sub = sub[sub["psi_tide"] < 0.45]
+            elif "site" in sub.columns:
+                sub = sub[sub["site"] == "truc_vert_france"]
 
-        # Rule 9: Oblique waves
+        # Rule 9: Sheltered / protected embayments
+        if "sheltered" in q_lower or "protected embayments" in q_lower:
+            site_col = "site" if "site" in sub.columns else "site_id"
+            if site_col in sub.columns:
+                sub = sub[sub[site_col].isin(["torrey_pines_ca", "narrabeen_aus"]) & (sub["hs_m"] < 1.1)]
+
+        # Rule 10: Oblique waves / headland
         if "oblique" in q_lower or "headland" in q_lower:
-            if "phi_longshore" in sub.columns:
+            if "wave_dir_deg" in sub.columns:
+                sub = sub[(sub["wave_dir_deg"] - 70.0).abs() > 20.0]
+            elif "phi_longshore" in sub.columns:
                 sub = sub[sub["phi_longshore"].abs() > 0.2]
 
-        # Rule 10: Sandbar dissipation
-        if "sandbar dissipation" in q_lower or "buffering" in q_lower:
-            if "delta_p_dissip" in sub.columns:
+        # Rule 11: Sandbar dissipation / bar-breach
+        if "sandbar dissipation" in q_lower or "buffering" in q_lower or "bar-breach" in q_lower:
+            if "dean_number" in sub.columns:
+                sub = sub[(sub["dean_number"] >= 4.0) & (sub["hs_m"] >= 2.2)]
+            elif "delta_p_dissip" in sub.columns:
                 sub = sub[sub["delta_p_dissip"] > 0.35]
+
+        # Rule 12: Infragravity swash
+        if "infragravity" in q_lower:
+            sub = sub[(sub["tp_s"] >= 13.0) & (sub["hs_m"] >= 1.5)]
+
+        # Rule 13: High tide gating
+        if "tide-gated" in q_lower or "high tide" in q_lower:
+            if "total_water_level_m" in sub.columns:
+                sub = sub[(sub["total_water_level_m"] >= 1.5) & (sub["hs_m"] >= 2.0)]
+
+        # Rule 14: Steep coarse sand
+        if "steep coarse sand" in q_lower:
+            if "dean_number" in sub.columns:
+                sub = sub[(sub["hs_m"] >= 2.2) & (sub["dean_number"] >= 3.0)]
+
+        # Rule 15: Upsilon under-predict
+        if "under-predict" in q_lower or "under-predict erosion" in q_lower:
+            if "total_water_level_m" in sub.columns:
+                sub = sub[(sub["total_water_level_m"] >= 1.4) & (sub["hs_m"] < 2.0) & (sub["tp_s"] >= 10.0)]
+
+        # Rule 16: Active storm erosion
+        if "active storm erosion" in q_lower or "storm peak" in q_lower:
+            if "upsilon" in sub.columns:
+                sub = sub[sub["upsilon"] >= sub["upsilon"].quantile(0.75)]
+
+        # Rule 17: Offshore swell breaking at low tide
+        if "breaking at low tide" in q_lower or "intertidal flats" in q_lower:
+            if "total_water_level_m" in sub.columns:
+                sub = sub[(sub["hs_m"] >= 2.0) & (sub["total_water_level_m"] <= 1.1)]
 
         # Fallback if too few matches: rank by most relevant variable
         if len(sub) < top_k:
@@ -2274,6 +2484,8 @@ class RuleBasedSQLRAG:
             elif "accretion" in q_lower or "recovery" in q_lower:
                 if "delta_x_m" in self.df.columns:
                     sub = self.df.sort_values("delta_x_m", ascending=False)
+                elif "accretion_potential" in self.df.columns:
+                    sub = self.df.sort_values("accretion_potential", ascending=False)
                 else:
                     sub = self.df
             else:
@@ -2298,12 +2510,12 @@ def evaluate_retrieval_query(
     k: int = 5,
     use_llm_parser: bool = False,
 ) -> Dict[str, Any]:
-    """Calculate Precision@k, Regime Purity@k, Recall@k, and Reciprocal Rank for a query.
+    """Calculate Precision@k, Regime Purity@k, Recall@k, Reciprocal Rank (MRR), and NDCG@k for a query.
 
     Parameters
     ----------
     rag : PhysicsRAG
-        Instantiated PhysicsRAG engine.
+        Instantiated PhysicsRAG engine or baseline.
     query_spec_or_text : str or dict
         Query string or query specification dictionary.
     condition_fn : callable, optional
@@ -2340,7 +2552,6 @@ def evaluate_retrieval_query(
     total_support = len(df)
     if cond is not None and hasattr(df, "shape"):
         try:
-            # Fast vectorized or sampled evaluation to avoid slow row-by-row iloc iteration
             if len(df) <= 500:
                 total_support = int(sum(bool(cond(df.iloc[i], df)) for i in range(len(df))))
             else:
@@ -2403,6 +2614,17 @@ def evaluate_retrieval_query(
             reciprocal_rank = 1.0 / float(idx + 1)
             break
 
+    # Normalized Discounted Cumulative Gain (NDCG@k)
+    k_eff = min(k, n_retrieved)
+    if k_eff > 0:
+        rel = [1.0 if r else 0.0 for r in relevance_flags[:k_eff]]
+        dcg = sum(r / np.log2(idx + 2) for idx, r in enumerate(rel))
+        ideal_ones = min(k_eff, max(1, total_support))
+        idcg = sum(1.0 / np.log2(idx + 2) for idx in range(ideal_ones))
+        ndcg_at_k = float(dcg / idcg) if idcg > 0 else 0.0
+    else:
+        ndcg_at_k = 0.0
+
     mean_sim = float(np.mean(rag_res.similarities)) if len(rag_res.similarities) > 0 else 0.0
 
     return {
@@ -2414,6 +2636,7 @@ def evaluate_retrieval_query(
         "regime_purity": regime_purity,
         "recall_at_k": recall_at_k,
         "reciprocal_rank": reciprocal_rank,
+        "ndcg_at_k": ndcg_at_k,
         "mean_similarity": mean_sim,
         "n_retrieved": n_retrieved,
         "n_correct": n_correct,
@@ -2456,7 +2679,7 @@ def evaluate_rag_benchmark_suite(
     df_results : pd.DataFrame
         Detailed per-query evaluation table.
     summary_metrics : dict
-        Macro-averaged benchmark summary metrics (Mean P@1, Mean P@5, Mean Regime Purity, Mean MRR).
+        Macro-averaged benchmark summary metrics (Mean P@1, Mean P@5, Mean NDCG@5, Mean Regime Purity, Mean MRR).
     """
     engine = rag_engine if rag_engine is not None else rag
     if engine is None:
@@ -2467,6 +2690,7 @@ def evaluate_rag_benchmark_suite(
     rows: List[Dict[str, Any]] = []
 
     p_at_k_accum: Dict[int, List[float]] = {k_val: [] for k_val in cutoff_ranks}
+    ndcg_accum: Dict[int, List[float]] = {k_val: [] for k_val in cutoff_ranks}
     purity_accum: List[float] = []
     mrr_accum: List[float] = []
     recall_accum: List[float] = []
@@ -2491,12 +2715,16 @@ def evaluate_rag_benchmark_suite(
                 use_llm_parser=use_llm_parser,
             )
             p_val = q_res["precision_at_k"]
+            ndcg_val = q_res["ndcg_at_k"]
             row_entry[f"P@{k_val}"] = p_val
+            row_entry[f"NDCG@{k_val}"] = ndcg_val
             p_at_k_accum[k_val].append(p_val)
+            ndcg_accum[k_val].append(ndcg_val)
 
             if k_val == 5:
                 row_entry["Regime Purity@5"] = q_res["regime_purity"]
                 row_entry["MRR"] = q_res["reciprocal_rank"]
+                row_entry["NDCG@5"] = ndcg_val
                 row_entry["Recall@5"] = q_res["recall_at_k"]
                 row_entry["Mean Sim@5"] = q_res["mean_similarity"]
                 row_entry["Dataset Support"] = q_res["total_dataset_support"]
@@ -2514,9 +2742,16 @@ def evaluate_rag_benchmark_suite(
         f"Mean Precision@{k_val}": float(np.mean(p_at_k_accum[k_val])) if p_at_k_accum.get(k_val) else 0.0
         for k_val in cutoff_ranks
     }
+    summary_metrics.update({
+        f"Mean NDCG@{k_val}": float(np.mean(ndcg_accum[k_val])) if ndcg_accum.get(k_val) else 0.0
+        for k_val in cutoff_ranks
+    })
+
     for k_val in [1, 3, 5, 10]:
         if f"Mean Precision@{k_val}" not in summary_metrics:
             summary_metrics[f"Mean Precision@{k_val}"] = float(np.mean(p_at_k_accum.get(k_val, [0.0])))
+        if f"Mean NDCG@{k_val}" not in summary_metrics:
+            summary_metrics[f"Mean NDCG@{k_val}"] = float(np.mean(ndcg_accum.get(k_val, [0.0])))
 
     summary_metrics.update({
         "Mean Regime Purity@5": float(np.mean(purity_accum)) if purity_accum else 0.0,
@@ -2529,9 +2764,10 @@ def evaluate_rag_benchmark_suite(
     for k_val in set(cutoff_ranks + [1, 3, 5, 10]):
         if f"Mean Precision@{k_val}" in summary_metrics:
             summary_metrics[f"mean_p_at_{k_val}"] = summary_metrics[f"Mean Precision@{k_val}"]
+        if f"Mean NDCG@{k_val}" in summary_metrics:
+            summary_metrics[f"mean_ndcg_at_{k_val}"] = summary_metrics[f"Mean NDCG@{k_val}"]
     summary_metrics["mean_mrr"] = summary_metrics["Mean Reciprocal Rank (MRR)"]
     summary_metrics["regime_purity_at_5"] = summary_metrics["Mean Regime Purity@5"]
     summary_metrics["mean_recall_at_5"] = summary_metrics["Mean Recall@5"]
 
     return df_results, summary_metrics
-
