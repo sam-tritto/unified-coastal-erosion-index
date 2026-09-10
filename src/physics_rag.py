@@ -1319,6 +1319,317 @@ class PhysicsRAG:
         )
 
 
+class HybridPhysicsRAG(PhysicsRAG):
+    """Hybrid Physics-RAG Engine: Cosine Similarity + Constraint Satisfaction Scoring.
+
+    Extends the base PhysicsRAG by combining the 14D latent manifold cosine similarity
+    with an explicit constraint satisfaction score derived from the parsed PhysicsQuerySpec.
+    This bridges the gap between soft embedding similarity and hard binary SQL-style filtering
+    without hand-crafted per-query rules.
+
+    Final ranking score:
+        score = α × cosine_similarity + (1 - α) × constraint_satisfaction + regime_boost
+
+    Parameters
+    ----------
+    alpha : float
+        Blending weight for cosine similarity vs constraint satisfaction.
+        α = 1.0 → pure Physics-RAG, α = 0.0 → pure constraint scoring.
+        Default: 0.5 (equal weight).
+    regime_boost : float
+        Multiplicative boost applied to candidates matching the target breaker regime.
+        Default: 0.15 (adds 15% to score for exact regime matches).
+    """
+
+    # Constraint dimension weights (must sum to 1.0)
+    CONSTRAINT_WEIGHTS = {
+        "breaker_regime": 0.25,
+        "hs_range": 0.15,
+        "tp_range": 0.15,
+        "twl_range": 0.15,
+        "phase": 0.10,
+        "xi_range": 0.10,
+        "morphology": 0.05,
+        "upsilon_percentile": 0.05,
+    }
+
+    def __init__(
+        self,
+        *args: Any,
+        alpha: float = 0.5,
+        regime_boost: float = 0.15,
+        **kwargs: Any,
+    ):
+        super().__init__(*args, **kwargs)
+        self.alpha = alpha
+        self.regime_boost = regime_boost
+
+    @classmethod
+    def from_physics_rag(cls, rag: PhysicsRAG, alpha: float = 0.5, regime_boost: float = 0.15) -> "HybridPhysicsRAG":
+        """Construct a HybridPhysicsRAG from an existing PhysicsRAG instance (zero-copy)."""
+        hybrid = cls.__new__(cls)
+        hybrid.df = rag.df
+        hybrid.embeddings = rag.embeddings
+        hybrid.feature_names = rag.feature_names
+        hybrid.scaler_meta = rag.scaler_meta
+        hybrid.model_name = rag.model_name
+        hybrid.api_key = rag.api_key
+        hybrid.top_k = rag.top_k
+        hybrid.similarity_metric = rag.similarity_metric
+        hybrid.scaler = rag.scaler
+        hybrid.centroids = rag.centroids
+        hybrid.alpha = alpha
+        hybrid.regime_boost = regime_boost
+        return hybrid
+
+    def _compute_constraint_satisfaction_score(
+        self,
+        spec: PhysicsQuerySpec,
+        candidate_indices: np.ndarray,
+    ) -> np.ndarray:
+        """Evaluate constraint satisfaction for each candidate row against parsed query spec.
+
+        Returns a score ∈ [0, 1] per candidate reflecting the fraction of active
+        constraints satisfied, weighted by physical importance.
+
+        Parameters
+        ----------
+        spec : PhysicsQuerySpec
+            Parsed physical query intent.
+        candidate_indices : np.ndarray
+            Indices into self.df for candidate rows.
+
+        Returns
+        -------
+        scores : np.ndarray
+            Constraint satisfaction scores, shape (len(candidate_indices),).
+        """
+        n = len(candidate_indices)
+        if n == 0:
+            return np.array([])
+
+        # Collect active constraints and their weights
+        active_scores = []  # list of (weight, score_array) tuples
+        W = self.CONSTRAINT_WEIGHTS
+
+        df = self.df
+
+        # 1. Breaker regime match
+        if spec.breaker_regime and "breaker_regime" in df.columns:
+            regime_vals = df["breaker_regime"].values[candidate_indices]
+            match = (regime_vals == spec.breaker_regime).astype(float)
+            active_scores.append((W["breaker_regime"], match))
+
+        # 2. Hs range satisfaction (with 10% tolerance)
+        if (spec.hs_min is not None or spec.hs_max is not None) and "hs_m" in df.columns:
+            hs_vals = df["hs_m"].values[candidate_indices]
+            hs_ok = np.ones(n, dtype=float)
+            if spec.hs_min is not None:
+                hs_ok *= (hs_vals >= spec.hs_min * 0.9).astype(float)
+            if spec.hs_max is not None:
+                hs_ok *= (hs_vals <= spec.hs_max * 1.1).astype(float)
+            active_scores.append((W["hs_range"], hs_ok))
+
+        # 3. Tp range satisfaction (with 10% tolerance)
+        if (spec.tp_min is not None or spec.tp_max is not None) and "tp_s" in df.columns:
+            tp_vals = df["tp_s"].values[candidate_indices]
+            tp_ok = np.ones(n, dtype=float)
+            if spec.tp_min is not None:
+                tp_ok *= (tp_vals >= spec.tp_min * 0.9).astype(float)
+            if spec.tp_max is not None:
+                tp_ok *= (tp_vals <= spec.tp_max * 1.1).astype(float)
+            active_scores.append((W["tp_range"], tp_ok))
+
+        # 4. Total water level / surge range (with 10% tolerance)
+        if (spec.surge_min is not None or spec.surge_max is not None):
+            wl_col = "total_water_level_m" if ("total_water_level_m" in df.columns and spec.surge_min is not None and spec.surge_min > 0.5) else "surge_m"
+            if wl_col in df.columns:
+                wl_vals = df[wl_col].values[candidate_indices]
+                wl_ok = np.ones(n, dtype=float)
+                if spec.surge_min is not None:
+                    wl_ok *= (wl_vals >= spec.surge_min * 0.9).astype(float)
+                if spec.surge_max is not None:
+                    wl_ok *= (wl_vals <= spec.surge_max * 1.1).astype(float)
+                active_scores.append((W["twl_range"], wl_ok))
+
+        # 5. Phase match (Erosion / Recovery / Noise)
+        if spec.phase:
+            if spec.phase == "Recovery" and "upsilon_diseq" in df.columns:
+                diseq_vals = df["upsilon_diseq"].values[candidate_indices]
+                phase_ok = (diseq_vals < 0).astype(float)
+            elif spec.phase == "Erosion" and "upsilon_diseq" in df.columns:
+                diseq_vals = df["upsilon_diseq"].values[candidate_indices]
+                phase_ok = (diseq_vals > 0).astype(float)
+            elif spec.phase == "Erosion" and "delta_x_m" in df.columns:
+                dx_vals = df["delta_x_m"].values[candidate_indices]
+                phase_ok = (dx_vals < 0).astype(float)
+            elif spec.phase == "Recovery" and "delta_x_m" in df.columns:
+                dx_vals = df["delta_x_m"].values[candidate_indices]
+                phase_ok = (dx_vals >= 0).astype(float)
+            else:
+                phase_ok = np.ones(n, dtype=float) * 0.5  # unknown
+            active_scores.append((W["phase"], phase_ok))
+
+        # 6. Iribarren range
+        if (spec.xi_min is not None or spec.xi_max is not None) and "xi_iribarren" in df.columns:
+            xi_vals = df["xi_iribarren"].values[candidate_indices]
+            xi_ok = np.ones(n, dtype=float)
+            if spec.xi_min is not None:
+                xi_ok *= (xi_vals >= spec.xi_min).astype(float)
+            if spec.xi_max is not None:
+                xi_ok *= (xi_vals <= spec.xi_max).astype(float)
+            active_scores.append((W["xi_range"], xi_ok))
+
+        # 7. Morphology (delta_x direction)
+        if (spec.delta_x_min is not None or spec.delta_x_max is not None) and "delta_x_m" in df.columns:
+            dx_vals = df["delta_x_m"].values[candidate_indices]
+            morph_ok = np.ones(n, dtype=float)
+            if spec.delta_x_min is not None:
+                morph_ok *= (dx_vals >= spec.delta_x_min).astype(float)
+            if spec.delta_x_max is not None:
+                morph_ok *= (dx_vals <= spec.delta_x_max).astype(float)
+            active_scores.append((W["morphology"], morph_ok))
+
+        # 8. Upsilon percentile
+        if (spec.min_upsilon_percentile is not None or spec.max_upsilon_percentile is not None) and "upsilon" in df.columns:
+            ups_vals = df["upsilon"].values[candidate_indices]
+            ups_ok = np.ones(n, dtype=float)
+            if spec.min_upsilon_percentile is not None:
+                p_val = np.percentile(df["upsilon"].values, spec.min_upsilon_percentile)
+                ups_ok *= (ups_vals >= p_val).astype(float)
+            if spec.max_upsilon_percentile is not None:
+                p_val = np.percentile(df["upsilon"].values, spec.max_upsilon_percentile)
+                ups_ok *= (ups_vals <= p_val).astype(float)
+            active_scores.append((W["upsilon_percentile"], ups_ok))
+
+        # Compute weighted average across active constraints
+        if not active_scores:
+            return np.ones(n, dtype=float)  # no constraints → full satisfaction
+
+        total_weight = sum(w for w, _ in active_scores)
+        if total_weight <= 0:
+            return np.ones(n, dtype=float)
+
+        weighted_sum = np.zeros(n, dtype=float)
+        for w, s in active_scores:
+            weighted_sum += (w / total_weight) * s
+
+        return weighted_sum
+
+    def query(
+        self,
+        query_text: str,
+        top_k: int = 5,
+        min_similarity: float = -1.0,
+        use_llm_parser: bool = True,
+        use_llm_synthesis: bool = True,
+        spec: Optional[PhysicsQuerySpec] = None,
+        target_synthetic_values: Optional[Dict[str, float]] = None,
+        **kwargs: Any,
+    ) -> PhysicsRAGResult:
+        """Execute hybrid query: cosine similarity + constraint satisfaction scoring.
+
+        Ranking formula:
+            final_score = α × cosine_sim + (1 - α) × constraint_score + regime_boost_if_match
+        """
+        # 1. Parse query intent
+        if spec is None:
+            if target_synthetic_values is not None:
+                spec = PhysicsQuerySpec(
+                    raw_query=query_text,
+                    intent_summary=f"Target parameter query for '{query_text}'",
+                    target_synthetic_values=target_synthetic_values,
+                )
+            elif use_llm_parser:
+                spec = GeminiPhysicsQueryParser.parse(
+                    query_text=query_text,
+                    model_name=self.model_name,
+                    api_key=self.api_key,
+                )
+            else:
+                spec = GeminiPhysicsQueryParser._fallback_parse(query_text)
+
+        # 2. Build target query embedding vector
+        query_vec = self._build_query_vector(spec)
+
+        # 3. Compute cosine similarities across full latent embedding space
+        cosine_sims = cosine_similarity(query_vec.reshape(1, -1), self.embeddings)[0]
+
+        # 4. Apply hard filters to get candidate pool (same as base PhysicsRAG)
+        filter_mask = self._apply_hard_and_soft_filters(spec)
+        candidate_indices = np.where(filter_mask)[0]
+
+        if len(candidate_indices) == 0:
+            candidate_indices = np.arange(len(self.df))
+
+        # 5. Compute constraint satisfaction scores for candidates
+        constraint_scores = self._compute_constraint_satisfaction_score(spec, candidate_indices)
+
+        # 6. Hybrid score: α × cosine + (1-α) × constraint
+        candidate_cosine = cosine_sims[candidate_indices]
+        # Normalize cosine sims to [0, 1] within candidate pool for fair blending
+        cos_min, cos_max = candidate_cosine.min(), candidate_cosine.max()
+        if cos_max > cos_min:
+            cosine_norm = (candidate_cosine - cos_min) / (cos_max - cos_min)
+        else:
+            cosine_norm = np.ones_like(candidate_cosine)
+
+        hybrid_scores = self.alpha * cosine_norm + (1.0 - self.alpha) * constraint_scores
+
+        # 7. Regime boost: add bonus for exact breaker regime match
+        if spec.breaker_regime and "breaker_regime" in self.df.columns:
+            regime_vals = self.df["breaker_regime"].values[candidate_indices]
+            regime_match = (regime_vals == spec.breaker_regime).astype(float)
+            hybrid_scores += self.regime_boost * regime_match
+
+        # 8. Rank by hybrid score
+        sort_order = np.argsort(-hybrid_scores)
+        ranked_indices = candidate_indices[sort_order]
+        ranked_sims = candidate_cosine[sort_order]  # report original cosine sims
+        ranked_hybrid = hybrid_scores[sort_order]
+
+        # Apply similarity threshold and top_k (use hybrid score for threshold)
+        valid_mask = ranked_sims >= min_similarity
+        selected_indices = ranked_indices[valid_mask][:top_k]
+        selected_sims = ranked_sims[valid_mask][:top_k]
+
+        # 9. Build result DataFrame
+        top_df = self.df.iloc[selected_indices].copy()
+        top_df["similarity"] = selected_sims
+        top_df["hybrid_score"] = ranked_hybrid[valid_mask][:top_k]
+
+        # 10. Extract recovery analytics if requested
+        recov_episodes = []
+        if spec.query_recovery_timeframe or spec.phase == "Recovery":
+            try:
+                recov_episodes = extract_recovery_timeframes(self.df)
+            except Exception:
+                pass
+
+        # 11. Generate explanations
+        deterministic_expl = self._generate_explanation(spec, top_df)
+        llm_expl = None
+        if use_llm_synthesis:
+            llm_expl = explain_with_gemini(
+                query_text=query_text,
+                spec=spec,
+                top_df=top_df,
+                model_name=self.model_name,
+                api_key=self.api_key,
+            )
+
+        return PhysicsRAGResult(
+            query=query_text,
+            matches_df=top_df,
+            similarities=selected_sims,
+            explanation=deterministic_expl,
+            parsed_criteria=spec,
+            llm_explanation=llm_expl,
+            query_vector=query_vec,
+            recovery_episodes=recov_episodes,
+        )
+
+
 class HierarchicalPhysicsRAG(PhysicsRAG):
     """Hierarchical Parent-Child Physics-RAG Engine using embedded DuckDB & Scikit-Learn.
 

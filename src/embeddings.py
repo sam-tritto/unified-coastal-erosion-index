@@ -582,41 +582,55 @@ def compute_regime_centroids(
             if len(idx) > 0:
                 centroids[f"Breaker_{regime}"] = np.mean(embeddings[idx], axis=0)
 
+    # Robust percentile-mean centroids: use mean of top/bottom 10th percentile
+    # embeddings instead of fragile single-exemplar argmax/argmin
     if "upsilon" in df.columns:
-        ian_idx = int(np.argmax(df["upsilon"].values))
-        centroids["State_ExtremeStormPeak"] = embeddings[ian_idx]
-        centroids["State_StormErosion"] = embeddings[ian_idx]
-        calm_idx = int(np.argmin(df["upsilon"].values))
-        centroids["State_CalmFairWeather"] = embeddings[calm_idx]
-        centroids["State_SubcriticalNoise"] = embeddings[calm_idx]
+        ups = df["upsilon"].values
+        p90 = np.percentile(ups, 90)
+        p10 = np.percentile(ups, 10)
+        storm_idx = np.where(ups >= p90)[0]
+        calm_idx = np.where(ups <= p10)[0]
+        if len(storm_idx) > 0:
+            centroids["State_ExtremeStormPeak"] = np.mean(embeddings[storm_idx], axis=0)
+            centroids["State_StormErosion"] = np.mean(embeddings[storm_idx], axis=0)
+        if len(calm_idx) > 0:
+            centroids["State_CalmFairWeather"] = np.mean(embeddings[calm_idx], axis=0)
+            centroids["State_SubcriticalNoise"] = np.mean(embeddings[calm_idx], axis=0)
 
     if "tp_s" in df.columns and "hs_m" in df.columns:
         swell_score = (df["tp_s"].values / (df["hs_m"].values + 0.1)) * (
             1.0 / (np.maximum(df["surge_m"].values if "surge_m" in df.columns else 0.0, 0.01) + 0.1)
         )
-        swell_idx = int(np.argmax(swell_score))
-        centroids["State_LongPeriodSwell"] = embeddings[swell_idx]
+        swell_p90 = np.percentile(swell_score, 90)
+        swell_idx = np.where(swell_score >= swell_p90)[0]
+        if len(swell_idx) > 0:
+            centroids["State_LongPeriodSwell"] = np.mean(embeddings[swell_idx], axis=0)
 
     # Suggestion 8: State-Space Recovery Navigation via Signed Disequilibrium
     if "upsilon_diseq" in df.columns:
         diseq = df["upsilon_diseq"].values
         recov_idx = np.where(diseq < 0)[0]
         if len(recov_idx) > 0:
-            # Most constructive recovery state (minimum disequilibrium)
-            best_recov = recov_idx[np.argmin(diseq[recov_idx])]
-            centroids["State_PostStormRecovery"] = embeddings[best_recov]
-            centroids["State_BermAccretion"] = embeddings[best_recov]
+            # Robust: mean of bottom 10th percentile disequilibrium (most constructive recovery)
+            diseq_p10 = np.percentile(diseq[recov_idx], 10)
+            best_recov_idx = recov_idx[diseq[recov_idx] <= diseq_p10]
+            centroids["State_PostStormRecovery"] = np.mean(embeddings[best_recov_idx], axis=0)
+            centroids["State_BermAccretion"] = np.mean(embeddings[best_recov_idx], axis=0)
     elif "delta_x_m" in df.columns:
         dx = df["delta_x_m"].values
         acc_idx = np.where(dx > 0)[0]
         if len(acc_idx) > 0:
-            best_acc = acc_idx[np.argmax(dx[acc_idx])]
-            centroids["State_PostStormRecovery"] = embeddings[best_acc]
-            centroids["State_BermAccretion"] = embeddings[best_acc]
+            dx_p90 = np.percentile(dx[acc_idx], 90)
+            best_acc_idx = acc_idx[dx[acc_idx] >= dx_p90]
+            centroids["State_PostStormRecovery"] = np.mean(embeddings[best_acc_idx], axis=0)
+            centroids["State_BermAccretion"] = np.mean(embeddings[best_acc_idx], axis=0)
     elif "accretion_potential" in df.columns:
-        acc_idx = int(np.argmax(df["accretion_potential"].values))
-        centroids["State_PostStormRecovery"] = embeddings[acc_idx]
-        centroids["State_BermAccretion"] = embeddings[acc_idx]
+        ap = df["accretion_potential"].values
+        ap_p90 = np.percentile(ap, 90)
+        ap_idx = np.where(ap >= ap_p90)[0]
+        if len(ap_idx) > 0:
+            centroids["State_PostStormRecovery"] = np.mean(embeddings[ap_idx], axis=0)
+            centroids["State_BermAccretion"] = np.mean(embeddings[ap_idx], axis=0)
 
     return centroids
 
