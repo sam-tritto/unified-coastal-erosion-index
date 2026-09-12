@@ -2381,8 +2381,9 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
         # Determine site-partitioned source view or parquet file path
         table_ref = "parent_sensors"
         target_site = site_id
-        if not target_site and "site" in self.df.columns and match_index < len(self.df):
-            target_site = str(self.df.iloc[match_index].get("site", "")).lower()
+        if not target_site and match_index < len(self.df):
+            row_match = self.df.iloc[match_index]
+            target_site = str(row_match.get("site_id", row_match.get("site", ""))).lower()
 
         if target_site:
             part_path = os.path.join("data", "processed", f"{target_site.lower()}_2012_2016_sensors.parquet")
@@ -2419,15 +2420,21 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
                     parent_df = pd.DataFrame()
 
         if parent_df.empty:
-            # Fallback pure-pandas slicing
+            # Fallback fast-pandas slicing
             try:
                 ts = pd.to_datetime(event_timestamp)
                 t_start = ts - pd.Timedelta(hours=pre_h)
                 t_end = ts + pd.Timedelta(hours=post_h)
                 source_df = self.df
-                if target_site and "site" in self.df.columns:
-                    source_df = self.df[self.df["site"].astype(str).str.lower() == target_site.lower()]
-                ts_col = pd.to_datetime(source_df["timestamp"])
+                if target_site:
+                    if "site_id" in self.df.columns:
+                        source_df = self.df[self.df["site_id"].astype(str).str.lower() == target_site.lower()]
+                    elif "site" in self.df.columns:
+                        source_df = self.df[self.df["site"].astype(str).str.lower() == target_site.lower()]
+                if pd.api.types.is_datetime64_any_dtype(source_df["timestamp"]):
+                    ts_col = source_df["timestamp"]
+                else:
+                    ts_col = pd.to_datetime(source_df["timestamp"])
                 if ts_col.dt.tz is not None and t_start.tz is None:
                     t_start = t_start.tz_localize("UTC")
                     t_end = t_end.tz_localize("UTC")
@@ -2738,20 +2745,21 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
 
         # 2. Hydrate Parent Context Windows via DuckDB (Stage 2a)
         parent_windows: List[ParentWindowContext] = []
-        for idx in range(len(candidate_df)):
-            row = candidate_df.iloc[idx]
-            match_ts = row["timestamp"] if "timestamp" in row else self.df.iloc[idx]["timestamp"]
-            sim = float(candidate_sims[idx]) if idx < len(candidate_sims) else 1.0
+        if do_rerank:
+            for idx in range(len(candidate_df)):
+                row = candidate_df.iloc[idx]
+                match_ts = row["timestamp"] if "timestamp" in row else self.df.iloc[idx]["timestamp"]
+                sim = float(candidate_sims[idx]) if idx < len(candidate_sims) else 1.0
 
-            pw = self.hydrate_parent_window(
-                event_timestamp=match_ts,
-                match_index=idx,
-                similarity=sim,
-                pre_window_hours=pre_window_hours,
-                post_window_hours=post_window_hours,
-                columns=parent_columns,
-            )
-            parent_windows.append(pw)
+                pw = self.hydrate_parent_window(
+                    event_timestamp=match_ts,
+                    match_index=idx,
+                    similarity=sim,
+                    pre_window_hours=pre_window_hours,
+                    post_window_hours=post_window_hours,
+                    columns=parent_columns,
+                )
+                parent_windows.append(pw)
 
         # 3. Two-Stage Reranking (Stage 2b)
         if do_rerank and len(candidate_df) > 1:
