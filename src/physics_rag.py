@@ -9,15 +9,74 @@ from __future__ import annotations
 
 import os
 import re
+import logging
 from typing import Dict, Any, List, Optional, Tuple, Union, Literal
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import RobustScaler, StandardScaler, normalize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
+
+logger = logging.getLogger(__name__)
+
+
+def sanitize_gemini_schema(schema: Any) -> Any:
+    """Recursively prune unsupported schema fields (such as 'additionalProperties') for Google GenAI SDK."""
+    if isinstance(schema, dict):
+        cleaned = {}
+        for k, v in schema.items():
+            if k in ("additionalProperties", "additional_properties"):
+                continue
+            cleaned[k] = sanitize_gemini_schema(v)
+        return cleaned
+    elif isinstance(schema, list):
+        return [sanitize_gemini_schema(item) for item in schema]
+    return schema
+
+
+class TargetSyntheticValues(BaseModel):
+    """Explicitly typed synthetic physical target parameters with no additional properties allowed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    hs_m: Optional[float] = Field(default=None, description="Significant wave height in meters.")
+    tp_s: Optional[float] = Field(default=None, description="Peak wave period in seconds.")
+    tan_beta: Optional[float] = Field(default=None, description="Foreshore beach slope.")
+    total_water_level_m: Optional[float] = Field(default=None, description="Total water level elevation in meters.")
+    surge_m: Optional[float] = Field(default=None, description="Storm surge residual elevation in meters.")
+    wind_speed_ms: Optional[float] = Field(default=None, description="Wind speed in m/s.")
+    wind_normal_ms: Optional[float] = Field(default=None, description="Shore-normal wind speed in m/s.")
+    dean_number: Optional[float] = Field(default=None, description="Dean dimensionless fall velocity parameter.")
+    xi_iribarren: Optional[float] = Field(default=None, description="Iribarren surf similarity number.")
+    delta_x_m: Optional[float] = Field(default=None, description="Shoreline displacement delta_X in meters.")
+    upsilon: Optional[float] = Field(default=None, description="Unified Coastal Vulnerability Index.")
+
+    def to_dict(self) -> Dict[str, float]:
+        """Convert non-None fields to dict."""
+        return {k: v for k, v in self.model_dump().items() if v is not None}
+
+    def items(self):
+        return self.to_dict().items()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        val = getattr(self, key, default)
+        return val if val is not None else default
+
+    def __getitem__(self, item: str) -> Any:
+        val = getattr(self, item, None)
+        if val is None:
+            raise KeyError(item)
+        return val
+
+    def __contains__(self, item: str) -> bool:
+        return getattr(self, item, None) is not None
+
+    def __bool__(self) -> bool:
+        return bool(self.to_dict())
+
 
 try:
     import duckdb
@@ -48,6 +107,8 @@ except ImportError:
 
 class PhysicsQuerySpec(BaseModel):
     """Structured physical constraints and target embedding specifications."""
+
+    model_config = ConfigDict(extra="forbid")
 
     raw_query: str = Field(description="The original natural language query string.")
     intent_summary: str = Field(
@@ -94,7 +155,7 @@ class PhysicsQuerySpec(BaseModel):
     max_upsilon_percentile: Optional[float] = Field(default=None, description="Maximum percentile of Unified Index Upsilon (e.g. 25 for calm/low).")
     date_start: Optional[str] = Field(default=None, description="Start date (YYYY-MM-DD) if query refers to specific storm/date.")
     date_end: Optional[str] = Field(default=None, description="End date (YYYY-MM-DD) if query refers to specific storm/date.")
-    target_synthetic_values: Optional[Dict[str, float]] = Field(
+    target_synthetic_values: Optional[TargetSyntheticValues] = Field(
         default=None,
         description="Target numerical values to synthesize an explicit query vector (e.g. {'hs_m': 4.5, 'tp_s': 14.0, 'surge_m': 1.0})."
     )
@@ -560,13 +621,14 @@ Guidelines:
                         client = None
 
             if client is not None:
+                schema = sanitize_gemini_schema(PhysicsQuerySpec.model_json_schema())
                 response = client.models.generate_content(
                     model=model_name,
                     contents=f"Parse the following coastal oceanography query into the PhysicsQuerySpec schema:\nQuery: {query_text}",
                     config={
                         "system_instruction": cls.SYSTEM_PROMPT,
                         "response_mime_type": "application/json",
-                        "response_schema": PhysicsQuerySpec,
+                        "response_schema": schema,
                         "temperature": 0.0,
                     },
                 )
@@ -582,8 +644,8 @@ Guidelines:
                         if getattr(spec, attr, None) is None and getattr(nl_spec, attr, None) is not None:
                             setattr(spec, attr, getattr(nl_spec, attr))
                     return spec
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Gemini physics query parsing failed for '{query_text}': {e}")
 
         return nl_spec
 
@@ -694,8 +756,8 @@ Instructions:
         )
         if response and response.text:
             return response.text.strip()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Gemini explanation synthesis failed for '{query_text}': {e}")
     return None
 
 
@@ -776,8 +838,8 @@ Instructions:
         )
         if response and response.text:
             return response.text.strip()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Gemini hierarchical explanation synthesis failed for '{query_text}': {e}")
     return None
 
 
@@ -2493,8 +2555,8 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
                     if len(scores) < n_cand:
                         scores.extend([0.5] * (n_cand - len(scores)))
                     return scores
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Gemini candidate scoring failed for '{query_text}': {e}")
         return None
 
     def _score_candidates_deterministic(
@@ -3341,7 +3403,8 @@ Return a strictly typed JSON object with:
                 if response and response.text:
                     import json
                     criteria = json.loads(response.text)
-            except Exception:
+            except Exception as e:
+                logger.error(f"RawDataLLMRAG Gemini call failed for '{query_text}': {e}")
                 criteria = self._offline_raw_reasoning(query_text)
         else:
             criteria = self._offline_raw_reasoning(query_text)

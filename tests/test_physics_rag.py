@@ -16,6 +16,8 @@ from src.embeddings import (
 )
 from src.physics_rag import (
     PhysicsQuerySpec,
+    TargetSyntheticValues,
+    sanitize_gemini_schema,
     PhysicsQueryParser,
     GeminiPhysicsQueryParser,
     PhysicsRAG,
@@ -596,6 +598,84 @@ def test_baseline4_hierarchical_reranker(sample_coastal_df):
     assert len(res.parent_windows) == len(res.matches_df)
     assert len(res.similarities) == len(res.matches_df)
     assert res.explanation is not None
+
+
+def test_target_synthetic_values_extra_forbid():
+    """Verify TargetSyntheticValues forbids unexpected extra attributes."""
+    from pydantic import ValidationError
+
+    # Valid initialization
+    vals = TargetSyntheticValues(hs_m=3.5, tp_s=12.0, surge_m=0.8)
+    assert vals.hs_m == 3.5
+    assert vals.tp_s == 12.0
+    assert vals.surge_m == 0.8
+    assert vals["hs_m"] == 3.5
+    assert vals.get("tp_s") == 12.0
+    assert "hs_m" in vals
+    assert "wind_speed_ms" not in vals
+    assert vals.to_dict() == {"hs_m": 3.5, "tp_s": 12.0, "surge_m": 0.8}
+    assert bool(vals) is True
+
+    empty_vals = TargetSyntheticValues()
+    assert bool(empty_vals) is False
+
+    # Forbid extra invalid properties
+    with pytest.raises(ValidationError):
+        TargetSyntheticValues(hs_m=3.5, unphysical_bogus_key=999.0)
+
+
+def test_physics_query_spec_synthetic_values_parsing():
+    """Verify PhysicsQuerySpec parses dict into TargetSyntheticValues with extra='forbid'."""
+    from pydantic import ValidationError
+
+    spec = PhysicsQuerySpec(
+        raw_query="Storm waves over 3m",
+        target_synthetic_values={"hs_m": 3.2, "tp_s": 10.0},
+    )
+    assert isinstance(spec.target_synthetic_values, TargetSyntheticValues)
+    assert spec.target_synthetic_values.hs_m == 3.2
+    assert spec.target_synthetic_values["tp_s"] == 10.0
+
+    # Extra unmapped properties in target_synthetic_values raise ValidationError
+    with pytest.raises(ValidationError):
+        PhysicsQuerySpec(
+            raw_query="Storm waves over 3m",
+            target_synthetic_values={"hs_m": 3.2, "extra_illegal_field": 1.0},
+        )
+
+
+def test_sanitize_gemini_schema():
+    """Verify sanitize_gemini_schema recursively removes additionalProperties for GenAI SDK."""
+    raw_schema = PhysicsQuerySpec.model_json_schema()
+    clean_schema = sanitize_gemini_schema(raw_schema)
+
+    def check_no_additional_properties(obj):
+        if isinstance(obj, dict):
+            assert "additionalProperties" not in obj
+            assert "additional_properties" not in obj
+            for v in obj.values():
+                check_no_additional_properties(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                check_no_additional_properties(item)
+
+    check_no_additional_properties(clean_schema)
+
+
+def test_gemini_query_parser_error_surfaced(caplog):
+    """Verify API exceptions in GeminiPhysicsQueryParser are logged via logger.error."""
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = RuntimeError("API quota exceeded")
+
+    with caplog.at_level("ERROR"):
+        spec = GeminiPhysicsQueryParser.parse(
+            query_text="High energy storm waves",
+            client=mock_client,
+        )
+
+    assert isinstance(spec, PhysicsQuerySpec)
+    assert any("Gemini physics query parsing failed" in record.message for record in caplog.records)
+
 
 
 
