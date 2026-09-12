@@ -500,3 +500,44 @@ def test_query_failure_modes(sample_coastal_df):
     assert "Discrepancy Score" in df_fail.columns
 
 
+def test_expanded_phenomenon_centroids(sample_coastal_df):
+    """Verify precomputation of Item 4 phenomenon-level centroids."""
+    rag = PhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust")
+    centroids = rag.centroids
+
+    # Standard centroids
+    assert "Breaker_Plunging" in centroids or "Breaker_Spilling" in centroids
+    assert "State_ExtremeStormPeak" in centroids or "State_StormErosion" in centroids
+
+    # Expanded Item 4 phenomenon centroids
+    assert "Centroid_InfragravitySwash" in centroids or "State_InfragravitySwash" in centroids
+
+
+def test_phenomenon_centroid_routing(sample_coastal_df):
+    """Verify _build_query_vector routes to phenomenon centroids when target values are absent."""
+    rag = PhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust")
+
+    # Infragravity focus query without explicit target values
+    spec_ig = PhysicsQuerySpec(raw_query="Show infragravity swash resonance", focus="Infragravity")
+    vec_ig = rag._build_query_vector(spec_ig)
+    assert vec_ig is not None
+    assert len(vec_ig) == rag.embeddings.shape[1]
+    if "Centroid_InfragravitySwash" in rag.centroids:
+        assert np.allclose(vec_ig, rag.centroids["Centroid_InfragravitySwash"])
+
+
+def test_upsilon_weighted_similarity(sample_coastal_df):
+    """Verify Item 5 Upsilon-weighted cosine similarity computation."""
+    rag = PhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust", use_weighted_similarity=True)
+    assert rag.use_weighted_similarity is True
+    assert hasattr(rag, "feature_weights")
+    assert rag.feature_weights["log_Upsilon"] == 1.2
+    assert rag.feature_weights["Water_Temp_C"] == 0.2
+
+    query_vec = rag.embeddings[0].copy()
+    sims_weighted = rag._compute_similarity(query_vec)
+    assert len(sims_weighted) == len(sample_coastal_df)
+    assert np.isclose(sims_weighted[0], 1.0, atol=1e-5)
+
+
+

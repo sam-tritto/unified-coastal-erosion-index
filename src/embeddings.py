@@ -632,6 +632,60 @@ def compute_regime_centroids(
             centroids["State_PostStormRecovery"] = np.mean(embeddings[ap_idx], axis=0)
             centroids["State_BermAccretion"] = np.mean(embeddings[ap_idx], axis=0)
 
+    # Item 4: Phenomenon-Level Archetype & Failure Mode Centroids
+    # 1. Infragravity Swash Resonance (Long period swell Tp >= 13s)
+    if "tp_s" in df.columns:
+        tp_vals = df["tp_s"].values
+        ig_idx = np.where(tp_vals >= 13.0)[0]
+        if len(ig_idx) == 0:
+            ig_p90 = np.percentile(tp_vals, 90)
+            ig_idx = np.where(tp_vals >= ig_p90)[0]
+        if len(ig_idx) > 0:
+            centroids["Centroid_InfragravitySwash"] = np.mean(embeddings[ig_idx], axis=0)
+            centroids["State_InfragravitySwash"] = centroids["Centroid_InfragravitySwash"]
+
+    # 2. Macrotidal Dissipation & Ridge-and-Runnel Tidal Smearing
+    macro_mask = np.zeros(len(df), dtype=bool)
+    if "psi_tide" in df.columns:
+        macro_mask = macro_mask | (df["psi_tide"].values < 0.45)
+    if "geomorphic_regime" in df.columns:
+        macro_mask = macro_mask | df["geomorphic_regime"].astype(str).str.contains("Macrotidal|Ridge-and-Runnel", case=False, regex=True).values
+    if "site" in df.columns:
+        macro_mask = macro_mask | (df["site"].astype(str).str.lower() == "truc_vert_france")
+    macro_idx = np.where(macro_mask)[0]
+    if len(macro_idx) > 0:
+        centroids["Centroid_MacrotidalDissipation"] = np.mean(embeddings[macro_idx], axis=0)
+        centroids["State_MacrotidalDissipation"] = centroids["Centroid_MacrotidalDissipation"]
+
+    # 3. Sandbar Dissipation Saturation & Breaching
+    bar_mask = np.zeros(len(df), dtype=bool)
+    if "dean_number" in df.columns:
+        bar_mask = bar_mask | (df["dean_number"].values >= 4.5)
+    if "delta_p_dissip" in df.columns:
+        bar_mask = bar_mask | (df["delta_p_dissip"].values >= 0.35)
+    bar_idx = np.where(bar_mask)[0]
+    if len(bar_idx) == 0 and "dean_number" in df.columns:
+        d_p90 = np.percentile(df["dean_number"].values, 90)
+        bar_idx = np.where(df["dean_number"].values >= d_p90)[0]
+    if len(bar_idx) > 0:
+        centroids["Centroid_BarDissipation"] = np.mean(embeddings[bar_idx], axis=0)
+        centroids["State_BarDissipation"] = centroids["Centroid_BarDissipation"]
+
+    # 4. Compound Storm Surge & Elevated Total Water Level Scarping
+    twl_col = "total_water_level_m" if "total_water_level_m" in df.columns else ("surge_m" if "surge_m" in df.columns else None)
+    if twl_col and "hs_m" in df.columns:
+        surge_mask = (df["hs_m"].values >= 2.0) & (df[twl_col].values >= 1.0)
+        if np.sum(surge_mask) < 5:
+            surge_mask = (df["hs_m"].values >= np.percentile(df["hs_m"].values, 80)) & (df[twl_col].values >= np.percentile(df[twl_col].values, 80))
+        surge_idx = np.where(surge_mask)[0]
+    elif "surge_m" in df.columns:
+        surge_idx = np.where(df["surge_m"].values >= np.percentile(df["surge_m"].values, 90))[0]
+    else:
+        surge_idx = np.array([], dtype=int)
+    if len(surge_idx) > 0:
+        centroids["Centroid_CompoundSurge"] = np.mean(embeddings[surge_idx], axis=0)
+        centroids["State_CompoundSurge"] = centroids["Centroid_CompoundSurge"]
+
     return centroids
 
 

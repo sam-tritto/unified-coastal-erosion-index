@@ -113,6 +113,27 @@ class PhysicsQuerySpec(BaseModel):
     )
 
 
+# Item 5: Upsilon-Weighted Latent Manifold Distance Metric weights
+# Energetic drivers of coastal morphodynamics (wave power, TWL, Dean number, disequilibrium, accretion)
+# receive higher weights (1.2 - 1.5) compared to ambient static scalars (e.g. water temperature: 0.2).
+DEFAULT_UPSILON_FEATURE_WEIGHTS: Dict[str, float] = {
+    "log_Upsilon": 1.2,
+    "Wave_Power_P": 1.2,
+    "Hs": 1.2,
+    "Surge_S": 1.2,
+    "Tp": 1.5,
+    "Iribarren_xi": 1.3,
+    "Dean_Omega": 1.2,
+    "Omega_Over_Crit": 1.2,
+    "Bar_Dissipation_Ratio": 1.2,
+    "Accretion_Potential": 1.5,
+    "Wind_Wa": 1.0,
+    "tan_alpha": 1.0,
+    "w_s": 1.0,
+    "Water_Temp_C": 0.2,
+}
+
+
 class PhysicsQueryParser:
     """Deterministic rule-based parser for physical criteria and target embedding profiles."""
 
@@ -215,9 +236,10 @@ class PhysicsQueryParser:
                     parsed["filters"]["xi_min"] = specs["xi_min"]
                 break
 
-        # Check morphodynamic keywords
+        # Check morphodynamic keywords (avoid false positives on 'buffered erosion' or 'under-predict erosion')
+        is_negated_or_dissip = any(p in text for p in ["buffered erosion", "under-predict", "underpredict", "underprediction", "failure mode"])
         for kw, specs in cls.MORPHO_KEYWORDS.items():
-            if re.search(rf"\b{kw}\b", text):
+            if re.search(rf"\b{kw}\b", text) and not (kw in ["erosion", "erosive"] and is_negated_or_dissip):
                 parsed["morphology"] = specs["morphology"]
                 if "phase" in specs:
                     parsed["phase"] = specs["phase"]
@@ -230,11 +252,12 @@ class PhysicsQueryParser:
                 break
 
         # Suggestion 8: Threshold anchor & Noise filtering keywords
-        if any(w in text for w in ["ignore noise", "filter noise", "above critical", "prune noise", "active forcing", "above critical threshold"]):
+        if any(w in text for w in ["ignore noise", "filter noise", "above critical", "prune noise", "active forcing", "above critical threshold", "ignoring background noise"]):
             parsed["filter_background_noise"] = True
             parsed["filters"]["filter_background_noise"] = True
 
-        if any(w in text for w in ["background noise", "subcritical noise", "subcritical", "below threshold", "below critical"]):
+        is_ignoring_noise = any(w in text for w in ["ignore noise", "ignoring", "filter noise", "above critical", "prune noise", "active storm"])
+        if any(w in text for w in ["background noise", "subcritical noise", "subcritical", "below threshold", "below critical"]) and not is_ignoring_noise:
             parsed["phase"] = "Noise"
             parsed["target_state"] = "State_SubcriticalNoise"
 
@@ -315,6 +338,109 @@ class PhysicsQueryParser:
             if any(w in text for w in [">", "over", "above", "exceed", "higher", "strong"]):
                 parsed["filters"]["wind_normal_min"] = val
 
+        # Zero-shot parameter synthesis for qualitative oceanographic phenomena if explicit numbers omitted
+        if "hs_m" not in synth_vals:
+            if any(w in text for w in ["high energy storm", "extreme storm", "catastrophic", "severe storm cut"]):
+                synth_vals["hs_m"] = 3.5
+                synth_vals["tp_s"] = 11.5
+                parsed["filters"]["hs_min"] = 2.7
+            elif "compound" in text:
+                synth_vals["hs_m"] = 3.0
+                synth_vals["tp_s"] = 11.0
+                synth_vals["total_water_level_m"] = 1.7
+                parsed["filters"]["hs_min"] = 2.2
+                parsed["filters"]["surge_min"] = 1.4
+            elif "infragravity" in text:
+                synth_vals["hs_m"] = 2.5
+                synth_vals["tp_s"] = 14.5
+                parsed["filters"]["tp_min"] = 13.0
+                parsed["filters"]["hs_min"] = 1.5
+                parsed["focus"] = "infragravity"
+            elif "summer swell" in text or "constructive long-period" in text:
+                synth_vals["hs_m"] = 0.9
+                synth_vals["tp_s"] = 13.0
+                parsed["filters"]["tp_min"] = 11.0
+                parsed["filters"]["hs_max"] = 1.3
+                parsed["phase"] = "Recovery"
+                parsed["morphology"] = "Accretive"
+                parsed["target_state"] = "State_PostStormRecovery"
+            elif "macrotidal" in text or "tidal smearing" in text:
+                synth_vals["hs_m"] = 2.5
+                synth_vals["tp_s"] = 9.5
+                parsed["site_id"] = "truc_vert_france"
+                parsed["geomorphic_regime"] = "macrotidal"
+                parsed["filters"]["site_id"] = "truc_vert_france"
+                parsed["focus"] = "macrotidal"
+            elif "sheltered" in text or "protected embayment" in text:
+                synth_vals["hs_m"] = 0.7
+                synth_vals["tp_s"] = 12.0
+                parsed["geomorphic_regime"] = "embayed"
+                parsed["filters"]["hs_max"] = 1.1
+                parsed["focus"] = "sheltered_swell"
+            elif "oblique" in text or "headland" in text or "beach rotation" in text:
+                synth_vals["hs_m"] = 2.8
+                synth_vals["tp_s"] = 11.0
+                parsed["filters"]["hs_min"] = 2.0
+                parsed["focus"] = "oblique"
+            elif "sandbar" in text or "buffering" in text or "bar-breach" in text:
+                synth_vals["hs_m"] = 3.0
+                synth_vals["tp_s"] = 10.5
+                synth_vals["dean_number"] = 5.0
+                parsed["filters"]["hs_min"] = 2.2
+                parsed["focus"] = "sandbar_dissipation"
+            elif "tide-gated" in text or "high tide" in text:
+                synth_vals["hs_m"] = 2.5
+                synth_vals["tp_s"] = 10.0
+                synth_vals["total_water_level_m"] = 1.8
+                parsed["filters"]["hs_min"] = 2.0
+                parsed["filters"]["surge_min"] = 1.5
+            elif "steep coarse sand" in text:
+                synth_vals["hs_m"] = 2.8
+                synth_vals["tp_s"] = 9.0
+                synth_vals["dean_number"] = 4.0
+                parsed["filters"]["hs_min"] = 2.2
+            elif any(w in text for w in ["under-predict", "underpredict", "underprediction", "failure mode"]):
+                synth_vals["hs_m"] = 1.8
+                synth_vals["tp_s"] = 12.0
+                synth_vals["total_water_level_m"] = 1.7
+                parsed["is_failure_mode"] = True
+                parsed["filters"]["hs_max"] = 2.0
+                parsed["filters"]["tp_min"] = 10.0
+                parsed["filters"]["surge_min"] = 1.4
+            elif parsed.get("breaker_regime") == "Spilling" or "spilling" in text or "dissipative" in text:
+                synth_vals["hs_m"] = 3.0
+                synth_vals["tp_s"] = 7.5
+                synth_vals["tan_beta"] = 0.08
+            elif parsed.get("breaker_regime") == "Plunging" or "plunging" in text or "curling" in text:
+                synth_vals["hs_m"] = 2.0
+                synth_vals["tp_s"] = 9.5
+                synth_vals["tan_beta"] = 0.08
+            elif parsed.get("breaker_regime") == "Surging" or "surging" in text or "reflective" in text or "shorebreak" in text:
+                synth_vals["hs_m"] = 0.6
+                synth_vals["tp_s"] = 14.0
+                synth_vals["tan_beta"] = 0.08
+            elif parsed.get("phase") == "Recovery" or "berm accretion" in text or "swash recovery" in text or "profile healing" in text:
+                synth_vals["hs_m"] = 0.8
+                synth_vals["tp_s"] = 11.5
+                synth_vals["delta_x_m"] = 0.2
+            elif "gale" in text:
+                synth_vals["hs_m"] = 2.8
+                synth_vals["tp_s"] = 9.0
+                synth_vals["wind_speed_ms"] = 8.5
+                synth_vals["wind_normal_ms"] = 8.0
+                parsed["filters"]["wind_normal_min"] = 7.0
+            elif "total water level" in text or "dune toe" in text:
+                synth_vals["hs_m"] = 2.5
+                synth_vals["tp_s"] = 10.0
+                synth_vals["total_water_level_m"] = 1.8
+                parsed["filters"]["surge_min"] = 1.6
+            elif "breaking at low tide" in text:
+                synth_vals["hs_m"] = 2.2
+                synth_vals["tp_s"] = 10.0
+                synth_vals["total_water_level_m"] = 0.9
+                parsed["filters"]["hs_min"] = 2.0
+                parsed["filters"]["surge_max"] = 1.1
+
         if synth_vals:
             parsed["target_synthetic_values"] = synth_vals
 
@@ -339,21 +465,47 @@ class GeminiPhysicsQueryParser:
     """Uses Gemini Flash (or configured model) with structured output to parse natural language queries into PhysicsQuerySpec."""
 
     SYSTEM_PROMPT = """You are an expert coastal oceanographer and hydrodynamic search specialist.
-Your task is to parse a user's natural language query about coastal conditions (waves, surge, morphology, breaker regimes, storms like Hurricane Ian, berm accretion, recovery timeframes, background noise filtering) into a strictly typed JSON schema according to PhysicsQuerySpec.
+Your task is to parse a user's natural language query about coastal hydrodynamic and morphodynamic conditions into a strictly typed JSON schema according to PhysicsQuerySpec.
 
 Guidelines:
-- If the query mentions 'spilling' or 'dissipative', set breaker_regime="Spilling" and xi_max=0.5.
-- If the query mentions 'plunging' or 'curling', set breaker_regime="Plunging", xi_min=0.5, xi_max=3.3.
-- If the query mentions 'surging', 'collapsing', or 'reflective', set breaker_regime="Surging" and xi_min=3.3.
-- If the query mentions 'erosion', 'beach cut', 'scarping', set morphology="Erosive", phase="Erosion", delta_x_max=0.0.
-- If the query mentions 'accretion', 'recovery', 'berm building', set morphology="Accretive", phase="Recovery", delta_x_min=0.0, target_state="State_PostStormRecovery".
-- If the query asks about 'recovery timeframe', 'recovery duration', or 'how long the beach takes to recover', set query_recovery_timeframe=True, phase="Recovery", morphology="Accretive", target_state="State_PostStormRecovery".
-- If the query asks to 'ignore background noise', 'filter noise', 'active storm only', or 'above critical threshold', set filter_background_noise=True.
-- If the query mentions 'Hurricane Ian', set target_state="State_ExtremeStormPeak", min_upsilon_percentile=75.0, date_start="2022-09-27", date_end="2022-10-02".
-- If the query mentions 'storm peak', 'extreme storm', 'major storm', set min_upsilon_percentile=75.0, target_state="State_ExtremeStormPeak".
-- If the query mentions 'calm', 'fair weather', 'mild', set max_upsilon_percentile=25.0, target_state="State_CalmFairWeather".
-- If the query specifies numerical values (e.g. 'waves over 4m', '14s period', 'surge > 0.8m'), populate hs_min, tp_min, surge_min, and populate target_synthetic_values with these numbers.
-- Provide a clear intent_summary describing the physical oceanographic phenomenon.
+1. Breaker Regimes:
+   - 'spilling' or 'dissipative': breaker_regime="Spilling", xi_max=0.5. Populate target_synthetic_values: {"hs_m": 3.0, "tp_s": 7.5, "tan_beta": 0.08}.
+   - 'plunging' or 'curling': breaker_regime="Plunging", xi_min=0.5, xi_max=3.3. Populate target_synthetic_values: {"hs_m": 2.0, "tp_s": 9.5, "tan_beta": 0.08}.
+   - 'surging', 'collapsing', or 'reflective': breaker_regime="Surging", xi_min=3.3. Populate target_synthetic_values: {"hs_m": 0.6, "tp_s": 14.0, "tan_beta": 0.08}.
+
+2. Morphology & Morphodynamic Phases:
+   - 'erosion', 'beach cut', 'scarping' (when not negated): morphology="Erosive", phase="Erosion", delta_x_max=0.0.
+   - 'accretion', 'recovery', 'berm building', 'healing', 'berm welding': morphology="Accretive", phase="Recovery", delta_x_min=0.0, target_state="State_PostStormRecovery".
+   - 'recovery timeframe' or post-storm duration: query_recovery_timeframe=True, phase="Recovery", morphology="Accretive", target_state="State_PostStormRecovery".
+   - 'ignore background noise', 'filter noise', 'active storm only', 'above critical threshold': filter_background_noise=True.
+   - 'subcritical', 'below threshold', 'background noise' (when not ignored): phase="Noise", target_state="State_SubcriticalNoise".
+
+3. Storms & Wave / Water Level Extremes:
+   - 'Hurricane Ian': target_state="State_ExtremeStormPeak", min_upsilon_percentile=75.0, date_start="2022-09-27", date_end="2022-10-02".
+   - 'storm peak', 'extreme storm', 'major storm', 'catastrophic beach scarping', 'extreme coastal vulnerability': min_upsilon_percentile=70.0, target_state="State_ExtremeStormPeak", populate target_synthetic_values: {"hs_m": 3.8, "tp_s": 12.0}.
+   - 'high energy storm waves', 'waves over 3m' / '4m': hs_min=2.7, populate target_synthetic_values: {"hs_m": 3.5, "tp_s": 11.5}.
+   - 'elevated total water level', 'exceeding dune toe', 'high water level': surge_min=1.6, populate target_synthetic_values: {"total_water_level_m": 1.8, "hs_m": 2.5}.
+   - 'compound wave-surge': hs_min=2.2, surge_min=1.4, focus="compound", populate target_synthetic_values: {"hs_m": 3.0, "tp_s": 11.0, "total_water_level_m": 1.7}.
+   - 'onshore gale wind', 'gale wind forcing': wind_normal_min=7.0, focus="wind_gale", populate target_synthetic_values: {"hs_m": 2.8, "tp_s": 9.0, "wind_speed_ms": 8.5}.
+   - 'calm', 'fair weather', 'mild': max_upsilon_percentile=25.0, target_state="State_CalmFairWeather", populate target_synthetic_values: {"hs_m": 0.7, "tp_s": 8.0}.
+   - 'summer swell', 'long-period swell berm welding': tp_min=11.0, hs_max=1.3, morphology="Accretive", phase="Recovery", target_state="State_PostStormRecovery", populate target_synthetic_values: {"hs_m": 0.9, "tp_s": 13.5}.
+
+4. Cross-Site Geomorphic Invariance & Archetypes:
+   - 'macrotidal', 'tidal smearing', 'truc vert', 'france', 'biscay': site_id="truc_vert_france", geomorphic_regime="macrotidal", focus="macrotidal_dissipation", populate target_synthetic_values: {"hs_m": 2.5, "tp_s": 9.5}.
+   - 'sheltered', 'protected embayments', 'narrabeen', 'torrey pines': geomorphic_regime="embayed", hs_max=1.1, focus="sheltered_swell", populate target_synthetic_values: {"hs_m": 0.7, "tp_s": 12.0}.
+   - 'oblique storm waves', 'headland rotation', 'beach rotation': focus="oblique", hs_min=2.0, populate target_synthetic_values: {"hs_m": 2.8, "tp_s": 11.0}.
+   - 'sandbar dissipation', 'buffering', 'bar-breach': focus="sandbar_dissipation", hs_min=2.2, populate target_synthetic_values: {"hs_m": 3.0, "tp_s": 10.5, "dean_number": 5.0}.
+   - 'tide-gated', 'high tide': surge_min=1.5, hs_min=2.0, populate target_synthetic_values: {"hs_m": 2.5, "tp_s": 10.0, "total_water_level_m": 1.8}.
+   - 'steep coarse sand': hs_min=2.2, populate target_synthetic_values: {"hs_m": 2.8, "tp_s": 9.0, "dean_number": 4.0}.
+
+5. Diagnostic Failure Modes & Hydrodynamic Blind Spots:
+   - 'under-predict', 'underpredict', 'failure mode', 'model blind spots': is_failure_mode=True, phase="Erosion", morphology="Erosive", target_state="State_UnderpredictedErosion", populate target_synthetic_values: {"hs_m": 1.8, "tp_s": 12.0, "total_water_level_m": 1.7}.
+   - 'infragravity swash resonance', 'surf-beat resonance': tp_min=13.0, hs_min=1.5, focus="infragravity", populate target_synthetic_values: {"hs_m": 2.5, "tp_s": 14.5}.
+   - 'unshielded bar-breach hotspot': hs_min=2.2, focus="bar_breach", populate target_synthetic_values: {"hs_m": 3.2, "tp_s": 10.0, "dean_number": 4.5}.
+   - 'breaking at low tide', 'intertidal flats': hs_min=2.0, surge_max=1.1, populate target_synthetic_values: {"hs_m": 2.2, "tp_s": 10.0, "total_water_level_m": 0.9}.
+
+6. Synthetic Target Values:
+   - Crucial: ALWAYS populate `target_synthetic_values` with realistic oceanographic parameter values for the requested state, even if the user query does not provide exact numbers. If exact numbers are given in the query (e.g., 'wave height over 3m'), use those numbers.
 """
 
     @classmethod
@@ -365,6 +517,7 @@ Guidelines:
         client: Optional[Any] = None,
     ) -> PhysicsQuerySpec:
         """Parse natural language query using Gemini Flash structured output with automatic fallback."""
+        nl_spec = cls._fallback_parse(query_text)
         try:
             from google import genai
 
@@ -393,11 +546,18 @@ Guidelines:
                     import json
                     parsed_json = json.loads(response.text)
                     parsed_json["raw_query"] = query_text
-                    return PhysicsQuerySpec(**parsed_json)
+                    spec = PhysicsQuerySpec(**parsed_json)
+                    # Merge zero-shot synthetic values from deterministic fallback if Gemini omitted them
+                    if not spec.target_synthetic_values and nl_spec.target_synthetic_values:
+                        spec.target_synthetic_values = nl_spec.target_synthetic_values
+                    for attr in ["breaker_regime", "site_id", "geomorphic_regime", "hs_min", "tp_min", "surge_min", "wind_normal_min", "focus", "is_failure_mode"]:
+                        if getattr(spec, attr, None) is None and getattr(nl_spec, attr, None) is not None:
+                            setattr(spec, attr, getattr(nl_spec, attr))
+                    return spec
         except Exception:
             pass
 
-        return cls._fallback_parse(query_text)
+        return nl_spec
 
     @classmethod
     def _fallback_parse(cls, query_text: str) -> PhysicsQuerySpec:
@@ -771,6 +931,8 @@ class PhysicsRAG:
         latent_embeddings: Optional[np.ndarray] = None,
         top_k: int = 5,
         similarity_metric: str = "cosine",
+        use_weighted_similarity: bool = True,
+        feature_weights: Optional[Dict[str, float]] = None,
         **kwargs: Any,
     ):
         """Initialize the PhysicsRAG engine.
@@ -797,6 +959,10 @@ class PhysicsRAG:
             Default retrieval count.
         similarity_metric : str
             Distance / similarity metric ('cosine', 'euclidean', 'manhattan').
+        use_weighted_similarity : bool
+            Whether to use Upsilon-weighted cosine similarity (Suggestion 5).
+        feature_weights : dict, optional
+            Dimension importance weights (defaults to DEFAULT_UPSILON_FEATURE_WEIGHTS).
         """
         self.df = df.copy()
         
@@ -816,6 +982,21 @@ class PhysicsRAG:
         self.api_key = api_key
         self.top_k = top_k
         self.similarity_metric = similarity_metric
+        self.use_weighted_similarity = use_weighted_similarity
+        self.feature_weights = feature_weights if feature_weights is not None else DEFAULT_UPSILON_FEATURE_WEIGHTS
+
+        # Item 5: Precompute Upsilon feature weight vectors for O(1) weighted cosine similarity
+        if self.feature_names and len(self.feature_names) == self.embeddings.shape[1]:
+            w_arr = np.array([self.feature_weights.get(fn, 1.0) for fn in self.feature_names], dtype=float)
+        else:
+            w_arr = np.ones(self.embeddings.shape[1], dtype=float)
+        self.feature_weight_vec = w_arr
+        self.sqrt_feature_weight_vec = np.sqrt(w_arr)
+        if self.use_weighted_similarity:
+            self.weighted_embeddings = self.embeddings * self.sqrt_feature_weight_vec
+        else:
+            self.weighted_embeddings = self.embeddings
+
         self.scaler = scaler if scaler is not None else self.scaler_meta.get("scaler")
         if self.scaler is None and hasattr(self.df, "columns"):
             try:
@@ -833,6 +1014,13 @@ class PhysicsRAG:
                 pass
         self.centroids = compute_regime_centroids(self.embeddings, self.df)
 
+    def _compute_similarity(self, query_vec: np.ndarray) -> np.ndarray:
+        """Compute (optionally Upsilon-weighted) cosine similarity across the latent embedding space (Item 5)."""
+        if self.use_weighted_similarity and len(self.feature_names) == self.embeddings.shape[1]:
+            weighted_query = (query_vec * self.sqrt_feature_weight_vec).reshape(1, -1)
+            return cosine_similarity(weighted_query, self.weighted_embeddings)[0]
+        return cosine_similarity(query_vec.reshape(1, -1), self.embeddings)[0]
+
     @classmethod
     def from_dataset(
         cls,
@@ -840,6 +1028,7 @@ class PhysicsRAG:
         scaler_type: str = "robust",
         model_name: str = "gemini-2.5-flash",
         api_key: Optional[str] = None,
+        **kwargs: Any,
     ) -> "PhysicsRAG":
         """Factory method to construct PhysicsRAG directly from a DataFrame."""
         embeddings, feature_names, meta = compute_latent_embeddings(df, scaler_type=scaler_type)
@@ -850,6 +1039,7 @@ class PhysicsRAG:
             scaler_meta=meta,
             model_name=model_name,
             api_key=api_key,
+            **kwargs,
         )
 
     def _build_query_vector(self, spec: PhysicsQuerySpec) -> np.ndarray:
@@ -891,7 +1081,33 @@ class PhysicsRAG:
         if spec.target_state and spec.target_state in self.centroids:
             return self.centroids[spec.target_state]
 
-        # 3. Suggestion 8: Check phase centroid if available
+        # 3. Item 4: Check phenomenon centroids based on focus, intent, or failure mode
+        if spec.focus:
+            f_lower = spec.focus.lower()
+            if ("infragravity" in f_lower or "surf beat" in f_lower or "surf-beat" in f_lower) and "Centroid_InfragravitySwash" in self.centroids:
+                return self.centroids["Centroid_InfragravitySwash"]
+            if ("macrotidal" in f_lower or "ridge-and-runnel" in f_lower or "tidal smearing" in f_lower) and "Centroid_MacrotidalDissipation" in self.centroids:
+                return self.centroids["Centroid_MacrotidalDissipation"]
+            if ("sandbar" in f_lower or "bar dissipation" in f_lower or "bar-breach" in f_lower) and "Centroid_BarDissipation" in self.centroids:
+                return self.centroids["Centroid_BarDissipation"]
+            if ("compound surge" in f_lower or "dune scarping" in f_lower or "surge scarping" in f_lower) and "Centroid_CompoundSurge" in self.centroids:
+                return self.centroids["Centroid_CompoundSurge"]
+
+        if spec.is_failure_mode and "Centroid_CompoundSurge" in self.centroids:
+            return self.centroids["Centroid_CompoundSurge"]
+
+        if spec.raw_query:
+            q_lower = spec.raw_query.lower()
+            if ("infragravity" in q_lower or "surf beat" in q_lower or "surf-beat" in q_lower) and "Centroid_InfragravitySwash" in self.centroids:
+                return self.centroids["Centroid_InfragravitySwash"]
+            if ("macrotidal" in q_lower or "ridge-and-runnel" in q_lower or "tidal smearing" in q_lower) and "Centroid_MacrotidalDissipation" in self.centroids:
+                return self.centroids["Centroid_MacrotidalDissipation"]
+            if ("sandbar" in q_lower or "bar dissipation" in q_lower or "bar-breach" in q_lower) and "Centroid_BarDissipation" in self.centroids:
+                return self.centroids["Centroid_BarDissipation"]
+            if ("compound surge" in q_lower or "dune scarping" in q_lower or "twl scarping" in q_lower) and "Centroid_CompoundSurge" in self.centroids:
+                return self.centroids["Centroid_CompoundSurge"]
+
+        # 4. Suggestion 8: Check phase centroid if available
         if spec.phase == "Recovery" and "State_PostStormRecovery" in self.centroids:
             return self.centroids["State_PostStormRecovery"]
         if spec.phase == "Erosion" and "State_StormErosion" in self.centroids:
@@ -899,13 +1115,13 @@ class PhysicsRAG:
         if spec.phase == "Noise" and "State_SubcriticalNoise" in self.centroids:
             return self.centroids["State_SubcriticalNoise"]
 
-        # 4. Check if breaker regime centroid is requested
+        # 5. Check if breaker regime centroid is requested
         if spec.breaker_regime:
             key = f"Breaker_{spec.breaker_regime}"
             if key in self.centroids:
                 return self.centroids[key]
 
-        # 5. Default to mean dataset embedding
+        # 6. Default to mean dataset embedding
         return np.mean(self.embeddings, axis=0)
 
     def _apply_hard_and_soft_filters(self, spec: PhysicsQuerySpec) -> np.ndarray:
@@ -1145,8 +1361,8 @@ class PhysicsRAG:
         # 2. Build target query embedding vector
         query_vec = self._build_query_vector(spec)
 
-        # 3. Compute vector similarities across latent embedding space
-        sims = cosine_similarity(query_vec.reshape(1, -1), self.embeddings)[0]
+        # 3. Compute vector similarities across latent embedding space (Item 5: Upsilon-weighted)
+        sims = self._compute_similarity(query_vec)
 
         # 4. Filter candidates (including threshold anchor noise pruning & phase navigation)
         filter_mask = self._apply_hard_and_soft_filters(spec)
@@ -1347,21 +1563,23 @@ class HybridPhysicsRAG(PhysicsRAG):
 
     # Constraint dimension weights (must sum to 1.0)
     CONSTRAINT_WEIGHTS = {
-        "breaker_regime": 0.25,
+        "breaker_regime": 0.20,
         "hs_range": 0.15,
         "tp_range": 0.15,
         "twl_range": 0.15,
         "phase": 0.10,
-        "xi_range": 0.10,
+        "xi_range": 0.05,
         "morphology": 0.05,
         "upsilon_percentile": 0.05,
+        "wind_range": 0.05,
+        "site_regime": 0.05,
     }
 
     def __init__(
         self,
         *args: Any,
         alpha: float = 0.5,
-        regime_boost: float = 0.0,
+        regime_boost: float = 0.15,
         **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
@@ -1369,7 +1587,7 @@ class HybridPhysicsRAG(PhysicsRAG):
         self.regime_boost = regime_boost
 
     @classmethod
-    def from_physics_rag(cls, rag: PhysicsRAG, alpha: float = 0.5, regime_boost: float = 0.0) -> "HybridPhysicsRAG":
+    def from_physics_rag(cls, rag: PhysicsRAG, alpha: float = 0.5, regime_boost: float = 0.15) -> "HybridPhysicsRAG":
         """Construct a HybridPhysicsRAG from an existing PhysicsRAG instance (zero-copy)."""
         hybrid = cls.__new__(cls)
         hybrid.df = rag.df
@@ -1384,6 +1602,11 @@ class HybridPhysicsRAG(PhysicsRAG):
         hybrid.centroids = rag.centroids
         hybrid.alpha = alpha
         hybrid.regime_boost = regime_boost
+        hybrid.use_weighted_similarity = getattr(rag, "use_weighted_similarity", True)
+        hybrid.feature_weights = getattr(rag, "feature_weights", DEFAULT_UPSILON_FEATURE_WEIGHTS)
+        hybrid.feature_weight_vec = getattr(rag, "feature_weight_vec", np.ones(rag.embeddings.shape[1]))
+        hybrid.sqrt_feature_weight_vec = getattr(rag, "sqrt_feature_weight_vec", np.ones(rag.embeddings.shape[1]))
+        hybrid.weighted_embeddings = getattr(rag, "weighted_embeddings", rag.embeddings)
         return hybrid
 
     def _compute_constraint_satisfaction_score(
@@ -1393,7 +1616,7 @@ class HybridPhysicsRAG(PhysicsRAG):
     ) -> np.ndarray:
         """Evaluate constraint satisfaction for each candidate row against parsed query spec.
 
-        Returns a score ∈ [0, 1] per candidate reflecting the fraction of active
+        Returns a score in [0, 1] per candidate reflecting the fraction of active
         constraints satisfied, weighted by physical importance.
 
         Parameters
@@ -1429,10 +1652,10 @@ class HybridPhysicsRAG(PhysicsRAG):
             hs_vals = df["hs_m"].values[candidate_indices]
             score_hs = np.ones(n, dtype=float)
             if spec.hs_min is not None:
-                under = np.maximum(0.0, spec.hs_min - hs_vals)
+                under = np.maximum(0.0, spec.hs_min * 0.9 - hs_vals)
                 score_hs *= np.exp(-0.5 * (under / 0.5) ** 2)
             if spec.hs_max is not None:
-                over = np.maximum(0.0, hs_vals - spec.hs_max)
+                over = np.maximum(0.0, hs_vals - spec.hs_max * 1.1)
                 score_hs *= np.exp(-0.5 * (over / 0.5) ** 2)
             active_scores.append((W["hs_range"], score_hs))
 
@@ -1441,23 +1664,25 @@ class HybridPhysicsRAG(PhysicsRAG):
             tp_vals = df["tp_s"].values[candidate_indices]
             score_tp = np.ones(n, dtype=float)
             if spec.tp_min is not None:
-                under = np.maximum(0.0, spec.tp_min - tp_vals)
+                under = np.maximum(0.0, spec.tp_min * 0.9 - tp_vals)
                 score_tp *= np.exp(-0.5 * (under / 2.0) ** 2)
             if spec.tp_max is not None:
-                over = np.maximum(0.0, tp_vals - spec.tp_max)
+                over = np.maximum(0.0, tp_vals - spec.tp_max * 1.1)
                 score_tp *= np.exp(-0.5 * (over / 2.0) ** 2)
             active_scores.append((W["tp_range"], score_tp))
 
-        # 4. Total water level / surge range (with 10% tolerance)
+        # 4. Total water level / surge range (with 10% tolerance & exponential loss)
         if (spec.surge_min is not None or spec.surge_max is not None):
             wl_col = "total_water_level_m" if ("total_water_level_m" in df.columns and spec.surge_min is not None and spec.surge_min > 0.5) else "surge_m"
             if wl_col in df.columns:
                 wl_vals = df[wl_col].values[candidate_indices]
                 wl_ok = np.ones(n, dtype=float)
                 if spec.surge_min is not None:
-                    wl_ok *= (wl_vals >= spec.surge_min * 0.9).astype(float)
+                    under = np.maximum(0.0, spec.surge_min * 0.9 - wl_vals)
+                    wl_ok *= np.exp(-0.5 * (under / 0.3) ** 2)
                 if spec.surge_max is not None:
-                    wl_ok *= (wl_vals <= spec.surge_max * 1.1).astype(float)
+                    over = np.maximum(0.0, wl_vals - spec.surge_max * 1.1)
+                    wl_ok *= np.exp(-0.5 * (over / 0.3) ** 2)
                 active_scores.append((W["twl_range"], wl_ok))
 
         # 5. Phase match (Erosion / Recovery / Noise)
@@ -1510,17 +1735,65 @@ class HybridPhysicsRAG(PhysicsRAG):
                 ups_ok *= (ups_vals <= p_val).astype(float)
             active_scores.append((W["upsilon_percentile"], ups_ok))
 
+        # 9. Wind speed / normal wind range
+        if spec.wind_normal_min is not None:
+            w_col = "wind_speed_ms" if ("wind_speed_ms" in df.columns and spec.wind_normal_min > 6.0) else "wind_normal_ms"
+            if w_col in df.columns:
+                w_vals = df[w_col].values[candidate_indices]
+                under = np.maximum(0.0, spec.wind_normal_min * 0.9 - w_vals)
+                w_ok = np.exp(-0.5 * (under / 2.0) ** 2)
+                active_scores.append((W["wind_range"], w_ok))
+
+        # 10. Site / Geomorphic regime match
+        if spec.site_id and "site" in df.columns:
+            site_vals = df["site"].astype(str).str.lower().values[candidate_indices]
+            site_match = (site_vals == spec.site_id.lower()).astype(float)
+            active_scores.append((W["site_regime"], site_match))
+        elif spec.geomorphic_regime and "geomorphic_regime" in df.columns:
+            reg_vals = df["geomorphic_regime"].astype(str).str.lower().values[candidate_indices]
+            reg_match = (reg_vals == spec.geomorphic_regime.lower()).astype(float)
+            active_scores.append((W["site_regime"], reg_match))
+
+        # Continuous physical target proximity (smooth Gaussian loss for synthesized target values)
+        synth = spec.target_synthetic_values or {}
+        prox_scores = []
+        if "hs_m" in synth and "hs_m" in df.columns:
+            t_hs = float(synth["hs_m"])
+            vals = df["hs_m"].values[candidate_indices]
+            p = np.exp(-0.5 * ((vals - t_hs) / max(0.8, t_hs * 0.3)) ** 2)
+            prox_scores.append((0.25, p))
+        if "tp_s" in synth and "tp_s" in df.columns:
+            t_tp = float(synth["tp_s"])
+            vals = df["tp_s"].values[candidate_indices]
+            p = np.exp(-0.5 * ((vals - t_tp) / max(2.0, t_tp * 0.25)) ** 2)
+            prox_scores.append((0.20, p))
+        if "surge_m" in synth and "surge_m" in df.columns:
+            t_s = float(synth["surge_m"])
+            vals = df["surge_m"].values[candidate_indices]
+            p = np.exp(-0.5 * ((vals - t_s) / 0.4) ** 2)
+            prox_scores.append((0.15, p))
+        if "xi_iribarren" in synth and "xi_iribarren" in df.columns:
+            t_xi = float(synth["xi_iribarren"])
+            vals = df["xi_iribarren"].values[candidate_indices]
+            p = np.exp(-0.5 * ((vals - t_xi) / max(0.5, t_xi * 0.3)) ** 2)
+            prox_scores.append((0.15, p))
+
         # Compute weighted average across active constraints
-        if not active_scores:
+        if not active_scores and not prox_scores:
             return np.ones(n, dtype=float)  # no constraints → full satisfaction
 
-        total_weight = sum(w for w, _ in active_scores)
-        if total_weight <= 0:
-            return np.ones(n, dtype=float)
+        if active_scores:
+            total_weight = sum(w for w, _ in active_scores)
+            weighted_sum = np.zeros(n, dtype=float)
+            for w, s in active_scores:
+                weighted_sum += (w / total_weight) * s
+        else:
+            weighted_sum = np.ones(n, dtype=float)
 
-        weighted_sum = np.zeros(n, dtype=float)
-        for w, s in active_scores:
-            weighted_sum += (w / total_weight) * s
+        if prox_scores:
+            tot_p_w = sum(w for w, _ in prox_scores)
+            p_sum = sum(w * p for w, p in prox_scores) / tot_p_w
+            return 0.6 * weighted_sum + 0.4 * p_sum
 
         return weighted_sum
 
@@ -1583,21 +1856,52 @@ class HybridPhysicsRAG(PhysicsRAG):
                     model_name=self.model_name,
                     api_key=self.api_key,
                 )
+                if not spec.target_synthetic_values and nl_spec.target_synthetic_values:
+                    spec.target_synthetic_values = nl_spec.target_synthetic_values
+                for attr in ["breaker_regime", "site_id", "geomorphic_regime", "hs_min", "tp_min", "surge_min", "wind_normal_min", "focus", "is_failure_mode"]:
+                    if getattr(spec, attr, None) is None and getattr(nl_spec, attr, None) is not None:
+                        setattr(spec, attr, getattr(nl_spec, attr))
             else:
                 spec = nl_spec
 
         # 2. Build target query embedding vector
         query_vec = self._build_query_vector(spec)
 
-        # 3. Compute cosine similarities across full latent embedding space
-        cosine_sims = cosine_similarity(query_vec.reshape(1, -1), self.embeddings)[0]
+        # 3. Compute vector similarities across full latent embedding space (Item 5: Upsilon-weighted)
+        cosine_sims = self._compute_similarity(query_vec)
 
-        # 4. Apply hard filters to get candidate pool (same as base PhysicsRAG)
-        filter_mask = self._apply_hard_and_soft_filters(spec)
-        candidate_indices = np.where(filter_mask)[0]
+        # 4. Decoupled candidate pool selection
+        # Rather than hard-filtering out candidates on continuous physical variables (which causes vector collapse),
+        # we decouple candidate retrieval: candidates are selected from the continuous 14D latent manifold
+        # (top-M candidates by cosine proximity, respecting metadata filters like date window or site if specified),
+        # allowing soft constraint scoring to dynamically differentiate and penalize distance from target criteria.
+        meta_mask = np.ones(len(self.df), dtype=bool)
+        if spec.site_id and "site" in self.df.columns:
+            site_m = (self.df["site"].astype(str).str.lower() == spec.site_id.lower())
+            if np.any(meta_mask & site_m):
+                meta_mask = meta_mask & site_m
+        if (spec.date_start or spec.date_end) and "timestamp" in self.df.columns:
+            try:
+                ts = pd.to_datetime(self.df["timestamp"])
+                if spec.date_start:
+                    meta_mask = meta_mask & (ts >= pd.to_datetime(spec.date_start))
+                if spec.date_end:
+                    meta_mask = meta_mask & (ts <= pd.to_datetime(spec.date_end))
+            except Exception:
+                pass
 
-        if len(candidate_indices) == 0:
-            candidate_indices = np.arange(len(self.df))
+        meta_indices = np.where(meta_mask)[0]
+        if len(meta_indices) == 0:
+            meta_indices = np.arange(len(self.df))
+
+        # Select top-M manifold nearest neighbors within metadata pool
+        M = min(1000, len(meta_indices))
+        if len(meta_indices) > M:
+            meta_cos = cosine_sims[meta_indices]
+            sub_order = np.argpartition(-meta_cos, M)[:M]
+            candidate_indices = meta_indices[sub_order]
+        else:
+            candidate_indices = meta_indices
 
         # 5. Compute constraint satisfaction scores for candidates
         constraint_scores = self._compute_constraint_satisfaction_score(spec, candidate_indices)
@@ -1643,7 +1947,7 @@ class HybridPhysicsRAG(PhysicsRAG):
             except Exception:
                 pass
 
-        # 11. Generate explanations
+        # 11. Generate physical explanations
         deterministic_expl = self._generate_explanation(spec, top_df)
         llm_expl = None
         if use_llm_synthesis:
