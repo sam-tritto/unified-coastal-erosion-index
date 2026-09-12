@@ -25,6 +25,7 @@ from src.physics_rag import (
     ParentWindowContext,
     HierarchicalRAGResult,
     HierarchicalPhysicsRAG,
+    Baseline4HierarchicalRerankerRAG,
     DEFAULT_PHYSICS_BENCHMARK_QUERIES,
 )
 
@@ -108,11 +109,11 @@ def test_physics_query_parser_regimes():
     res_plunge = PhysicsQueryParser.parse("Find plunging curling waves")
     assert res_plunge["breaker_regime"] == "Plunging"
     assert res_plunge["filters"].get("xi_min") == 0.5
-    assert res_plunge["filters"].get("xi_max") == 3.3
+    assert res_plunge["filters"].get("xi_max") == 1.0
 
     res_surge = PhysicsQueryParser.parse("Show reflective surging shorebreak")
     assert res_surge["breaker_regime"] == "Surging"
-    assert res_surge["filters"].get("xi_min") == 3.3
+    assert res_surge["filters"].get("xi_min") == 1.0
 
 
 def test_physics_query_parser_numerical_extraction():
@@ -531,13 +532,72 @@ def test_upsilon_weighted_similarity(sample_coastal_df):
     rag = PhysicsRAG.from_dataset(sample_coastal_df, scaler_type="robust", use_weighted_similarity=True)
     assert rag.use_weighted_similarity is True
     assert hasattr(rag, "feature_weights")
-    assert rag.feature_weights["log_Upsilon"] == 1.2
+    assert rag.feature_weights["log_Upsilon"] == 2.5
     assert rag.feature_weights["Water_Temp_C"] == 0.2
 
     query_vec = rag.embeddings[0].copy()
     sims_weighted = rag._compute_similarity(query_vec)
     assert len(sims_weighted) == len(sample_coastal_df)
     assert np.isclose(sims_weighted[0], 1.0, atol=1e-5)
+
+
+def test_gated_precision_filtering_zero_leak(sample_coastal_df):
+    """Verify Improvement 1: Gated Precision Filtering (Zero-Leak Boundary Mode)."""
+    df = sample_coastal_df.copy()
+    # Ensure specific test values exist near boundary
+    df.loc[0, "hs_m"] = 2.15
+    df.loc[1, "hs_m"] = 1.90
+    df.loc[0, "tp_s"] = 11.8
+    df.loc[1, "tp_s"] = 13.5
+
+    rag = PhysicsRAG.from_dataset(df, scaler_type="robust")
+
+    # 1. Test Hs upper bound leakage: Hs <= 2.0
+    spec_hs = PhysicsQuerySpec(raw_query="Waves under 2m", hs_max=2.0)
+    mask_strict = rag._apply_hard_and_soft_filters(spec_hs, strict_bounds=True)
+    mask_tolerant = rag._apply_hard_and_soft_filters(spec_hs, strict_bounds=False)
+
+    # 2.15m must be excluded under strict_bounds=True (2.15 > 2.0)
+    assert not mask_strict[0]
+    assert mask_strict[1]
+    # 2.15m is allowed under strict_bounds=False (2.15 <= 2.0 * 1.1 = 2.2)
+    assert mask_tolerant[0]
+
+    # 2. Test Tp lower bound leakage: Tp >= 13.0
+    spec_tp = PhysicsQuerySpec(raw_query="Long period swell over 13s", tp_min=13.0)
+    mask_tp_strict = rag._apply_hard_and_soft_filters(spec_tp, strict_bounds=True)
+    mask_tp_tolerant = rag._apply_hard_and_soft_filters(spec_tp, strict_bounds=False)
+
+    # 11.8s must be excluded under strict_bounds=True (11.8 < 13.0)
+    assert not mask_tp_strict[0]
+    assert mask_tp_strict[1]
+    # 11.8s is allowed under strict_bounds=False (11.8 >= 13.0 * 0.9 = 11.7)
+    assert mask_tp_tolerant[0]
+
+
+def test_baseline4_hierarchical_reranker(sample_coastal_df):
+    """Verify Improvement 6: Baseline 4 Two-Stage Hierarchical Reranker with sequence hydration."""
+    df = sample_coastal_df.copy()
+    rag_base = PhysicsRAG.from_dataset(df, scaler_type="robust")
+    reranker = Baseline4HierarchicalRerankerRAG.from_rag(rag_base)
+
+    assert reranker.use_reranker is True
+    assert hasattr(reranker, "con")
+
+    res = reranker.query(
+        query_text="Find severe erosion storm events with high wave power flux",
+        top_k=3,
+        use_llm_parser=False,
+        use_llm_synthesis=False,
+    )
+
+    assert isinstance(res, HierarchicalRAGResult)
+    assert len(res.matches_df) <= 3
+    assert len(res.parent_windows) == len(res.matches_df)
+    assert len(res.similarities) == len(res.matches_df)
+    assert res.explanation is not None
+
+
 
 
 

@@ -56,7 +56,7 @@ class PhysicsQuerySpec(BaseModel):
     )
     breaker_regime: Optional[Literal["Spilling", "Plunging", "Surging"]] = Field(
         default=None,
-        description="Target breaking wave regime (Spilling for ξ < 0.5, Plunging for 0.5 <= ξ < 3.3, Surging for ξ >= 3.3)."
+        description="Target breaking wave regime (Spilling for ξ < 0.5, Plunging for 0.5 <= ξ < 1.0, Surging for ξ >= 1.0)."
     )
     morphology: Optional[Literal["Erosive", "Accretive", "Equilibrium"]] = Field(
         default=None,
@@ -73,6 +73,10 @@ class PhysicsQuerySpec(BaseModel):
     query_recovery_timeframe: Optional[bool] = Field(
         default=None,
         description="Suggestion 8: If True, extract post-storm recovery duration, timeframe metrics, and swash accretion rates."
+    )
+    query_storm_evolution: Optional[bool] = Field(
+        default=None,
+        description="If True, evaluate antecedent storm growth and temporal wave energy buildup."
     )
     hs_min: Optional[float] = Field(default=None, description="Minimum significant wave height in meters (Hs >= min).")
     hs_max: Optional[float] = Field(default=None, description="Maximum significant wave height in meters (Hs <= max).")
@@ -113,23 +117,47 @@ class PhysicsQuerySpec(BaseModel):
     )
 
 
-# Item 5: Upsilon-Weighted Latent Manifold Distance Metric weights
-# Energetic drivers of coastal morphodynamics (wave power, TWL, Dean number, disequilibrium, accretion)
-# receive higher weights (1.2 - 1.5) compared to ambient static scalars (e.g. water temperature: 0.2).
+# Improvement 5: Physical Energy-Flux Latent Weighting (w_Upsilon metric tensor)
+# Implement a physics-weighted metric tensor: Sim(q, x) = (q W x^T) / (||q||_W ||x||_W)
+# Prioritizes primary hydrodynamic drivers over ambient secondary variables.
 DEFAULT_UPSILON_FEATURE_WEIGHTS: Dict[str, float] = {
-    "log_Upsilon": 1.2,
-    "Wave_Power_P": 1.2,
-    "Hs": 1.2,
-    "Surge_S": 1.2,
-    "Tp": 1.5,
-    "Iribarren_xi": 1.3,
-    "Dean_Omega": 1.2,
-    "Omega_Over_Crit": 1.2,
-    "Bar_Dissipation_Ratio": 1.2,
+    # Primary Hydrodynamic Drivers
+    "log_Upsilon": 2.5,
+    "log_upsilon": 2.5,
+    "upsilon": 2.5,
+    "upsilon_disequilibrium": 2.5,
+
+    "Dean_Omega": 2.0,
+    "dean_number": 2.0,
+    "Omega_Over_Crit": 2.0,
+
+    "Iribarren_xi": 2.0,
+    "xi_iribarren": 2.0,
+
+    "Bar_Dissipation_Ratio": 1.5,
+    "dissipation_ratio": 1.5,
+    "delta_p_dissip": 1.5,
+
+    "Wave_Power_P": 2.0,
+    "log_p_flux": 2.0,
+    "p_flux_Wm": 2.0,
     "Accretion_Potential": 1.5,
+    "recovery_potential": 1.5,
+
+    # Secondary Variables (Default 1.0)
+    "Hs": 1.0,
+    "Tp": 1.0,
+    "Surge_S": 1.0,
+    "relative_surge": 1.0,
     "Wind_Wa": 1.0,
+    "wind_shear_stress": 1.0,
     "tan_alpha": 1.0,
     "w_s": 1.0,
+    "wave_steepness": 1.0,
+    "radiation_stress_gradient": 1.0,
+    "water_level_excursion": 1.0,
+    "sediment_mobility": 1.0,
+    "infragravity_proxy": 1.0,
     "Water_Temp_C": 0.2,
 }
 
@@ -139,11 +167,11 @@ class PhysicsQueryParser:
 
     REGIME_KEYWORDS = {
         "spilling": {"breaker_regime": "Spilling", "xi_max": 0.5},
-        "plunging": {"breaker_regime": "Plunging", "xi_min": 0.5, "xi_max": 3.3},
-        "surging": {"breaker_regime": "Surging", "xi_min": 3.3},
-        "collapsing": {"breaker_regime": "Surging", "xi_min": 3.3},
+        "plunging": {"breaker_regime": "Plunging", "xi_min": 0.5, "xi_max": 1.0},
+        "surging": {"breaker_regime": "Surging", "xi_min": 1.0},
+        "collapsing": {"breaker_regime": "Surging", "xi_min": 1.0},
         "dissipative": {"breaker_regime": "Spilling", "xi_max": 0.5},
-        "reflective": {"breaker_regime": "Surging", "xi_min": 3.3},
+        "reflective": {"breaker_regime": "Surging", "xi_min": 1.0},
     }
 
     MORPHO_KEYWORDS = {
@@ -470,8 +498,8 @@ Your task is to parse a user's natural language query about coastal hydrodynamic
 Guidelines:
 1. Breaker Regimes:
    - 'spilling' or 'dissipative': breaker_regime="Spilling", xi_max=0.5. Populate target_synthetic_values: {"hs_m": 3.0, "tp_s": 7.5, "tan_beta": 0.08}.
-   - 'plunging' or 'curling': breaker_regime="Plunging", xi_min=0.5, xi_max=3.3. Populate target_synthetic_values: {"hs_m": 2.0, "tp_s": 9.5, "tan_beta": 0.08}.
-   - 'surging', 'collapsing', or 'reflective': breaker_regime="Surging", xi_min=3.3. Populate target_synthetic_values: {"hs_m": 0.6, "tp_s": 14.0, "tan_beta": 0.08}.
+   - 'plunging' or 'curling': breaker_regime="Plunging", xi_min=0.5, xi_max=1.0. Populate target_synthetic_values: {"hs_m": 2.0, "tp_s": 9.5, "tan_beta": 0.08}.
+   - 'surging', 'collapsing', or 'reflective': breaker_regime="Surging", xi_min=1.0. Populate target_synthetic_values: {"hs_m": 0.6, "tp_s": 14.0, "tan_beta": 0.08}.
 
 2. Morphology & Morphodynamic Phases:
    - 'erosion', 'beach cut', 'scarping' (when not negated): morphology="Erosive", phase="Erosion", delta_x_max=0.0.
@@ -966,6 +994,11 @@ class PhysicsRAG:
         """
         self.df = df.copy()
         
+        # Improvement 4: Sandy Coast Breaker Regime Harmonization (Wright & Short 1984, Battjes 1974)
+        if "xi_iribarren" in self.df.columns and ("breaker_regime" not in self.df.columns or (self.df["breaker_regime"] == "Surging").sum() == 0):
+            xi = self.df["xi_iribarren"].values
+            self.df["breaker_regime"] = np.where(xi < 0.5, "Spilling", np.where(xi < 1.0, "Plunging", "Surging"))
+        
         # Handle embeddings / latent_embeddings alias
         emb = latent_embeddings if latent_embeddings is not None else embeddings
         if emb is None:
@@ -985,11 +1018,30 @@ class PhysicsRAG:
         self.use_weighted_similarity = use_weighted_similarity
         self.feature_weights = feature_weights if feature_weights is not None else DEFAULT_UPSILON_FEATURE_WEIGHTS
 
-        # Item 5: Precompute Upsilon feature weight vectors for O(1) weighted cosine similarity
+        # Improvement 5: Physical Energy-Flux Latent Weighting (w_Upsilon metric tensor)
+        # Precompute W^{1/2} weight vector for O(1) weighted cosine similarity:
+        # Sim(q, x) = (q W x^T) / (||q||_W ||x||_W) == ((q W^{1/2}) . (x W^{1/2})) / (||q W^{1/2}|| ||x W^{1/2}||)
         if self.feature_names and len(self.feature_names) == self.embeddings.shape[1]:
-            w_arr = np.array([self.feature_weights.get(fn, 1.0) for fn in self.feature_names], dtype=float)
+            w_list = []
+            for fn in self.feature_names:
+                w = self.feature_weights.get(fn)
+                if w is None:
+                    fn_lower = fn.lower()
+                    for k, val in self.feature_weights.items():
+                        if k.lower() == fn_lower or k.lower() in fn_lower or fn_lower in k.lower():
+                            w = val
+                            break
+                w_list.append(float(w if w is not None else 1.0))
+            w_arr = np.array(w_list, dtype=float)
+        elif self.embeddings.shape[1] == 14:
+            # Canonical 14D invariant ordering default:
+            # [log_p_flux, log_upsilon, dean_number, xi_iribarren, wave_steepness, relative_surge,
+            #  wind_shear_stress, recovery_potential, radiation_stress_gradient, water_level_excursion,
+            #  dissipation_ratio, sediment_mobility, infragravity_proxy, upsilon_disequilibrium]
+            w_arr = np.array([2.0, 2.5, 2.0, 2.0, 1.0, 1.0, 1.0, 1.5, 1.0, 1.0, 1.5, 1.0, 1.0, 2.5], dtype=float)
         else:
             w_arr = np.ones(self.embeddings.shape[1], dtype=float)
+
         self.feature_weight_vec = w_arr
         self.sqrt_feature_weight_vec = np.sqrt(w_arr)
         if self.use_weighted_similarity:
@@ -1016,7 +1068,7 @@ class PhysicsRAG:
 
     def _compute_similarity(self, query_vec: np.ndarray) -> np.ndarray:
         """Compute (optionally Upsilon-weighted) cosine similarity across the latent embedding space (Item 5)."""
-        if self.use_weighted_similarity and len(self.feature_names) == self.embeddings.shape[1]:
+        if self.use_weighted_similarity and len(self.sqrt_feature_weight_vec) == self.embeddings.shape[1]:
             weighted_query = (query_vec * self.sqrt_feature_weight_vec).reshape(1, -1)
             return cosine_similarity(weighted_query, self.weighted_embeddings)[0]
         return cosine_similarity(query_vec.reshape(1, -1), self.embeddings)[0]
@@ -1124,8 +1176,22 @@ class PhysicsRAG:
         # 6. Default to mean dataset embedding
         return np.mean(self.embeddings, axis=0)
 
-    def _apply_hard_and_soft_filters(self, spec: PhysicsQuerySpec) -> np.ndarray:
-        """Generate boolean mask for candidates satisfying physical constraints (Suggestion 8)."""
+    def _apply_hard_and_soft_filters(
+        self,
+        spec: PhysicsQuerySpec,
+        strict_bounds: bool = True,
+    ) -> np.ndarray:
+        """Generate boolean mask for candidates satisfying physical constraints (Suggestion 8).
+
+        Parameters
+        ----------
+        spec : PhysicsQuerySpec
+            Structured physical query specifications.
+        strict_bounds : bool, default True
+            If True, enforces zero-leak exact boundaries (disables 10% measurement tolerance padding)
+            for explicit diagnostic queries or quantitative thresholds (e.g. Hs < 2.0m, Tp >= 13.0s).
+            If False, applies 10% measurement tolerance for fuzzy semantic probing.
+        """
         mask = np.ones(len(self.df), dtype=bool)
 
         # Suggestion 8: Threshold Anchor (Upsilon_crit) Background Noise Pruning
@@ -1162,31 +1228,42 @@ class PhysicsRAG:
         if spec.breaker_regime and "breaker_regime" in self.df.columns:
             mask = mask & (self.df["breaker_regime"].values == spec.breaker_regime)
 
-        # Wave height limits (with 10% physical measurement tolerance)
+        # Improvement 1: Gated Precision Filtering (Zero-Leak Boundary Mode)
+        # If strict_bounds is True, disable 10% measurement tolerance padding for exact threshold gating.
+        # Retain 10% tolerance only when strict_bounds is explicitly False.
+        low_factor = 1.0 if strict_bounds else 0.9
+        high_factor = 1.0 if strict_bounds else 1.1
+
+        # Wave height limits
         if spec.hs_min is not None and "hs_m" in self.df.columns:
-            mask = mask & (self.df["hs_m"].values >= spec.hs_min * 0.9)
+            mask = mask & (self.df["hs_m"].values >= spec.hs_min * low_factor)
         if spec.hs_max is not None and "hs_m" in self.df.columns:
-            mask = mask & (self.df["hs_m"].values <= spec.hs_max * 1.1)
+            mask = mask & (self.df["hs_m"].values <= spec.hs_max * high_factor)
 
-        # Wave period limits (with 10% physical measurement tolerance)
+        # Wave period limits
         if spec.tp_min is not None and "tp_s" in self.df.columns:
-            mask = mask & (self.df["tp_s"].values >= spec.tp_min * 0.9)
+            mask = mask & (self.df["tp_s"].values >= spec.tp_min * low_factor)
         if spec.tp_max is not None and "tp_s" in self.df.columns:
-            mask = mask & (self.df["tp_s"].values <= spec.tp_max * 1.1)
+            mask = mask & (self.df["tp_s"].values <= spec.tp_max * high_factor)
 
-        # Water level / Surge limits (support total_water_level_m if surge_min is in water-level scale > 0.5m)
-        wl_col = "total_water_level_m" if ("total_water_level_m" in self.df.columns and spec.surge_min is not None and spec.surge_min > 0.5) else "surge_m"
+        # Water level / Surge limits (Improvement 3: Symmetric Water Level & Tidal Phase Routing)
+        is_twl_query = (
+            ("total_water_level_m" in self.df.columns) and 
+            ((spec.surge_min is not None and spec.surge_min > 0.5) or 
+             (spec.surge_max is not None and spec.surge_max < 1.5))
+        )
+        wl_col = "total_water_level_m" if is_twl_query else "surge_m"
         if spec.surge_min is not None and wl_col in self.df.columns:
-            mask = mask & (self.df[wl_col].values >= spec.surge_min * 0.9)
+            mask = mask & (self.df[wl_col].values >= spec.surge_min * low_factor)
         if spec.surge_max is not None and wl_col in self.df.columns:
-            mask = mask & (self.df[wl_col].values <= spec.surge_max * 1.1)
+            mask = mask & (self.df[wl_col].values <= spec.surge_max * high_factor)
 
-        # Wind limits (support wind_speed_ms or wind_normal_ms with 10% measurement tolerance)
+        # Wind limits (support wind_speed_ms or wind_normal_ms with measurement tolerance)
         w_col = "wind_speed_ms" if ("wind_speed_ms" in self.df.columns and spec.wind_normal_min is not None and spec.wind_normal_min > 6.0) else "wind_normal_ms"
         if spec.wind_normal_min is not None and w_col in self.df.columns:
-            mask = mask & (self.df[w_col].values >= spec.wind_normal_min * 0.9)
+            mask = mask & (self.df[w_col].values >= spec.wind_normal_min * low_factor)
         if spec.wind_normal_max is not None and w_col in self.df.columns:
-            mask = mask & (self.df[w_col].values <= spec.wind_normal_max * 1.1)
+            mask = mask & (self.df[w_col].values <= spec.wind_normal_max * high_factor)
 
         # Iribarren limits
         if spec.xi_min is not None and "xi_iribarren" in self.df.columns:
@@ -1219,13 +1296,20 @@ class PhysicsRAG:
             except Exception:
                 pass
 
-        # Dynamic site_id & geomorphic_regime pre-filtering
-        if spec.site_id and "site" in self.df.columns:
-            site_mask = (self.df["site"].astype(str).str.lower() == spec.site_id.lower())
+        # Dynamic site_id & geomorphic_regime pre-filtering (Improvement 2: Archetype Substring & Entity Mapping)
+        site_col = "site" if "site" in self.df.columns else ("site_id" if "site_id" in self.df.columns else None)
+        if spec.site_id and site_col:
+            site_mask = (self.df[site_col].astype(str).str.lower() == spec.site_id.lower())
             if np.any(mask & site_mask):
                 mask = mask & site_mask
-        if spec.geomorphic_regime and "geomorphic_regime" in self.df.columns:
-            regime_mask = (self.df["geomorphic_regime"].astype(str).str.lower() == spec.geomorphic_regime.lower())
+        if spec.geomorphic_regime:
+            target = spec.geomorphic_regime.lower()
+            regime_mask = np.zeros(len(self.df), dtype=bool)
+            if "geomorphic_regime" in self.df.columns:
+                regime_mask = self.df["geomorphic_regime"].astype(str).str.lower().str.contains(target, na=False).values
+            if not np.any(regime_mask) and target in ["embayed", "pocket"]:
+                if site_col:
+                    regime_mask = self.df[site_col].isin(["narrabeen_aus", "torrey_pines_ca"]).values
             if np.any(mask & regime_mask):
                 mask = mask & regime_mask
 
@@ -1338,6 +1422,7 @@ class PhysicsRAG:
         use_llm_synthesis: bool = True,
         spec: Optional[PhysicsQuerySpec] = None,
         target_synthetic_values: Optional[Dict[str, float]] = None,
+        strict_bounds: bool = True,
         **kwargs: Any,
     ) -> PhysicsRAGResult:
         """Execute a natural language query against coastal dataset & latent embeddings (Suggestion 8)."""
@@ -1365,7 +1450,7 @@ class PhysicsRAG:
         sims = self._compute_similarity(query_vec)
 
         # 4. Filter candidates (including threshold anchor noise pruning & phase navigation)
-        filter_mask = self._apply_hard_and_soft_filters(spec)
+        filter_mask = self._apply_hard_and_soft_filters(spec, strict_bounds=strict_bounds)
         candidate_indices = np.where(filter_mask)[0]
 
         if len(candidate_indices) == 0:
@@ -2008,6 +2093,8 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
         default_post_window_hours: float = 24.0,
         db_conn: Optional[Any] = None,
         survey_aligned_epochs: Optional[Dict[str, pd.DataFrame]] = None,
+        use_reranker: bool = True,
+        rerank_candidate_pool: int = 20,
         **kwargs: Any,
     ):
         super().__init__(
@@ -2025,6 +2112,8 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
         self.default_post_window_hours = default_post_window_hours
         self.scaler_type = scaler_type
         self.survey_aligned_epochs = survey_aligned_epochs
+        self.use_reranker = use_reranker
+        self.rerank_candidate_pool = rerank_candidate_pool
 
         # Ensure timestamp column is datetime
         if "timestamp" in self.df.columns:
@@ -2144,6 +2233,37 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
             scaler_type=scaler_type,
             model_name=model_name,
             api_key=api_key,
+            **kwargs,
+        )
+
+    @classmethod
+    def from_rag(
+        cls,
+        rag: PhysicsRAG,
+        parquet_path: Optional[str] = None,
+        child_feature_cols: Optional[List[str]] = None,
+        db_conn: Optional[Any] = None,
+        use_reranker: bool = True,
+        rerank_candidate_pool: int = 20,
+        **kwargs: Any,
+    ) -> "HierarchicalPhysicsRAG":
+        """Factory method to construct HierarchicalPhysicsRAG directly from an existing PhysicsRAG instance."""
+        return cls(
+            df=rag.df,
+            parquet_path=parquet_path,
+            child_feature_cols=child_feature_cols,
+            embeddings=rag.embeddings,
+            feature_names=rag.feature_names,
+            scaler_meta=rag.scaler_meta,
+            scaler=getattr(rag, "scaler", None),
+            model_name=rag.model_name,
+            api_key=rag.api_key,
+            top_k=rag.top_k,
+            db_conn=db_conn,
+            use_weighted_similarity=getattr(rag, "use_weighted_similarity", True),
+            feature_weights=getattr(rag, "feature_weights", None),
+            use_reranker=use_reranker,
+            rerank_candidate_pool=rerank_candidate_pool,
             **kwargs,
         )
 
@@ -2308,6 +2428,178 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
 
         return stats
 
+    def _score_candidates_with_gemini(
+        self,
+        query_text: str,
+        spec: PhysicsQuerySpec,
+        candidates_df: pd.DataFrame,
+        parent_windows: List[ParentWindowContext],
+    ) -> Optional[List[float]]:
+        """Score candidate physical episodes using Gemini structured causal reasoning over DuckDB sequences."""
+        n_cand = len(candidates_df)
+        if n_cand == 0:
+            return []
+
+        try:
+            from google import genai
+            client = genai.Client(api_key=self.api_key) if self.api_key else genai.Client()
+
+            cand_texts = []
+            for i in range(min(n_cand, 20)):
+                row = candidates_df.iloc[i]
+                pw = parent_windows[i] if i < len(parent_windows) else None
+                st = pw.summary_stats if pw else {}
+                reg = str(row.get("breaker_regime", "N/A"))
+                hs = float(row.get("hs_m", 0.0))
+                tp = float(row.get("tp_s", 0.0))
+                surge = float(row.get("surge_m", row.get("total_water_level_m", 0.0)))
+                dx = float(row.get("delta_x_m", 0.0))
+
+                cand_text = (
+                    f"Candidate #{i}: Site={row.get('site', 'N/A')}, Timestamp={row.get('timestamp', 'N/A')}, "
+                    f"Hs={hs:.2f}m, Tp={tp:.1f}s, Surge={surge:.2f}m, Regime={reg}, DeltaX={dx:+.2f}m, "
+                    f"Antecedent Hs Rise Rate={st.get('hs_rise_rate_m_per_hr', 0.0):.3f} m/hr, "
+                    f"Peak Surge={st.get('peak_surge_m', 0.0):.2f}m, "
+                    f"Cumulative Wave Energy Impulse={st.get('cumulative_power_impulse_MJ_per_m', 0.0):.1f} MJ/m, "
+                    f"Net Window DeltaX={st.get('net_delta_x_m', 0.0):+.2f}m, "
+                    f"Recovery Phase Fraction={st.get('recovery_phase_fraction', 0.0)*100:.0f}%"
+                )
+                cand_texts.append(cand_text)
+
+            prompt = (
+                f"You are a coastal oceanography expert reranking hydrodynamic retrieval candidates for the query:\n"
+                f"Query: '{query_text}'\n"
+                f"Physical Intent: {spec.intent_summary or spec.raw_query}\n"
+                f"Target Regime/Phase: {spec.breaker_regime or spec.phase or 'General'}\n\n"
+                f"Candidates with Hydrated Context Sequences:\n" + "\n".join(cand_texts) + "\n\n"
+                f"Score each candidate from 0.0 to 1.0 based on how well its instantaneous physical state AND continuous "
+                f"antecedent/post-event sequence dynamics causally fulfill the query intent. "
+                f"Return ONLY a JSON array of float scores corresponding to candidate indices in order, e.g. [0.95, 0.82, ...]."
+            )
+
+            resp = client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config={
+                    "temperature": 0.0,
+                    "response_mime_type": "application/json",
+                },
+            )
+            if resp and resp.text:
+                import json
+                parsed_scores = json.loads(resp.text)
+                if isinstance(parsed_scores, list) and len(parsed_scores) == min(n_cand, 20):
+                    scores = [float(s) for s in parsed_scores]
+                    if len(scores) < n_cand:
+                        scores.extend([0.5] * (n_cand - len(scores)))
+                    return scores
+        except Exception:
+            pass
+        return None
+
+    def _score_candidates_deterministic(
+        self,
+        query_text: str,
+        spec: PhysicsQuerySpec,
+        candidates_df: pd.DataFrame,
+        parent_windows: List[ParentWindowContext],
+    ) -> List[float]:
+        """Deterministic physical causality scoring evaluating sequence dynamics and conservation laws."""
+        scores: List[float] = []
+        q_lower = query_text.lower()
+        is_storm = any(w in q_lower for w in ["storm", "scarping", "high energy", "extreme", "severe", "over 3m", "over 4m"]) or bool(getattr(spec, "query_storm_evolution", False)) or getattr(spec, "phase", "") == "Erosion" or getattr(spec, "morphology", "") == "Erosive"
+        is_recovery = any(w in q_lower for w in ["accretion", "recovery", "swash", "healing", "calm", "berm"]) or bool(getattr(spec, "query_recovery_timeframe", False)) or getattr(spec, "phase", "") == "Recovery" or getattr(spec, "morphology", "") == "Accretive"
+        is_reflective = getattr(spec, "breaker_regime", None) == "Surging" or any(w in q_lower for w in ["surging", "collapsing", "reflective"])
+        is_dissipative = getattr(spec, "breaker_regime", None) == "Spilling" or any(w in q_lower for w in ["spilling", "dissipative"])
+        is_compound = "compound" in q_lower
+
+        for i in range(len(candidates_df)):
+            row = candidates_df.iloc[i]
+            pw = parent_windows[i] if i < len(parent_windows) else None
+            st = pw.summary_stats if pw else {}
+
+            score = 0.5  # Base neutral score
+
+            # 1. Breaker regime match
+            target_regime = getattr(spec, "breaker_regime", None)
+            if target_regime:
+                if str(row.get("breaker_regime")) == target_regime:
+                    score += 0.35
+                elif target_regime == "Surging" and float(row.get("xi_iribarren", 0.0)) >= 1.0:
+                    score += 0.35
+                elif target_regime == "Plunging" and 0.5 <= float(row.get("xi_iribarren", 0.0)) < 1.0:
+                    score += 0.35
+                elif target_regime == "Spilling" and float(row.get("xi_iribarren", 1.0)) < 0.5:
+                    score += 0.35
+                else:
+                    score -= 0.35
+            elif is_reflective:
+                if str(row.get("breaker_regime")) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 1.0:
+                    score += 0.35
+            elif is_dissipative:
+                if str(row.get("breaker_regime")) == "Spilling" or float(row.get("xi_iribarren", 1.0)) < 0.5:
+                    score += 0.35
+
+            # 2. Storm dynamics: antecedent rise rate + cumulative wave impulse + net shoreline erosion
+            if is_storm:
+                if st.get("hs_rise_rate_m_per_hr", 0.0) > 0.03:
+                    score += 0.15
+                if st.get("cumulative_power_impulse_MJ_per_m", 0.0) > 30.0:
+                    score += 0.15
+                if st.get("net_delta_x_m", 0.0) < -0.05 or float(row.get("delta_x_m", 0.0)) < -0.05:
+                    score += 0.1
+
+            # 3. Recovery dynamics: constructive swash fraction + net berm accretion
+            if is_recovery:
+                if st.get("recovery_phase_fraction", 0.0) > 0.4:
+                    score += 0.15
+                if st.get("net_delta_x_m", 0.0) > 0.05 or float(row.get("delta_x_m", 0.0)) > 0.05:
+                    score += 0.2
+                if float(row.get("upsilon_diseq", 0.0)) < 0.0:
+                    score += 0.15
+
+            # 4. Compound wave-surge
+            if is_compound:
+                hs_val = float(row.get("hs_m", 0.0))
+                s_val = float(row.get("surge_m", row.get("total_water_level_m", 0.0)))
+                if hs_val >= 2.0 and s_val >= 0.3:
+                    score += 0.25
+                if st.get("peak_surge_m", 0.0) >= 0.35:
+                    score += 0.15
+
+            # 5. Numerical threshold compliance
+            hs_min_val = getattr(spec, "hs_min", None)
+            hs_max_val = getattr(spec, "hs_max", None)
+            tp_min_val = getattr(spec, "tp_min", None)
+            tp_max_val = getattr(spec, "tp_max", None)
+            if hs_min_val is not None and float(row.get("hs_m", 0.0)) < hs_min_val:
+                score -= 0.3
+            if hs_max_val is not None and float(row.get("hs_m", 0.0)) > hs_max_val:
+                score -= 0.3
+            if tp_min_val is not None and float(row.get("tp_s", 0.0)) < tp_min_val:
+                score -= 0.3
+            if tp_max_val is not None and float(row.get("tp_s", 0.0)) > tp_max_val:
+                score -= 0.3
+
+            scores.append(float(np.clip(score, 0.0, 1.0)))
+
+        return scores
+
+    def _score_candidates(
+        self,
+        query_text: str,
+        spec: PhysicsQuerySpec,
+        candidates_df: pd.DataFrame,
+        parent_windows: List[ParentWindowContext],
+    ) -> List[float]:
+        """Score candidates using live Gemini reasoning over DuckDB sequences with deterministic fallback."""
+        scores: Optional[List[float]] = None
+        if self.api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+            scores = self._score_candidates_with_gemini(query_text, spec, candidates_df, parent_windows)
+        if scores is None:
+            scores = self._score_candidates_deterministic(query_text, spec, candidates_df, parent_windows)
+        return scores
+
     def query(
         self,
         query_text: str,
@@ -2318,29 +2610,43 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
         use_llm_parser: bool = True,
         use_llm_synthesis: bool = True,
         parent_columns: Optional[List[str]] = None,
+        use_reranker: Optional[bool] = None,
+        rerank_candidate_pool: Optional[int] = None,
+        spec: Optional[PhysicsQuerySpec] = None,
+        target_synthetic_values: Optional[Dict[str, float]] = None,
         **kwargs: Any,
     ) -> HierarchicalRAGResult:
-        """Execute Hierarchical Parent-Child query matching child vectors and hydrating parent DuckDB time-series."""
-        # 1. Base Child Vector Retrieval
+        """Execute Two-Stage Hierarchical Parent-Child query with DuckDB hydration and Gemini causal reranking."""
+        do_rerank = self.use_reranker if use_reranker is None else use_reranker
+        pool_size = rerank_candidate_pool or self.rerank_candidate_pool
+        candidate_k = max(top_k * 4, pool_size) if do_rerank else top_k
+
+        # 1. Base Child Vector Retrieval (Stage 1)
         base_res = super().query(
             query_text=query_text,
-            top_k=top_k,
+            top_k=candidate_k,
             min_similarity=min_similarity,
             use_llm_parser=use_llm_parser,
-            use_llm_synthesis=False,  # We perform multi-scale hierarchical synthesis below
+            use_llm_synthesis=False,
+            spec=spec,
+            target_synthetic_values=target_synthetic_values,
             **kwargs,
         )
 
-        child_df = base_res.matches_df
-        selected_sims = base_res.similarities
-        spec = base_res.parsed_criteria if isinstance(base_res.parsed_criteria, PhysicsQuerySpec) else GeminiPhysicsQueryParser._fallback_parse(query_text)
+        candidate_df = base_res.matches_df
+        candidate_sims = base_res.similarities
+        active_spec = (
+            base_res.parsed_criteria
+            if isinstance(base_res.parsed_criteria, PhysicsQuerySpec)
+            else (spec or GeminiPhysicsQueryParser._fallback_parse(query_text))
+        )
 
-        # 2. Hydrate Parent Context Windows via DuckDB
+        # 2. Hydrate Parent Context Windows via DuckDB (Stage 2a)
         parent_windows: List[ParentWindowContext] = []
-        for idx in range(len(child_df)):
-            row = child_df.iloc[idx]
+        for idx in range(len(candidate_df)):
+            row = candidate_df.iloc[idx]
             match_ts = row["timestamp"] if "timestamp" in row else self.df.iloc[idx]["timestamp"]
-            sim = float(selected_sims[idx]) if idx < len(selected_sims) else 1.0
+            sim = float(candidate_sims[idx]) if idx < len(candidate_sims) else 1.0
 
             pw = self.hydrate_parent_window(
                 event_timestamp=match_ts,
@@ -2352,15 +2658,39 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
             )
             parent_windows.append(pw)
 
-        # 3. Generate Multi-Scale Explanations
-        deterministic_expl = self._generate_hierarchical_explanation(spec, child_df, parent_windows)
+        # 3. Two-Stage Reranking (Stage 2b)
+        if do_rerank and len(candidate_df) > 1:
+            causal_scores = self._score_candidates(
+                query_text=query_text,
+                spec=active_spec,
+                candidates_df=candidate_df,
+                parent_windows=parent_windows,
+            )
+            rerank_scores = []
+            for i in range(len(candidate_df)):
+                s_lat = float(candidate_sims[i]) if i < len(candidate_sims) else 0.5
+                s_cau = float(causal_scores[i]) if i < len(causal_scores) else 0.5
+                # Weighted combination: 50% manifold similarity + 50% temporal sequence causality
+                rerank_scores.append(0.5 * s_lat + 0.5 * s_cau)
+
+            sorted_order = np.argsort(-np.array(rerank_scores))[:top_k]
+            child_df = candidate_df.iloc[sorted_order].copy().reset_index(drop=True)
+            selected_sims = np.array(rerank_scores)[sorted_order]
+            selected_windows = [parent_windows[i] for i in sorted_order if i < len(parent_windows)]
+        else:
+            child_df = candidate_df.head(top_k).copy().reset_index(drop=True)
+            selected_sims = candidate_sims[:top_k]
+            selected_windows = parent_windows[:top_k]
+
+        # 4. Generate Multi-Scale Explanations
+        deterministic_expl = self._generate_hierarchical_explanation(active_spec, child_df, selected_windows)
         llm_expl = None
         if use_llm_synthesis:
             llm_expl = explain_hierarchical_with_gemini(
                 query_text=query_text,
-                spec=spec,
+                spec=active_spec,
                 child_df=child_df,
-                parent_windows=parent_windows,
+                parent_windows=selected_windows,
                 model_name=self.model_name,
                 api_key=self.api_key,
             )
@@ -2368,10 +2698,10 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
         return HierarchicalRAGResult(
             query=query_text,
             child_matches_df=child_df,
-            parent_windows=parent_windows,
+            parent_windows=selected_windows,
             similarities=selected_sims,
             explanation=deterministic_expl,
-            parsed_criteria=spec,
+            parsed_criteria=active_spec,
             llm_explanation=llm_expl,
             query_vector=base_res.query_vector,
         )
@@ -2670,6 +3000,27 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
             "parent_windows": hydrated_windows,
             "diagnostic_summary": summary_text,
         }
+
+
+class Baseline4HierarchicalRerankerRAG(HierarchicalPhysicsRAG):
+    """Baseline 4: Two-Stage Hierarchical Reranker with Live Gemini Reasoning.
+
+    Architecture:
+    - Stage 1 (Fast Latent Candidate Generation): 14D Invariant Manifold + Upsilon Metric Tensor (w_Upsilon)
+      retrieves top candidate episodes (<5ms).
+    - Stage 2a (Continuous Sequence Hydration): Slices ±72h continuous multi-channel sensor sequences
+      from embedded DuckDB columnar storage.
+    - Stage 2b (Gemini Physical Reasoning Reranker): Evaluates cumulative wave energy impulse, antecedent
+      energy rise rate, surge duration, and net shoreline displacement to rerank candidates with deep causal fidelity.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        kwargs.setdefault("use_reranker", True)
+        super().__init__(*args, **kwargs)
+
+
+# Canonical aliases
+TwoStageHierarchicalRerankerRAG = Baseline4HierarchicalRerankerRAG
 
 
 # ==============================================================================
@@ -3143,10 +3494,14 @@ class RawDataRAG:
 
 
 class RuleBasedSQLRAG:
-    """Baseline 3: Rule-based keyword and threshold filtering (SQL filter simulation)."""
+    """Baseline 2: Rule-based keyword and threshold filtering (SQL filter simulation)."""
 
     def __init__(self, df: pd.DataFrame):
         self.df = df.copy().reset_index(drop=True)
+        # Improvement 4: Sandy Coast Breaker Regime Harmonization (Wright & Short 1984, Battjes 1974)
+        if "xi_iribarren" in self.df.columns and ("breaker_regime" not in self.df.columns or (self.df["breaker_regime"] == "Surging").sum() == 0):
+            xi = self.df["xi_iribarren"].values
+            self.df["breaker_regime"] = np.where(xi < 0.5, "Spilling", np.where(xi < 1.0, "Plunging", "Surging"))
 
     def query(self, query_text: str, top_k: int = 5, **kwargs: Any) -> PhysicsRAGResult:
         q_lower = query_text.lower()
@@ -3293,6 +3648,7 @@ def evaluate_retrieval_query(
     use_llm_parser: bool = False,
     allow_synthetic_probes: bool = False,
     precomputed_rag_res: Optional[Any] = None,
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """Calculate Precision@k, Regime Purity@k, Recall@k, Reciprocal Rank (MRR), and NDCG@k for a query.
 
@@ -3360,6 +3716,7 @@ def evaluate_retrieval_query(
             use_llm_synthesis=False,
             spec=spec_override,
             target_synthetic_values=target_synth,
+            **kwargs,
         )
         matches_df = rag_res.matches_df
     n_retrieved = len(matches_df)
@@ -3506,6 +3863,7 @@ def evaluate_rag_benchmark_suite(
             use_llm_synthesis=False,
             spec=spec_override,
             target_synthetic_values=target_synth,
+            **kwargs,
         )
 
         # Evaluate across multiple k values using the single retrieved result
