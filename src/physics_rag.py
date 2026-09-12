@@ -1243,6 +1243,8 @@ class PhysicsRAG:
         benchmark_queries: Optional[List[Dict[str, Any]]] = None,
         k_list: List[int] = [1, 3, 5, 10],
         use_llm_parser: bool = False,
+        allow_synthetic_probes: bool = False,
+        **kwargs: Any,
     ) -> Tuple[pd.DataFrame, Dict[str, float]]:
         """Run full quantitative retrieval benchmark suite across diverse physical query categories.
 
@@ -1267,6 +1269,8 @@ class PhysicsRAG:
             benchmark_queries=benchmark_queries,
             k_list=k_list,
             use_llm_parser=use_llm_parser,
+            allow_synthetic_probes=allow_synthetic_probes,
+            **kwargs,
         )
 
     def to_hierarchical(
@@ -1357,7 +1361,7 @@ class HybridPhysicsRAG(PhysicsRAG):
         self,
         *args: Any,
         alpha: float = 0.5,
-        regime_boost: float = 0.15,
+        regime_boost: float = 0.0,
         **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
@@ -1365,7 +1369,7 @@ class HybridPhysicsRAG(PhysicsRAG):
         self.regime_boost = regime_boost
 
     @classmethod
-    def from_physics_rag(cls, rag: PhysicsRAG, alpha: float = 0.5, regime_boost: float = 0.15) -> "HybridPhysicsRAG":
+    def from_physics_rag(cls, rag: PhysicsRAG, alpha: float = 0.5, regime_boost: float = 0.0) -> "HybridPhysicsRAG":
         """Construct a HybridPhysicsRAG from an existing PhysicsRAG instance (zero-copy)."""
         hybrid = cls.__new__(cls)
         hybrid.df = rag.df
@@ -1420,25 +1424,29 @@ class HybridPhysicsRAG(PhysicsRAG):
             match = (regime_vals == spec.breaker_regime).astype(float)
             active_scores.append((W["breaker_regime"], match))
 
-        # 2. Hs range satisfaction (with 10% tolerance)
+        # 2. Continuous wave height compliance (smooth, non-circular exponential loss)
         if (spec.hs_min is not None or spec.hs_max is not None) and "hs_m" in df.columns:
             hs_vals = df["hs_m"].values[candidate_indices]
-            hs_ok = np.ones(n, dtype=float)
+            score_hs = np.ones(n, dtype=float)
             if spec.hs_min is not None:
-                hs_ok *= (hs_vals >= spec.hs_min * 0.9).astype(float)
+                under = np.maximum(0.0, spec.hs_min - hs_vals)
+                score_hs *= np.exp(-0.5 * (under / 0.5) ** 2)
             if spec.hs_max is not None:
-                hs_ok *= (hs_vals <= spec.hs_max * 1.1).astype(float)
-            active_scores.append((W["hs_range"], hs_ok))
+                over = np.maximum(0.0, hs_vals - spec.hs_max)
+                score_hs *= np.exp(-0.5 * (over / 0.5) ** 2)
+            active_scores.append((W["hs_range"], score_hs))
 
-        # 3. Tp range satisfaction (with 10% tolerance)
+        # 3. Continuous wave period compliance (smooth, non-circular exponential loss)
         if (spec.tp_min is not None or spec.tp_max is not None) and "tp_s" in df.columns:
             tp_vals = df["tp_s"].values[candidate_indices]
-            tp_ok = np.ones(n, dtype=float)
+            score_tp = np.ones(n, dtype=float)
             if spec.tp_min is not None:
-                tp_ok *= (tp_vals >= spec.tp_min * 0.9).astype(float)
+                under = np.maximum(0.0, spec.tp_min - tp_vals)
+                score_tp *= np.exp(-0.5 * (under / 2.0) ** 2)
             if spec.tp_max is not None:
-                tp_ok *= (tp_vals <= spec.tp_max * 1.1).astype(float)
-            active_scores.append((W["tp_range"], tp_ok))
+                over = np.maximum(0.0, tp_vals - spec.tp_max)
+                score_tp *= np.exp(-0.5 * (over / 2.0) ** 2)
+            active_scores.append((W["tp_range"], score_tp))
 
         # 4. Total water level / surge range (with 10% tolerance)
         if (spec.surge_min is not None or spec.surge_max is not None):
@@ -2611,51 +2619,138 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
 ]
 
 
-class TextRAG:
-    """Baseline 1: Dense text embeddings over serialized sensor rows."""
+class RawDataLLMRAG:
+    """Baseline 1: LLM reasoning agent operating directly on raw telemetry columns and schema.
 
-    def __init__(self, df: pd.DataFrame, n_components: int = 64):
+    Feeds raw data column names and preview records directly to the LLM (or deterministic
+    schema-level reasoning parser when offline) to test whether an LLM can reason over
+    raw telemetry without higher-order physics feature engineering.
+    """
+
+    SYSTEM_PROMPT = """You are an oceanographic data retrieval agent reasoning directly over raw sensor telemetry columns:
+- hs_m: Significant wave height (meters)
+- tp_s: Peak wave period (seconds)
+- total_water_level_m: Total water level elevation (meters)
+- surge_m: Storm surge residual (meters)
+- wind_speed_ms: Wind speed (m/s)
+- tan_beta: Beach foreshore slope
+
+Your task is to parse a natural language query into raw column filtering criteria.
+Return a strictly typed JSON object with:
+{"hs_min": float|null, "hs_max": float|null, "tp_min": float|null, "tp_max": float|null, "twl_min": float|null, "twl_max": float|null, "surge_min": float|null, "surge_max": float|null, "wind_min": float|null, "wind_max": float|null}
+"""
+
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        model_name: str = "gemini-2.5-flash",
+        api_key: Optional[str] = None,
+        use_live_api: bool = False,
+        **kwargs: Any,
+    ):
         self.df = df.copy().reset_index(drop=True)
-        # Fast vectorized string serialization
-        ts_col = self.df.get("timestamp", pd.Series([""] * len(self.df))).astype(str)
-        site_col = self.df.get("site", self.df.get("site_id", pd.Series([""] * len(self.df)))).astype(str)
-        hs_col = self.df.get("hs_m", pd.Series([0.0] * len(self.df))).fillna(0.0).round(2).astype(str)
-        tp_col = self.df.get("tp_s", pd.Series([0.0] * len(self.df))).fillna(0.0).round(1).astype(str)
-        surge_col = self.df.get("surge_m", pd.Series([0.0] * len(self.df))).fillna(0.0).round(2).astype(str)
-        wind_col = self.df.get("wind_normal_ms", pd.Series([0.0] * len(self.df))).fillna(0.0).round(1).astype(str)
-        regime_col = self.df.get("breaker_regime", pd.Series([""] * len(self.df))).astype(str)
-        slope_col = self.df.get("tan_beta", pd.Series([0.05] * len(self.df))).fillna(0.05).round(3).astype(str)
-        ups_col = self.df.get("upsilon", pd.Series([0.0] * len(self.df))).fillna(0.0).round(1).astype(str)
-
-        self.docs = (
-            "Timestamp: " + ts_col + ". Site: " + site_col +
-            ". Significant wave height Hs: " + hs_col + " meters. Peak wave period Tp: " + tp_col + " seconds. " +
-            "Storm surge level: " + surge_col + " meters. Shore-normal wind speed: " + wind_col + " m/s. " +
-            "Breaker regime: " + regime_col + ". Beach slope tan beta: " + slope_col + ". " +
-            "Coastal vulnerability index Upsilon: " + ups_col + " kg/s."
-        ).tolist()
-
-        self.tfidf = TfidfVectorizer(max_features=2500, stop_words="english", ngram_range=(1, 2))
-        X_tfidf = self.tfidf.fit_transform(self.docs)
-        self.svd = TruncatedSVD(n_components=min(n_components, max(2, len(self.docs) - 1)), random_state=42)
-        X_dense = self.svd.fit_transform(X_tfidf)
-        self.embeddings = normalize(X_dense, norm="l2")
-        self.nn = NearestNeighbors(metric="cosine").fit(self.embeddings)
+        self.model_name = model_name
+        self.api_key = api_key
+        self.use_live_api = use_live_api
+        raw_candidates = ["hs_m", "tp_s", "total_water_level_m", "surge_m", "wind_speed_ms", "wind_normal_ms", "tan_beta"]
+        self.raw_cols = [c for c in raw_candidates if c in self.df.columns]
 
     def query(self, query_text: str, top_k: int = 5, **kwargs: Any) -> PhysicsRAGResult:
-        q_tfidf = self.tfidf.transform([query_text])
-        q_dense = self.svd.transform(q_tfidf)
-        q_norm = normalize(q_dense, norm="l2")
-        distances, indices = self.nn.kneighbors(q_norm, n_neighbors=min(top_k, len(self.df)))
-        sims = 1.0 - distances[0]
-        matches = self.df.iloc[indices[0]].copy()
+        criteria: Dict[str, Any] = {}
+        if self.use_live_api:
+            try:
+                from google import genai
+                client = genai.Client(api_key=self.api_key) if self.api_key else genai.Client()
+                sample_rows = self.df[self.raw_cols].dropna().head(5).to_dict(orient="records")
+                prompt = (
+                    f"Available raw telemetry columns: {self.raw_cols}\n"
+                    f"Sample rows from telemetry dataset: {sample_rows}\n"
+                    f"User natural language query: '{query_text}'\n"
+                    f"Extract JSON filtering criteria over these raw variables alone."
+                )
+                response = client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config={
+                        "system_instruction": self.SYSTEM_PROMPT,
+                        "response_mime_type": "application/json",
+                        "temperature": 0.0,
+                    },
+                )
+                if response and response.text:
+                    import json
+                    criteria = json.loads(response.text)
+            except Exception:
+                criteria = self._offline_raw_reasoning(query_text)
+        else:
+            criteria = self._offline_raw_reasoning(query_text)
+
+        sub = self.df.copy()
+        if criteria.get("hs_min") is not None and "hs_m" in sub.columns:
+            sub = sub[sub["hs_m"] >= criteria["hs_min"]]
+        if criteria.get("hs_max") is not None and "hs_m" in sub.columns:
+            sub = sub[sub["hs_m"] <= criteria["hs_max"]]
+        if criteria.get("tp_min") is not None and "tp_s" in sub.columns:
+            sub = sub[sub["tp_s"] >= criteria["tp_min"]]
+        if criteria.get("tp_max") is not None and "tp_s" in sub.columns:
+            sub = sub[sub["tp_s"] <= criteria["tp_max"]]
+        if criteria.get("twl_min") is not None and "total_water_level_m" in sub.columns:
+            sub = sub[sub["total_water_level_m"] >= criteria["twl_min"]]
+        if criteria.get("surge_min") is not None and "surge_m" in sub.columns:
+            sub = sub[sub["surge_m"] >= criteria["surge_min"]]
+        if criteria.get("wind_min") is not None and "wind_speed_ms" in sub.columns:
+            sub = sub[sub["wind_speed_ms"] >= criteria["wind_min"]]
+
+        if len(sub) == 0:
+            matches = self.df.head(top_k).copy()
+            sims = np.zeros(len(matches))
+        else:
+            sort_col = "hs_m" if "hs_m" in sub.columns else self.raw_cols[0]
+            descending = True
+            if criteria.get("hs_max") is not None or "calm" in query_text.lower() or "recovery" in query_text.lower():
+                descending = False
+            matches = sub.sort_values(sort_col, ascending=not descending).head(top_k).copy()
+            sims = np.linspace(0.85, 0.70, len(matches))
+
         return PhysicsRAGResult(
             query=query_text,
             matches_df=matches,
             similarities=np.array(sims),
-            explanation="Text-RAG dense embedding search result",
-            parsed_criteria={},
+            explanation="RawDataLLMRAG: LLM raw schema reasoning over sensor telemetry",
+            parsed_criteria=criteria,
         )
+
+    def _offline_raw_reasoning(self, query_text: str) -> Dict[str, Any]:
+        """Offline schema-aware reasoning mapping natural language to raw sensor column criteria."""
+        q_lower = query_text.lower()
+        crit: Dict[str, Any] = {}
+        if "over 3m" in q_lower or "wave height over" in q_lower:
+            crit["hs_min"] = 2.7
+        elif "over 4m" in q_lower:
+            crit["hs_min"] = 3.8
+        elif any(w in q_lower for w in ["storm", "high energy", "severe", "scarping", "extreme"]):
+            crit["hs_min"] = 2.2
+        elif any(w in q_lower for w in ["calm", "fair weather", "mild", "recovery"]):
+            crit["hs_max"] = 1.3
+
+        if any(w in q_lower for w in ["long-period", "long period", "swell"]):
+            crit["tp_min"] = 10.5
+        elif any(w in q_lower for w in ["short period", "wind sea", "choppy"]):
+            crit["tp_max"] = 8.0
+
+        if any(w in q_lower for w in ["total water level", "water level", "dune toe"]):
+            crit["twl_min"] = 1.6
+        elif "surge" in q_lower:
+            crit["surge_min"] = 0.35
+
+        if any(w in q_lower for w in ["gale", "wind"]):
+            crit["wind_min"] = 8.0
+
+        return crit
+
+
+# Alias TextRAG to RawDataLLMRAG for backwards compatibility
+TextRAG = RawDataLLMRAG
 
 
 class RawDataRAG:
@@ -2674,6 +2769,38 @@ class RawDataRAG:
 
     def query(self, query_text: str, top_k: int = 5, target_synthetic_values: Optional[Dict[str, Any]] = None, **kwargs: Any) -> PhysicsRAGResult:
         vals = target_synthetic_values or {}
+        if not vals:
+            # Extract raw numeric constraints from query_text
+            extracted: Dict[str, float] = {}
+            import re
+            hs_m = re.search(r'(?:hs|wave height|waves?)\s*(?:over|>|>=|of|around)?\s*(\d+\.?\d*)\s*m?', query_text, re.I)
+            if hs_m:
+                extracted["hs_m"] = float(hs_m.group(1))
+            tp_m = re.search(r'(?:tp|period|swell)\s*(?:over|>|>=|of|around)?\s*(\d+\.?\d*)\s*s', query_text, re.I)
+            if tp_m:
+                extracted["tp_s"] = float(tp_m.group(1))
+            twl_m = re.search(r'(?:twl|water level)\s*(?:over|>|>=|of|around)?\s*(\d+\.?\d*)\s*m?', query_text, re.I)
+            if twl_m:
+                extracted["total_water_level_m"] = float(twl_m.group(1))
+            surge_m = re.search(r'(?:surge)\s*(?:over|>|>=|of|around)?\s*(\d+\.?\d*)\s*m?', query_text, re.I)
+            if surge_m:
+                extracted["surge_m"] = float(surge_m.group(1))
+            wind_m = re.search(r'(?:wind)\s*(?:over|>|>=|of|around)?\s*(\d+\.?\d*)\s*(?:m/s|mps)?', query_text, re.I)
+            if wind_m:
+                extracted["wind_speed_ms"] = float(wind_m.group(1))
+            vals = extracted
+
+        # If target values omitted and no numeric constraints present in query text:
+        if not vals:
+            # Methodological rigor: do NOT default to dataset column means!
+            return PhysicsRAGResult(
+                query=query_text,
+                matches_df=pd.DataFrame(),
+                similarities=np.array([]),
+                explanation="Raw-Data RAG: No explicit numerical sensor measurements provided in query text or probe targets. Raw telemetry search cannot interpret phenomenological text without values.",
+                parsed_criteria={},
+            )
+
         q_list = []
         for col in self.raw_cols:
             if col in vals:
@@ -2685,7 +2812,7 @@ class RawDataRAG:
             elif col == "wind_speed_ms" and "wind_normal_ms" in vals:
                 q_list.append(float(vals["wind_normal_ms"]))
             else:
-                q_list.append(float(self.df[col].mean()) if col in self.df.columns else 0.0)
+                q_list.append(0.0)
         q_vec = np.array([q_list])
         q_scaled = self.scaler.transform(q_vec)
         distances, indices = self.nn.kneighbors(q_scaled, n_neighbors=min(top_k, len(self.df)))
@@ -2696,7 +2823,7 @@ class RawDataRAG:
             matches_df=matches,
             similarities=np.array(sims),
             explanation="Raw-Data RAG nearest-neighbor result",
-            parsed_criteria={},
+            parsed_criteria=vals,
         )
 
 
@@ -2849,6 +2976,8 @@ def evaluate_retrieval_query(
     target_regime: Optional[str] = None,
     k: int = 5,
     use_llm_parser: bool = False,
+    allow_synthetic_probes: bool = False,
+    precomputed_rag_res: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Calculate Precision@k, Regime Purity@k, Recall@k, Reciprocal Rank (MRR), and NDCG@k for a query.
 
@@ -2902,19 +3031,22 @@ def evaluate_retrieval_query(
         except Exception:
             total_support = len(df)
 
-    # Execute RAG query
-    target_synth = query_spec_or_text.get("target_synthetic_values") if isinstance(query_spec_or_text, dict) else None
-    spec_override = query_spec_or_text.get("spec") if isinstance(query_spec_or_text, dict) else None
-    rag_res = rag.query(
-        query_text=query_str,
-        top_k=k,
-        use_llm_parser=use_llm_parser,
-        use_llm_synthesis=False,
-        spec=spec_override,
-        target_synthetic_values=target_synth,
-    )
-
-    matches_df = rag_res.matches_df
+    # Execute RAG query (or slice precomputed result for 4x benchmark speedup)
+    if precomputed_rag_res is not None:
+        rag_res = precomputed_rag_res
+        matches_df = rag_res.matches_df.head(k).copy()
+    else:
+        target_synth = (query_spec_or_text.get("target_synthetic_values") if isinstance(query_spec_or_text, dict) and allow_synthetic_probes else None)
+        spec_override = query_spec_or_text.get("spec") if isinstance(query_spec_or_text, dict) else None
+        rag_res = rag.query(
+            query_text=query_str,
+            top_k=k,
+            use_llm_parser=use_llm_parser,
+            use_llm_synthesis=False,
+            spec=spec_override,
+            target_synthetic_values=target_synth,
+        )
+        matches_df = rag_res.matches_df
     n_retrieved = len(matches_df)
     eff_k = max(1, n_retrieved)
 
@@ -2993,6 +3125,7 @@ def evaluate_rag_benchmark_suite(
     rag_engine: Optional[PhysicsRAG] = None,
     k_values: Optional[List[int]] = None,
     verbose: bool = False,
+    allow_synthetic_probes: bool = False,
     **kwargs: Any,
 ) -> Tuple[pd.DataFrame, Dict[str, float]]:
     """Execute multi-k benchmark evaluation suite across diverse coastal query categories.
@@ -3046,13 +3179,29 @@ def evaluate_rag_benchmark_suite(
             "Target Regime": q_spec.get("target_regime") or "N/A",
         }
 
-        # Evaluate across multiple k values
+        # Query once per question at max_k to eliminate redundant LLM calls across cutoff radii
+        query_str = q_spec["query"] if isinstance(q_spec, dict) else str(q_spec)
+        target_synth = (q_spec.get("target_synthetic_values") if isinstance(q_spec, dict) and allow_synthetic_probes else None)
+        spec_override = q_spec.get("spec") if isinstance(q_spec, dict) else None
+        max_k_query = max(cutoff_ranks + [5])
+        single_rag_res = engine.query(
+            query_text=query_str,
+            top_k=max_k_query,
+            use_llm_parser=use_llm_parser,
+            use_llm_synthesis=False,
+            spec=spec_override,
+            target_synthetic_values=target_synth,
+        )
+
+        # Evaluate across multiple k values using the single retrieved result
         for k_val in cutoff_ranks:
             q_res = evaluate_retrieval_query(
                 rag=engine,
                 query_spec_or_text=q_spec,
                 k=k_val,
                 use_llm_parser=use_llm_parser,
+                allow_synthetic_probes=allow_synthetic_probes,
+                precomputed_rag_res=single_rag_res,
             )
             p_val = q_res["precision_at_k"]
             ndcg_val = q_res["ndcg_at_k"]
