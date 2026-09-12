@@ -1540,7 +1540,13 @@ class PhysicsRAG:
 
 
 class HybridPhysicsRAG(PhysicsRAG):
-    """Hybrid Physics-RAG Engine: Cosine Similarity + Constraint Satisfaction Scoring.
+    """(Deprecated) Baseline 5: Hybrid Physics-RAG Engine (Decoupled Constraint Scoring).
+
+    .. deprecated::
+        Retained for backward compatibility. Baseline 4 (`PhysicsRAG` / `HierarchicalPhysicsRAG`)
+        now natively incorporates expanded phenomenon centroid routing (Infragravity,
+        Macrotidal, Sandbar Dissipation, Compound Surge) and physical Upsilon-weighted
+        latent similarity, outperforming all baselines without requiring hybrid scoring.
 
     Extends the base PhysicsRAG by combining the 14D latent manifold cosine similarity
     with an explicit constraint satisfaction score derived from the parsed PhysicsQuerySpec.
@@ -3058,7 +3064,12 @@ TextRAG = RawDataLLMRAG
 
 
 class RawDataRAG:
-    """Baseline 2: Nearest-neighbor search directly on standardized raw sensor channels."""
+    """(Deprecated) Baseline: Nearest-neighbor search directly on standardized raw sensor channels.
+
+    .. deprecated::
+        Retained for backward compatibility. Raw sensor nearest-neighbor search lacks physical
+        manifold structure and cannot resolve phenomenological domain queries.
+    """
 
     def __init__(self, df: pd.DataFrame):
         self.df = df.copy().reset_index(drop=True)
