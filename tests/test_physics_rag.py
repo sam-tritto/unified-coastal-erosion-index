@@ -29,8 +29,13 @@ from src.physics_rag import (
     HierarchicalPhysicsRAG,
     Baseline4HierarchicalRerankerRAG,
     DEFAULT_PHYSICS_BENCHMARK_QUERIES,
+    DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A,
+    DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B,
     evaluate_retrieval_query,
     evaluate_rag_benchmark_suite,
+    generate_decoupled_mode_summary,
+    RawDataLLMRAG,
+    RuleBasedSQLRAG,
 )
 
 
@@ -709,6 +714,117 @@ def test_gemini_query_parser_error_surfaced(caplog):
 
     assert isinstance(spec, PhysicsQuerySpec)
     assert any("Gemini physics query parsing failed" in record.message for record in caplog.records)
+
+
+def test_raw_data_llm_rag_site_and_date_filtering():
+    """Verify RawDataLLMRAG filters correctly by site_id and timestamp window."""
+    df = pd.DataFrame({
+        "site_id": ["narrabeen_aus", "duck_nc", "torrey_pines_ca"],
+        "timestamp": ["2016-06-05 12:00:00", "2016-10-08 12:00:00", "2015-12-15 12:00:00"],
+        "hs_m": [4.0, 3.5, 1.2],
+        "tp_s": [12.0, 11.0, 13.0],
+    })
+
+    rag = RawDataLLMRAG(df=df, use_live_api=False)
+    res = rag.query("June 2016 storm at Narrabeen")
+    assert len(res.matches_df) == 1
+    assert res.matches_df["site_id"].iloc[0] == "narrabeen_aus"
+    assert res.parsed_criteria.get("site_id") == "narrabeen_aus"
+    assert res.parsed_criteria.get("date_start") == "2016-06-01"
+
+
+def test_decoupled_benchmark_query_stratification():
+    """Verify DEFAULT_PHYSICS_BENCHMARK_QUERIES has exactly 15 Mode A and 15 Mode B queries."""
+    assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES) == 30
+    assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A) == 15
+    assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B) == 15
+
+    for q in DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A:
+        assert "Mode A" in q.get("mode", "")
+
+    for q in DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B:
+        assert "Mode B" in q.get("mode", "")
+
+    # Verify Q16 specifically mentions extreme wave dissipation during active dune scarping
+    q16 = DEFAULT_PHYSICS_BENCHMARK_QUERIES[16]
+    assert "extreme wave dissipation during active dune scarping" in q16["query"].lower()
+    assert "Mode A" in q16["mode"]
+
+
+def test_mode_a_pure_phenomenological_bypasses_filters():
+    """Verify that Mode A disables spatiotemporal filtering across all architectures."""
+    df = pd.DataFrame({
+        "site_id": ["narrabeen_aus", "duck_nc", "torrey_pines_ca", "truc_vert_france"],
+        "timestamp": ["2016-06-05 12:00:00", "2016-10-08 12:00:00", "2015-12-15 12:00:00", "2014-01-05 12:00:00"],
+        "hs_m": [4.0, 4.2, 4.5, 4.8],
+        "tp_s": [12.0, 13.0, 14.0, 15.0],
+        "p_flux_Wm": [65000.0, 70000.0, 62000.0, 80000.0],
+        "total_water_level_m": [2.1, 2.2, 2.0, 2.3],
+        "xi_iribarren": [0.3, 0.35, 0.38, 0.32],
+        "breaker_regime": ["Spilling", "Spilling", "Spilling", "Spilling"],
+    })
+
+    # Test RuleBasedSQLRAG in Mode A
+    sql_rag = RuleBasedSQLRAG(df=df)
+    # Mode B would filter to narrabeen only due to the word "Narrabeen"
+    res_b = sql_rag.query("Narrabeen high energy storm", top_k=5, mode="Mode B: Full Operational")
+    assert len(res_b.matches_df) == 1
+
+    # Mode A bypasses site/date filters completely
+    res_a = sql_rag.query("Narrabeen high energy storm", top_k=5, mode="Mode A: Pure Phenomenological")
+    assert len(res_a.matches_df) > 1
+
+    # Test RawDataLLMRAG in Mode A
+    raw_rag = RawDataLLMRAG(df=df, use_live_api=False)
+    raw_res_a = raw_rag.query("Narrabeen June 2016 storm", top_k=5, mode="Mode A: Pure Phenomenological")
+    assert len(raw_res_a.matches_df) > 1
+
+
+def test_evaluate_rag_benchmark_suite_decoupled_modes_and_summary():
+    """Verify evaluate_rag_benchmark_suite and generate_decoupled_mode_summary handle Mode A & B."""
+    df = pd.DataFrame({
+        "site_id": ["narrabeen_aus", "duck_nc", "torrey_pines_ca", "truc_vert_france"] * 5,
+        "timestamp": pd.date_range("2012-01-01", periods=20, freq="6ME"),
+        "hs_m": np.linspace(1.0, 5.0, 20),
+        "tp_s": np.linspace(8.0, 16.0, 20),
+        "total_water_level_m": np.linspace(0.5, 2.5, 20),
+        "xi_iribarren": np.linspace(0.2, 1.5, 20),
+        "breaker_regime": ["Spilling"] * 7 + ["Plunging"] * 7 + ["Surging"] * 6,
+        "p_flux_Wm": np.linspace(10000, 80000, 20),
+    })
+
+    sql_rag = RuleBasedSQLRAG(df=df)
+
+    # Run on a mini query suite covering both modes
+    mini_suite = [
+        DEFAULT_PHYSICS_BENCHMARK_QUERIES[0],   # Mode B
+        DEFAULT_PHYSICS_BENCHMARK_QUERIES[16],  # Mode A
+    ]
+
+    df_res, summary = evaluate_rag_benchmark_suite(
+        rag=sql_rag,
+        benchmark_queries=mini_suite,
+        k_list=[1, 5],
+    )
+
+    assert "Mode" in df_res.columns
+    assert "Mode A: Pure Phenomenological" in df_res["Mode"].values
+    assert "Mode B: Full Operational" in df_res["Mode"].values
+    assert "mode_a_mean_p_at_5" in summary
+    assert "mode_b_mean_p_at_5" in summary
+
+    # Verify generate_decoupled_mode_summary
+    df_summary = generate_decoupled_mode_summary({"Baseline 2: Rule-Based SQL": (df_res, summary)})
+    assert isinstance(df_summary, pd.DataFrame)
+    assert "Architecture" in df_summary.columns
+    assert "Evaluation Mode" in df_summary.columns
+    assert len(df_summary) == 3  # Mode A, Mode B, Overall
+    modes = df_summary["Evaluation Mode"].tolist()
+    assert "Mode A: Pure Phenomenological" in modes
+    assert "Mode B: Full Operational" in modes
+    assert "Overall Benchmark" in modes
+
+
 
 
 

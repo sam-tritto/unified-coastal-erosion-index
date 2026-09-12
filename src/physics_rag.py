@@ -579,52 +579,51 @@ class GeminiPhysicsQueryParser:
 Your task is to parse a user's natural language query about coastal hydrodynamic and morphodynamic conditions into a strictly typed JSON schema according to PhysicsQuerySpec.
 
 Guidelines:
-1. Breaker Regimes:
-   - 'spilling' or 'dissipative': breaker_regime="Spilling", xi_max=0.5. Populate target_synthetic_values: {"hs_m": 3.0, "tp_s": 7.5, "tan_beta": 0.08}.
-   - 'plunging' or 'curling': breaker_regime="Plunging", xi_min=0.5, xi_max=1.0. Populate target_synthetic_values: {"hs_m": 2.0, "tp_s": 9.5, "tan_beta": 0.08}.
-   - 'surging', 'collapsing', or 'reflective': breaker_regime="Surging", xi_min=1.0. Populate target_synthetic_values: {"hs_m": 0.6, "tp_s": 14.0, "tan_beta": 0.08}.
+1. Physical Parameter Ranges & Thresholds:
+   - Extract numerical thresholds directly from the query when stated (e.g., "wave height over 3m" -> hs_min=3.0; "waves under 1.2m" -> hs_max=1.2; "period over 12s" -> tp_min=12.0; "TWL over 2.0m" -> surge_min=2.0).
+   - If qualitative physical conditions are described without explicit numbers, infer reasonable physical parameter bounds:
+     * Extreme storms / high wave energy: hs_min=2.5 to 3.5, target_state="State_ExtremeStormPeak", min_upsilon_percentile=70.0.
+     * Calm / mild / fair weather: hs_max=1.3, target_state="State_CalmFairWeather", max_upsilon_percentile=25.0.
+     * Elevated water levels / surge / dune toe saturation: surge_min=0.5 to 1.5.
+     * Long-period swell: tp_min=11.0.
+     * Onshore gale wind: wind_normal_min=7.0, focus="wind_gale".
+     * Compound wave-surge: hs_min=2.2, surge_min=0.8, focus="compound".
 
-2. Morphology & Morphodynamic Phases:
-   - 'erosion', 'beach cut', 'scarping' (when not negated): morphology="Erosive", phase="Erosion", delta_x_max=0.0.
+2. Breaker Regimes:
+   - 'spilling' or 'dissipative': breaker_regime="Spilling", xi_max=0.5.
+   - 'plunging' or 'curling': breaker_regime="Plunging", xi_min=0.5, xi_max=1.0.
+   - 'surging', 'collapsing', or 'reflective': breaker_regime="Surging", xi_min=1.0.
+
+3. Morphology & Morphodynamic Phases:
+   - 'erosion', 'beach cut', 'scarping', 'recession' (when not negated): morphology="Erosive", phase="Erosion", delta_x_max=0.0.
    - 'accretion', 'recovery', 'berm building', 'healing', 'berm welding': morphology="Accretive", phase="Recovery", delta_x_min=0.0, target_state="State_PostStormRecovery".
    - 'recovery timeframe' or post-storm duration: query_recovery_timeframe=True, phase="Recovery", morphology="Accretive", target_state="State_PostStormRecovery".
    - 'ignore background noise', 'filter noise', 'active storm only', 'above critical threshold': filter_background_noise=True.
    - 'subcritical', 'below threshold', 'background noise' (when not ignored): phase="Noise", target_state="State_SubcriticalNoise".
 
-3. Storms, Historical Events & Wave / Water Level Extremes:
-   - 'June 2016 East Coast Low', 'Narrabeen ECL': site_id="narrabeen_aus", date_start="2016-06-01", date_end="2016-06-15", hs_min=3.0, populate target_synthetic_values: {"hs_m": 4.5, "tp_s": 12.0, "tan_beta": 0.05}.
-   - 'Hurricane Matthew', 'Duck October 2016': site_id="duck_nc", date_start="2016-10-01", date_end="2016-10-15", hs_min=3.5, populate target_synthetic_values: {"hs_m": 4.8, "tp_s": 12.5, "tan_beta": 0.08}.
-   - 'Megastorms Hercules and Christine', 'Truc Vert early 2014': site_id="truc_vert_france", date_start="2014-01-01", date_end="2014-03-15", hs_min=5.0, populate target_synthetic_values: {"hs_m": 7.0, "tp_s": 15.0, "tan_beta": 0.04}.
-   - '2015-2016 El Niño', 'Torrey Pines winter storm': site_id="torrey_pines_ca", date_start="2015-12-01", date_end="2016-03-01", hs_min=2.5, populate target_synthetic_values: {"hs_m": 3.2, "tp_s": 14.0, "tan_beta": 0.03}.
-   - 'April 2015 cyclonic East Coast Low', 'Narrabeen April 2015': site_id="narrabeen_aus", date_start="2015-04-20", date_end="2015-04-25", hs_min=3.5, populate target_synthetic_values: {"hs_m": 4.5, "tp_s": 11.5, "tan_beta": 0.05}.
-   - 'Hurricane Sandy', 'Duck October 2012': site_id="duck_nc", date_start="2012-10-25", date_end="2012-11-05", hs_min=3.5, populate target_synthetic_values: {"hs_m": 4.5, "tp_s": 13.0, "tan_beta": 0.08}.
-   - 'Torrey Pines December 2015': site_id="torrey_pines_ca", date_start="2015-12-01", date_end="2015-12-31", tp_min=12.0, hs_max=1.5, populate target_synthetic_values: {"hs_m": 1.1, "tp_s": 13.5}.
-   - 'Truc Vert summer 2016': site_id="truc_vert_france", date_start="2016-06-01", date_end="2016-08-31", hs_max=1.2, tp_min=9.0, populate target_synthetic_values: {"hs_m": 0.9, "tp_s": 10.5}.
-   - 'Hurricane Ian': target_state="State_ExtremeStormPeak", min_upsilon_percentile=75.0, date_start="2022-09-27", date_end="2022-10-02".
-   - 'storm peak', 'extreme storm', 'major storm', 'catastrophic beach scarping', 'extreme coastal vulnerability': min_upsilon_percentile=70.0, target_state="State_ExtremeStormPeak", populate target_synthetic_values: {"hs_m": 3.8, "tp_s": 12.0}.
-   - 'high energy storm waves', 'waves over 3m' / '4m' / '4.5m': hs_min=2.7, populate target_synthetic_values: {"hs_m": 3.5, "tp_s": 11.5}.
-   - 'elevated total water level', 'exceeding dune toe', 'high water level': surge_min=1.6, populate target_synthetic_values: {"total_water_level_m": 1.8, "hs_m": 2.5}.
-   - 'compound wave-surge': hs_min=2.2, surge_min=1.4, focus="compound", populate target_synthetic_values: {"hs_m": 3.0, "tp_s": 11.0, "total_water_level_m": 1.7}.
-   - 'onshore gale wind', 'gale wind forcing': wind_normal_min=7.0, focus="wind_gale", populate target_synthetic_values: {"hs_m": 2.8, "tp_s": 9.0, "wind_speed_ms": 8.5}.
-   - 'calm', 'fair weather', 'mild': max_upsilon_percentile=25.0, target_state="State_CalmFairWeather", populate target_synthetic_values: {"hs_m": 0.7, "tp_s": 8.0}.
-   - 'summer swell', 'long-period swell berm welding': tp_min=11.0, hs_max=1.3, morphology="Accretive", phase="Recovery", target_state="State_PostStormRecovery", populate target_synthetic_values: {"hs_m": 0.9, "tp_s": 13.5}.
+4. Geographic Sites & Geomorphic Archetypes (ONLY if explicitly mentioned in query text):
+   - Only set site_id or geomorphic_regime if explicitly referenced by location name or geomorphic regime in the query:
+     * Duck / North Carolina: site_id="duck_nc", geomorphic_regime="microtidal"
+     * Narrabeen / Sydney / Australia: site_id="narrabeen_aus", geomorphic_regime="embayed"
+     * Torrey Pines / California / San Diego: site_id="torrey_pines_ca", geomorphic_regime="narrow_shelf"
+     * Truc Vert / Biscay / France: site_id="truc_vert_france", geomorphic_regime="macrotidal"
+     * Oahu / North Shore / Hawaii: site_id="oahu_north_shore_hi", geomorphic_regime="reef"
+   - If the query mentions generic geomorphic types (e.g., 'macrotidal', 'embayed', 'pocket beach', 'fringing reef'), set geomorphic_regime accordingly without forcing site_id unless the location is named.
 
-4. Cross-Site Geomorphic Invariance & Archetypes:
-   - 'macrotidal', 'tidal smearing', 'truc vert', 'france', 'biscay': site_id="truc_vert_france", geomorphic_regime="macrotidal", focus="macrotidal_dissipation", populate target_synthetic_values: {"hs_m": 2.5, "tp_s": 9.5}.
-   - 'sheltered', 'protected embayments', 'narrabeen', 'torrey pines': geomorphic_regime="embayed", hs_max=1.1, focus="sheltered_swell", populate target_synthetic_values: {"hs_m": 0.7, "tp_s": 12.0}.
-   - 'oblique storm waves', 'headland rotation', 'beach rotation': focus="oblique", hs_min=2.0, populate target_synthetic_values: {"hs_m": 2.8, "tp_s": 11.0}.
-   - 'sandbar dissipation', 'buffering', 'bar-breach': focus="sandbar_dissipation", hs_min=2.2, populate target_synthetic_values: {"hs_m": 3.0, "tp_s": 10.5, "dean_number": 5.0}.
-   - 'tide-gated', 'high tide': surge_min=1.5, hs_min=2.0, populate target_synthetic_values: {"hs_m": 2.5, "tp_s": 10.0, "total_water_level_m": 1.8}.
-   - 'steep coarse sand': hs_min=2.2, populate target_synthetic_values: {"hs_m": 2.8, "tp_s": 9.0, "dean_number": 4.0}.
+5. Dates & Temporal Windows (ONLY if explicitly mentioned in query text):
+   - Only populate date_start and date_end if a specific year, month, or calendar date range is explicitly stated in the query text.
+   - For example:
+     * "June 2016" -> date_start="2016-06-01", date_end="2016-06-30"
+     * "October 2016" -> date_start="2016-10-01", date_end="2016-10-31"
+     * "December 2015" -> date_start="2015-12-01", date_end="2015-12-31"
+     * "Winter 2013-2014" -> date_start="2013-12-01", date_end="2014-03-31"
+     * "Summer 2016" -> date_start="2016-06-01", date_end="2016-08-31"
+   - Do NOT invent arbitrary day ranges or storm dates unless the user explicitly specified the dates in the query text.
 
-5. Diagnostic Failure Modes & Hydrodynamic Blind Spots:
-   - 'under-predict', 'underpredict', 'failure mode', 'model blind spots': is_failure_mode=True, phase="Erosion", morphology="Erosive", target_state="State_UnderpredictedErosion", populate target_synthetic_values: {"hs_m": 1.8, "tp_s": 12.0, "total_water_level_m": 1.7}.
-   - 'infragravity swash resonance', 'surf-beat resonance': tp_min=13.0, hs_min=1.5, focus="infragravity", populate target_synthetic_values: {"hs_m": 2.5, "tp_s": 14.5}.
-   - 'unshielded bar-breach hotspot': hs_min=2.2, focus="bar_breach", populate target_synthetic_values: {"hs_m": 3.2, "tp_s": 10.0, "dean_number": 4.5}.
-   - 'breaking at low tide', 'intertidal flats': hs_min=2.0, surge_max=1.1, populate target_synthetic_values: {"hs_m": 2.2, "tp_s": 10.0, "total_water_level_m": 0.9}.
-
-6. Synthetic Target Values:
-   - Crucial: ALWAYS populate `target_synthetic_values` with realistic oceanographic parameter values for the requested state, even if the user query does not provide exact numbers. If exact numbers are given in the query (e.g., 'wave height over 3m'), use those numbers.
+6. Diagnostic Failure Modes & Physical Blind Spots:
+   - 'under-predict', 'underpredict', 'failure mode', 'model blind spots': is_failure_mode=True, phase="Erosion", morphology="Erosive", target_state="State_UnderpredictedErosion".
+   - 'infragravity swash resonance', 'surf-beat resonance': tp_min=13.0, hs_min=1.5, focus="infragravity".
+   - 'sandbar dissipation', 'bar-breach': hs_min=2.0, focus="sandbar_dissipation".
 """
 
     @classmethod
@@ -1272,6 +1271,7 @@ class PhysicsRAG:
         self,
         spec: PhysicsQuerySpec,
         strict_bounds: bool = True,
+        disable_spatiotemporal_filters: bool = False,
     ) -> np.ndarray:
         """Generate boolean mask for candidates satisfying physical constraints (Suggestion 8).
 
@@ -1283,6 +1283,9 @@ class PhysicsRAG:
             If True, enforces zero-leak exact boundaries (disables 10% measurement tolerance padding)
             for explicit diagnostic queries or quantitative thresholds (e.g. Hs < 2.0m, Tp >= 13.0s).
             If False, applies 10% measurement tolerance for fuzzy semantic probing.
+        disable_spatiotemporal_filters : bool, default False
+            If True (e.g. Mode A: Pure Phenomenological Search), disables site and date filters
+            to evaluate pure hydrodynamic similitude across the entire global multi-site dataset.
         """
         mask = np.ones(len(self.df), dtype=bool)
 
@@ -1377,8 +1380,8 @@ class PhysicsRAG:
             p_val = np.percentile(self.df["upsilon"].values, spec.max_upsilon_percentile)
             mask = mask & (self.df["upsilon"].values <= p_val)
 
-        # Date window filter
-        if (spec.date_start or spec.date_end) and "timestamp" in self.df.columns:
+        # Date window filter (bypassed in Mode A: Pure Phenomenological Search)
+        if not disable_spatiotemporal_filters and (spec.date_start or spec.date_end) and "timestamp" in self.df.columns:
             try:
                 ts = pd.to_datetime(self.df["timestamp"], utc=True)
                 if spec.date_start:
@@ -1388,9 +1391,9 @@ class PhysicsRAG:
             except Exception as e:
                 logger.error(f"Date filtering error: {e}")
 
-        # Dynamic site_id & geomorphic_regime pre-filtering (Improvement 2: Archetype Substring & Entity Mapping)
+        # Dynamic site_id & geomorphic_regime pre-filtering (bypassed in Mode A: Pure Phenomenological Search)
         site_col = "site_id" if "site_id" in self.df.columns else ("site" if "site" in self.df.columns else None)
-        if spec.site_id and site_col:
+        if not disable_spatiotemporal_filters and spec.site_id and site_col:
             site_mask = (self.df[site_col].astype(str).str.lower() == spec.site_id.lower()).values
             if np.any(mask & site_mask):
                 mask = mask & site_mask
@@ -1515,9 +1518,13 @@ class PhysicsRAG:
         spec: Optional[PhysicsQuerySpec] = None,
         target_synthetic_values: Optional[Dict[str, float]] = None,
         strict_bounds: bool = True,
+        mode: Optional[str] = None,
+        disable_spatiotemporal_filters: bool = False,
         **kwargs: Any,
     ) -> PhysicsRAGResult:
         """Execute a natural language query against coastal dataset & latent embeddings (Suggestion 8)."""
+        is_mode_a = disable_spatiotemporal_filters or (mode is not None and ("mode a" in str(mode).lower() or "phenomenological" in str(mode).lower()))
+
         # 1. Parse natural language into structured physical intent
         if spec is None:
             if target_synthetic_values is not None:
@@ -1542,7 +1549,11 @@ class PhysicsRAG:
         sims = self._compute_similarity(query_vec)
 
         # 4. Filter candidates (including threshold anchor noise pruning & phase navigation)
-        filter_mask = self._apply_hard_and_soft_filters(spec, strict_bounds=strict_bounds)
+        filter_mask = self._apply_hard_and_soft_filters(
+            spec,
+            strict_bounds=strict_bounds,
+            disable_spatiotemporal_filters=is_mode_a,
+        )
         candidate_indices = np.where(filter_mask)[0]
 
         if len(candidate_indices) == 0:
@@ -3166,6 +3177,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "June 2016 East Coast Low catastrophic erosion event at Narrabeen",
         "category": "1. Historical Storm Events",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 4.5, "tp_s": 12.0, "tan_beta": 0.05},
         "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2016-06-03") & (df["timestamp"] <= "2016-06-08") & (df["hs_m"] >= 3.0),
@@ -3179,6 +3191,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Hurricane Matthew storm peak and overwash at Duck in October 2016",
         "category": "1. Historical Storm Events",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 4.8, "tp_s": 12.5, "tan_beta": 0.08},
         "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2016-10-07") & (df["timestamp"] <= "2016-10-11") & (df["hs_m"] >= 3.5),
@@ -3192,6 +3205,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Megastorms Hercules and Christine early 2014 dune erosion at Truc Vert",
         "category": "1. Historical Storm Events",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 7.0, "tp_s": 15.0, "tan_beta": 0.04},
         "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2014-01-01") & (df["timestamp"] <= "2014-03-10") & (df["hs_m"] >= 5.0),
@@ -3205,6 +3219,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "2015-2016 El Niño severe winter storm waves at Torrey Pines",
         "category": "1. Historical Storm Events",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 3.2, "tp_s": 14.0, "tan_beta": 0.03},
         "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2015-12-01") & (df["timestamp"] <= "2016-03-01") & (df["hs_m"] >= 2.5),
@@ -3218,6 +3233,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "April 2015 cyclonic East Coast Low wave impact at Narrabeen",
         "category": "1. Historical Storm Events",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 4.5, "tp_s": 11.5, "tan_beta": 0.05},
         "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2015-04-20") & (df["timestamp"] <= "2015-04-25") & (df["hs_m"] >= 3.5),
@@ -3231,6 +3247,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Hurricane Sandy late October 2012 storm surge and wave attack at Duck",
         "category": "1. Historical Storm Events",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 4.5, "tp_s": 13.0, "tan_beta": 0.08},
         "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2012-10-27") & (df["timestamp"] <= "2012-10-31") & (df["hs_m"] >= 3.5),
@@ -3246,6 +3263,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Narrabeen June 2016 severe subaerial beach cut and shoreline retreat",
         "category": "2. Survey-Validated Profile Changes",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 4.0, "tp_s": 12.0, "tan_beta": 0.05},
         "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2016-05-30") & (df["timestamp"] <= "2016-06-15") & (df["hs_m"] >= 2.8),
@@ -3259,6 +3277,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Truc Vert catastrophic dune scarping and volume loss during winter 2013-2014",
         "category": "2. Survey-Validated Profile Changes",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 6.5, "tp_s": 14.5, "tan_beta": 0.04},
         "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2013-12-15") & (df["timestamp"] <= "2014-03-15") & (df["hs_m"] >= 4.5),
@@ -3272,6 +3291,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Duck Hurricane Sandy barrier beach subaerial volume loss October 2012",
         "category": "2. Survey-Validated Profile Changes",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 4.2, "tp_s": 12.5, "tan_beta": 0.08},
         "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2012-10-25") & (df["timestamp"] <= "2012-11-05") & (df["hs_m"] >= 3.0),
@@ -3285,6 +3305,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Torrey Pines constructive berm welding during December 2015 long period swell",
         "category": "2. Survey-Validated Profile Changes",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 1.1, "tp_s": 13.5, "tan_beta": 0.03},
         "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2015-12-01") & (df["timestamp"] <= "2015-12-31") & (df["tp_s"] >= 12.0) & (df["hs_m"] <= 1.5),
@@ -3298,6 +3319,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Torrey Pines summer berm narrowing under southern hemisphere swell",
         "category": "2. Survey-Validated Profile Changes",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 1.0, "tp_s": 13.0, "tan_beta": 0.03},
         "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (pd.to_datetime(df["timestamp"]).dt.month == 7) & (df["tp_s"] >= 12.0) & (df["hs_m"] <= 1.2),
@@ -3311,6 +3333,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Truc Vert post-storm ridge and runnel welding summer 2016",
         "category": "2. Survey-Validated Profile Changes",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 0.9, "tp_s": 10.5, "tan_beta": 0.04},
         "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2016-06-01") & (df["timestamp"] <= "2016-08-31") & (df["hs_m"] <= 1.2) & (df["tp_s"] >= 9.0),
@@ -3326,6 +3349,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Extreme wave height Hs over 4.5m with long period swell",
         "category": "3. Physical Telemetry Thresholds",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 5.0, "tp_s": 13.0},
         "mask_fn": lambda df: (df["hs_m"] >= 4.5) & (df["tp_s"] >= 12.0),
@@ -3339,6 +3363,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Severe 2% wave runup excursion R2 exceeding 2.0m",
         "category": "3. Physical Telemetry Thresholds",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 3.5, "tp_s": 12.0, "total_water_level_m": 2.2},
         "mask_fn": lambda df: df["runup_r2_m"] >= 2.0,
@@ -3352,6 +3377,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Elevated total water level TWL over 2.0m during astronomical high tide",
         "category": "3. Physical Telemetry Thresholds",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 2.8, "tp_s": 11.0, "total_water_level_m": 2.2},
         "mask_fn": lambda df: df["total_water_level_m"] >= 2.0,
@@ -3365,6 +3391,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Compound extreme wave height over 3.0m and elevated total water level over 1.8m",
         "category": "3. Physical Telemetry Thresholds",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 3.5, "tp_s": 11.5, "total_water_level_m": 2.0},
         "mask_fn": lambda df: (df["hs_m"] >= 3.0) & (df["total_water_level_m"] >= 1.8),
@@ -3376,8 +3403,9 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "description": "Coupled physical hazard: concurrent severe wave energy (Hs >= 3.0m) and high water level (TWL >= 1.8m)",
     },
     {
-        "query": "Extreme incident wave power flux exceeding 60 kW/m attacking the foreshore",
+        "query": "Find extreme wave dissipation during active dune scarping with power flux exceeding 60 kW/m",
         "category": "3. Physical Telemetry Thresholds",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 4.0, "tp_s": 12.0},
         "mask_fn": lambda df: df["p_flux_Wm"] >= 60000.0,
@@ -3386,11 +3414,12 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
             lambda row, df: float(row.get("p_flux_Wm", 0.0)) >= 60000.0,
             lambda row, df: float(row.get("p_flux_Wm", 0.0)) >= 35000.0,
         ),
-        "description": "Energy flux threshold: un-attenuated offshore wave power flux P_flux >= 60,000 W/m",
+        "description": "Energy flux threshold: un-attenuated offshore wave power flux P_flux >= 60,000 W/m during active dune scarping",
     },
     {
         "query": "Spilling dissipative breakers with surf similarity under 0.4",
         "category": "3. Physical Telemetry Thresholds",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": "Spilling",
         "target_synthetic_values": {"hs_m": 3.0, "tp_s": 7.0, "tan_beta": 0.04},
         "mask_fn": lambda df: (df["xi_iribarren"] < 0.4) | (df.get("breaker_regime", pd.Series([""] * len(df), index=df.index)) == "Spilling"),
@@ -3406,6 +3435,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Plunging curling breakers with intermediate Iribarren between 0.5 and 1.2",
         "category": "4. Complex Physical Regimes",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": "Plunging",
         "target_synthetic_values": {"hs_m": 2.0, "tp_s": 10.0, "tan_beta": 0.06},
         "mask_fn": lambda df: (df["xi_iribarren"] >= 0.5) & (df["xi_iribarren"] <= 1.2),
@@ -3419,6 +3449,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Surging reflective shorebreak with surf similarity exceeding 1.2",
         "category": "4. Complex Physical Regimes",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": "Surging",
         "target_synthetic_values": {"hs_m": 0.6, "tp_s": 14.0, "tan_beta": 0.09},
         "mask_fn": lambda df: df["xi_iribarren"] >= 1.2,
@@ -3432,6 +3463,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "High energy reflective collision regime with elevated TWL and steep slope",
         "category": "4. Complex Physical Regimes",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 2.5, "tp_s": 11.0, "tan_beta": 0.08, "total_water_level_m": 1.8},
         "mask_fn": lambda df: (df["total_water_level_m"] >= 1.6) & (df["tan_beta"] >= 0.07) & (df["hs_m"] >= 2.0),
@@ -3445,6 +3477,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Macrotidal energy dissipation where tidal range buffers dune attack",
         "category": "4. Complex Physical Regimes",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 3.5, "tp_s": 11.0, "total_water_level_m": 1.0},
         "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["hs_m"] >= 3.0) & (df["total_water_level_m"] < 1.5),
@@ -3458,6 +3491,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Low-steepness constructive swell with wave steepness below 0.015",
         "category": "4. Complex Physical Regimes",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 0.9, "tp_s": 13.0},
         "mask_fn": lambda df: (df["hs_m"] / (1.56 * (df["tp_s"] ** 2) + 1e-4) < 0.015) & (df["tp_s"] >= 10.0),
@@ -3471,6 +3505,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Infragravity wave resonance with peak wave period exceeding 14 seconds",
         "category": "4. Complex Physical Regimes",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 2.2, "tp_s": 15.0},
         "mask_fn": lambda df: (df["tp_s"] >= 14.0) & (df["hs_m"] >= 1.5),
@@ -3486,6 +3521,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Severe East Coast Low swell from east-southeast attacking Narrabeen",
         "category": "5. Multi-Criteria & Cross-Site",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 3.5, "tp_s": 12.0, "wave_dir_deg": 110.0},
         "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["hs_m"] >= 3.0) & (df["wave_dir_deg"] >= 90) & (df["wave_dir_deg"] <= 150),
@@ -3499,6 +3535,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Duck nor'easter storm waves over 3.0m with oblique northeast wave approach",
         "category": "5. Multi-Criteria & Cross-Site",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 3.5, "tp_s": 10.0, "wave_dir_deg": 75.0},
         "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["hs_m"] >= 3.0) & (df["wave_dir_deg"] >= 45) & (df["wave_dir_deg"] <= 110),
@@ -3512,6 +3549,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Biscay megaswell with significant wave height over 6.0m at Truc Vert",
         "category": "5. Multi-Criteria & Cross-Site",
+        "mode": "Mode B: Full Operational",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 6.8, "tp_s": 15.5},
         "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["hs_m"] >= 6.0),
@@ -3525,6 +3563,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Low-energy summer swell under 1.0m on steep reflective beach",
         "category": "5. Multi-Criteria & Cross-Site",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 0.8, "tp_s": 12.0, "tan_beta": 0.07},
         "mask_fn": lambda df: (df["hs_m"] <= 1.0) & (df["tp_s"] >= 10.0) & (df["tan_beta"] >= 0.06),
@@ -3538,6 +3577,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "High water level surge without extreme waves causing toe saturation",
         "category": "5. Multi-Criteria & Cross-Site",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 1.4, "tp_s": 9.0, "total_water_level_m": 1.8},
         "mask_fn": lambda df: (df["total_water_level_m"] >= 1.6) & (df["hs_m"] <= 1.8),
@@ -3551,6 +3591,7 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     {
         "query": "Equilibrium beach recovery with long period swell over 12s and waves under 1.2m",
         "category": "5. Multi-Criteria & Cross-Site",
+        "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 0.9, "tp_s": 13.5},
         "mask_fn": lambda df: (df["tp_s"] >= 12.0) & (df["hs_m"] <= 1.2),
@@ -3563,6 +3604,14 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
     },
 ]
 
+DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A: List[Dict[str, Any]] = [
+    q for q in DEFAULT_PHYSICS_BENCHMARK_QUERIES if "Mode A" in q.get("mode", "")
+]
+
+DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B: List[Dict[str, Any]] = [
+    q for q in DEFAULT_PHYSICS_BENCHMARK_QUERIES if "Mode B" in q.get("mode", "")
+]
+
 
 class RawDataLLMRAG:
     """Baseline 1: LLM reasoning agent operating directly on raw telemetry columns and schema.
@@ -3572,7 +3621,9 @@ class RawDataLLMRAG:
     raw telemetry without higher-order physics feature engineering.
     """
 
-    SYSTEM_PROMPT = """You are an oceanographic data retrieval agent reasoning directly over raw sensor telemetry columns:
+    SYSTEM_PROMPT = """You are an oceanographic data retrieval agent reasoning directly over raw sensor telemetry columns and site metadata:
+- site_id: Target site identifier string (e.g. 'duck_nc', 'narrabeen_aus', 'torrey_pines_ca', 'truc_vert_france')
+- timestamp: Date/time of observation (ISO format YYYY-MM-DD HH:MM:SS)
 - hs_m: Significant wave height (meters)
 - tp_s: Peak wave period (seconds)
 - total_water_level_m: Total water level elevation (meters)
@@ -3580,9 +3631,24 @@ class RawDataLLMRAG:
 - wind_speed_ms: Wind speed (m/s)
 - tan_beta: Beach foreshore slope
 
-Your task is to parse a natural language query into raw column filtering criteria.
+Your task is to parse a natural language query into raw column and temporal/site filtering criteria.
 Return a strictly typed JSON object with:
-{"hs_min": float|null, "hs_max": float|null, "tp_min": float|null, "tp_max": float|null, "twl_min": float|null, "twl_max": float|null, "surge_min": float|null, "surge_max": float|null, "wind_min": float|null, "wind_max": float|null}
+{
+  "site_id": string|null,
+  "date_start": string|null,
+  "date_end": string|null,
+  "hs_min": float|null,
+  "hs_max": float|null,
+  "tp_min": float|null,
+  "tp_max": float|null,
+  "twl_min": float|null,
+  "twl_max": float|null,
+  "surge_min": float|null,
+  "surge_max": float|null,
+  "wind_min": float|null,
+  "wind_max": float|null
+}
+Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested (e.g., 'June 2016'), set date_start and date_end to encompass that entire calendar window.
 """
 
     def __init__(
@@ -3597,21 +3663,32 @@ Return a strictly typed JSON object with:
         self.model_name = model_name
         self.api_key = api_key
         self.use_live_api = use_live_api
-        raw_candidates = ["hs_m", "tp_s", "total_water_level_m", "surge_m", "wind_speed_ms", "wind_normal_ms", "tan_beta"]
+        raw_candidates = ["site_id", "site", "timestamp", "hs_m", "tp_s", "total_water_level_m", "surge_m", "wind_speed_ms", "wind_normal_ms", "tan_beta"]
         self.raw_cols = [c for c in raw_candidates if c in self.df.columns]
 
-    def query(self, query_text: str, top_k: int = 5, **kwargs: Any) -> PhysicsRAGResult:
+    def query(
+        self,
+        query_text: str,
+        top_k: int = 5,
+        mode: Optional[str] = None,
+        disable_spatiotemporal_filters: bool = False,
+        **kwargs: Any,
+    ) -> PhysicsRAGResult:
+        is_mode_a = disable_spatiotemporal_filters or (mode is not None and ("mode a" in str(mode).lower() or "phenomenological" in str(mode).lower()))
         criteria: Dict[str, Any] = {}
         if self.use_live_api:
             try:
                 from google import genai
                 client = genai.Client(api_key=self.api_key) if self.api_key else genai.Client()
-                sample_rows = self.df[self.raw_cols].dropna().head(5).to_dict(orient="records")
+                sample_df = self.df[self.raw_cols].dropna().head(5).copy()
+                if "timestamp" in sample_df.columns:
+                    sample_df["timestamp"] = sample_df["timestamp"].astype(str)
+                sample_rows = sample_df.to_dict(orient="records")
                 prompt = (
                     f"Available raw telemetry columns: {self.raw_cols}\n"
                     f"Sample rows from telemetry dataset: {sample_rows}\n"
                     f"User natural language query: '{query_text}'\n"
-                    f"Extract JSON filtering criteria over these raw variables alone."
+                    f"Extract JSON filtering criteria over these raw variables and metadata."
                 )
                 response = client.models.generate_content(
                     model=self.model_name,
@@ -3632,6 +3709,30 @@ Return a strictly typed JSON object with:
             criteria = self._offline_raw_reasoning(query_text)
 
         sub = self.df.copy()
+
+        # 1. Site filtering (bypassed in Mode A: Pure Phenomenological Search)
+        site_val = criteria.get("site_id")
+        if not is_mode_a and site_val:
+            site_col = "site_id" if "site_id" in sub.columns else ("site" if "site" in sub.columns else None)
+            if site_col:
+                s_mask = sub[site_col].astype(str).str.lower() == str(site_val).lower()
+                if s_mask.any():
+                    sub = sub[s_mask]
+
+        # 2. Date window filtering (bypassed in Mode A: Pure Phenomenological Search)
+        d_start = criteria.get("date_start")
+        d_end = criteria.get("date_end")
+        if not is_mode_a and (d_start or d_end) and "timestamp" in sub.columns and len(sub) > 0:
+            try:
+                ts = pd.to_datetime(sub["timestamp"], utc=True)
+                if d_start:
+                    sub = sub[ts >= pd.to_datetime(d_start, utc=True)]
+                if d_end:
+                    sub = sub[ts <= pd.to_datetime(d_end, utc=True)]
+            except Exception as e:
+                logger.error(f"RawDataLLMRAG date filtering error: {e}")
+
+        # 3. Sensor threshold filtering
         if criteria.get("hs_min") is not None and "hs_m" in sub.columns:
             sub = sub[sub["hs_m"] >= criteria["hs_min"]]
         if criteria.get("hs_max") is not None and "hs_m" in sub.columns:
@@ -3651,7 +3752,7 @@ Return a strictly typed JSON object with:
             matches = self.df.head(top_k).copy()
             sims = np.zeros(len(matches))
         else:
-            sort_col = "hs_m" if "hs_m" in sub.columns else self.raw_cols[0]
+            sort_col = "hs_m" if "hs_m" in sub.columns else ("total_water_level_m" if "total_water_level_m" in sub.columns else self.raw_cols[0])
             descending = True
             if criteria.get("hs_max") is not None or "calm" in query_text.lower() or "recovery" in query_text.lower():
                 descending = False
@@ -3670,6 +3771,45 @@ Return a strictly typed JSON object with:
         """Offline schema-aware reasoning mapping natural language to raw sensor column criteria."""
         q_lower = query_text.lower()
         crit: Dict[str, Any] = {}
+
+        # Site extraction
+        if any(w in q_lower for w in ["narrabeen", "sydney", "australia"]):
+            crit["site_id"] = "narrabeen_aus"
+        elif any(w in q_lower for w in ["duck", "north carolina"]):
+            crit["site_id"] = "duck_nc"
+        elif any(w in q_lower for w in ["torrey", "torrey pines", "california"]):
+            crit["site_id"] = "torrey_pines_ca"
+        elif any(w in q_lower for w in ["truc vert", "france", "biscay"]):
+            crit["site_id"] = "truc_vert_france"
+        elif any(w in q_lower for w in ["oahu", "hawaii"]):
+            crit["site_id"] = "oahu_north_shore_hi"
+
+        # Date extraction
+        if "june 2016" in q_lower:
+            crit["date_start"] = "2016-06-01"
+            crit["date_end"] = "2016-06-30"
+        elif "october 2016" in q_lower:
+            crit["date_start"] = "2016-10-01"
+            crit["date_end"] = "2016-10-31"
+        elif "october 2012" in q_lower:
+            crit["date_start"] = "2012-10-01"
+            crit["date_end"] = "2012-10-31"
+        elif "april 2015" in q_lower:
+            crit["date_start"] = "2015-04-01"
+            crit["date_end"] = "2015-04-30"
+        elif "december 2015" in q_lower:
+            crit["date_start"] = "2015-12-01"
+            crit["date_end"] = "2015-12-31"
+        elif "winter 2013-2014" in q_lower or "winter 2013" in q_lower:
+            crit["date_start"] = "2013-12-01"
+            crit["date_end"] = "2014-03-31"
+        elif "summer 2016" in q_lower:
+            crit["date_start"] = "2016-06-01"
+            crit["date_end"] = "2016-08-31"
+        elif "2015-2016" in q_lower:
+            crit["date_start"] = "2015-12-01"
+            crit["date_end"] = "2016-03-31"
+
         if "over 3m" in q_lower or "wave height over" in q_lower:
             crit["hs_min"] = 2.7
         elif "over 4m" in q_lower:
@@ -3788,13 +3928,21 @@ class RuleBasedSQLRAG:
             xi = self.df["xi_iribarren"].values
             self.df["breaker_regime"] = np.where(xi < 0.5, "Spilling", np.where(xi < 1.0, "Plunging", "Surging"))
 
-    def query(self, query_text: str, top_k: int = 5, **kwargs: Any) -> PhysicsRAGResult:
+    def query(
+        self,
+        query_text: str,
+        top_k: int = 5,
+        mode: Optional[str] = None,
+        disable_spatiotemporal_filters: bool = False,
+        **kwargs: Any,
+    ) -> PhysicsRAGResult:
         q_lower = query_text.lower()
         sub = self.df.copy()
+        is_mode_a = disable_spatiotemporal_filters or (mode is not None and ("mode a" in str(mode).lower() or "phenomenological" in str(mode).lower()))
 
-        # Rule 0: Site filtering
+        # Rule 0: Site filtering (only in Mode B / full operational mode)
         site_col = "site_id" if "site_id" in sub.columns else ("site" if "site" in sub.columns else None)
-        if site_col:
+        if not is_mode_a and site_col:
             if "narrabeen" in q_lower:
                 sub = sub[sub[site_col] == "narrabeen_aus"]
             elif "duck" in q_lower:
@@ -3804,8 +3952,8 @@ class RuleBasedSQLRAG:
             elif "truc vert" in q_lower or "biscay" in q_lower:
                 sub = sub[sub[site_col] == "truc_vert_france"]
 
-        # Rule 0b: Timestamp / epoch filtering
-        if "timestamp" in sub.columns and len(sub) > 0:
+        # Rule 0b: Timestamp / epoch filtering (only in Mode B / full operational mode)
+        if not is_mode_a and "timestamp" in sub.columns and len(sub) > 0:
             ts = pd.to_datetime(sub["timestamp"], utc=True)
             if "june 2016" in q_lower:
                 sub = sub[(ts >= "2016-06-01") & (ts <= "2016-06-15")]
@@ -3870,8 +4018,8 @@ class RuleBasedSQLRAG:
             else:
                 sub = sub[(sub["hs_m"] >= 2.5) & (sub["surge_m"] >= 0.03)]
 
-        # Rule 5: Gale wind / power flux
-        if "power flux" in q_lower or "60 kw" in q_lower:
+        # Rule 5: Gale wind / power flux / wave dissipation
+        if "power flux" in q_lower or "60 kw" in q_lower or "dune scarping" in q_lower or "wave dissipation" in q_lower:
             if "p_flux_Wm" in sub.columns:
                 sub = sub[sub["p_flux_Wm"] >= 50000.0]
         elif "gale" in q_lower or "wind forcing" in q_lower or "wind events" in q_lower:
@@ -3937,19 +4085,42 @@ class RuleBasedSQLRAG:
                 steep = sub["hs_m"] / (1.56 * (sub["tp_s"] ** 2) + 1e-4)
                 sub = sub[steep < 0.020]
 
-        # Fallback if too few matches: rank by most relevant variable
-        if len(sub) < top_k:
+        # Fallback if no matches found: rank by most relevant variable while respecting site filters
+        if len(sub) == 0:
+            base_df = self.df.copy()
+            if not is_mode_a and site_col:
+                if "narrabeen" in q_lower:
+                    base_df = base_df[base_df[site_col] == "narrabeen_aus"]
+                elif "duck" in q_lower:
+                    base_df = base_df[base_df[site_col] == "duck_nc"]
+                elif "torrey" in q_lower or "torrey pines" in q_lower:
+                    base_df = base_df[base_df[site_col] == "torrey_pines_ca"]
+                elif "truc vert" in q_lower or "biscay" in q_lower:
+                    base_df = base_df[base_df[site_col] == "truc_vert_france"]
+            if len(base_df) == 0:
+                base_df = self.df.copy()
+
             if "storm" in q_lower or "high" in q_lower or "wave" in q_lower:
-                sub = self.df.sort_values("hs_m", ascending=False)
+                sub = base_df.sort_values("hs_m", ascending=False) if "hs_m" in base_df.columns else base_df
             elif "accretion" in q_lower or "recovery" in q_lower:
-                if "delta_x_m" in self.df.columns:
-                    sub = self.df.sort_values("delta_x_m", ascending=False)
-                elif "accretion_potential" in self.df.columns:
-                    sub = self.df.sort_values("accretion_potential", ascending=False)
+                if "delta_x_m" in base_df.columns:
+                    sub = base_df.sort_values("delta_x_m", ascending=False)
+                elif "accretion_potential" in base_df.columns:
+                    sub = base_df.sort_values("accretion_potential", ascending=False)
                 else:
-                    sub = self.df
+                    sub = base_df
             else:
-                sub = self.df
+                sub = base_df
+        else:
+            # Rank matching rows by storm severity or accretion
+            if "storm" in q_lower or "high" in q_lower or "wave" in q_lower:
+                if "hs_m" in sub.columns:
+                    sub = sub.sort_values("hs_m", ascending=False)
+            elif "accretion" in q_lower or "recovery" in q_lower:
+                if "delta_x_m" in sub.columns:
+                    sub = sub.sort_values("delta_x_m", ascending=False)
+                elif "accretion_potential" in sub.columns:
+                    sub = sub.sort_values("accretion_potential", ascending=False)
 
         matches = sub.head(top_k).copy()
         sims = [1.0 - (i * 0.05) for i in range(len(matches))]
@@ -3971,6 +4142,8 @@ def evaluate_retrieval_query(
     use_llm_parser: bool = False,
     allow_synthetic_probes: bool = False,
     precomputed_rag_res: Optional[Any] = None,
+    mode: Optional[str] = None,
+    disable_spatiotemporal_filters: bool = False,
     **kwargs: Any,
 ) -> Dict[str, Any]:
     """Calculate Precision@k, Regime Purity@k, Recall@k, Reciprocal Rank (MRR), and NDCG@k for a query.
@@ -3989,6 +4162,14 @@ def evaluate_retrieval_query(
         Retrieval rank cutoff (default 5).
     use_llm_parser : bool
         Whether to use Gemini structured output parser.
+    allow_synthetic_probes : bool
+        Whether to permit target synthetic probe vectors.
+    precomputed_rag_res : PhysicsRAGResult, optional
+        Cached result from a prior engine query to avoid re-computation.
+    mode : str, optional
+        Evaluation mode ('Mode A: Pure Phenomenological' or 'Mode B: Full Operational').
+    disable_spatiotemporal_filters : bool, default False
+        Whether to force disable calendar date and site filtering (for Mode A).
 
     Returns
     -------
@@ -4000,11 +4181,15 @@ def evaluate_retrieval_query(
         cond = condition_fn or query_spec_or_text.get("condition_fn")
         regime = target_regime or query_spec_or_text.get("target_regime")
         category = query_spec_or_text.get("category", "General")
+        q_mode = mode or query_spec_or_text.get("mode")
     else:
         query_str = str(query_spec_or_text)
         cond = condition_fn
         regime = target_regime
         category = "Custom"
+        q_mode = mode
+
+    is_mode_a = disable_spatiotemporal_filters or (q_mode is not None and ("mode a" in str(q_mode).lower() or "phenomenological" in str(q_mode).lower()))
 
     # Default condition if target_regime provided
     if cond is None and regime:
@@ -4045,6 +4230,8 @@ def evaluate_retrieval_query(
             use_llm_synthesis=False,
             spec=spec_override,
             target_synthetic_values=target_synth,
+            mode=q_mode,
+            disable_spatiotemporal_filters=is_mode_a,
             **kwargs,
         )
         matches_df = rag_res.matches_df
@@ -4119,6 +4306,7 @@ def evaluate_retrieval_query(
     return {
         "query": query_str,
         "category": category,
+        "mode": q_mode or ("Mode A: Pure Phenomenological" if is_mode_a else "Mode B: Full Operational"),
         "target_regime": regime,
         "k": k,
         "precision_at_k": precision_at_k,
@@ -4147,9 +4335,10 @@ def evaluate_rag_benchmark_suite(
     k_values: Optional[List[int]] = None,
     verbose: bool = False,
     allow_synthetic_probes: bool = False,
+    benchmark_mode: Optional[str] = None,
     **kwargs: Any,
-) -> Tuple[pd.DataFrame, Dict[str, float]]:
-    """Execute multi-k benchmark evaluation suite across diverse coastal query categories.
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Execute multi-k benchmark evaluation suite across diverse coastal query categories and decoupled modes.
 
     Parameters
     ----------
@@ -4167,20 +4356,38 @@ def evaluate_rag_benchmark_suite(
         Alias for k_list.
     verbose : bool
         Whether to print verbose progress.
+    allow_synthetic_probes : bool
+        Whether to permit target synthetic probe vectors.
+    benchmark_mode : str, optional
+        Evaluation mode filter: 'all' (default), 'mode_a' (Pure Phenomenological), or 'mode_b' (Full Operational).
 
     Returns
     -------
     df_results : pd.DataFrame
-        Detailed per-query evaluation table.
+        Detailed per-query evaluation table with Mode stratification.
     summary_metrics : dict
-        Macro-averaged benchmark summary metrics (Mean P@1, Mean P@5, Mean NDCG@5, Mean Regime Purity, Mean MRR).
+        Macro-averaged benchmark summary metrics (Mean P@1, Mean P@5, NDCG, MRR, Regime Purity),
+        both overall and partitioned by Mode A vs. Mode B.
     """
     engine = rag_engine if rag_engine is not None else rag
     if engine is None:
         raise ValueError("PhysicsRAG instance must be provided via 'rag' or 'rag_engine'.")
         
     cutoff_ranks = k_values if k_values is not None else (k_list or [1, 3, 5, 10])
-    queries = benchmark_queries or DEFAULT_PHYSICS_BENCHMARK_QUERIES
+    raw_queries = benchmark_queries or DEFAULT_PHYSICS_BENCHMARK_QUERIES
+
+    # Filter queries if benchmark_mode specified
+    if benchmark_mode is not None:
+        bm = str(benchmark_mode).lower()
+        if "mode_a" in bm or "mode a" in bm or "phenomenological" in bm:
+            queries = [q for q in raw_queries if "mode a" in str(q.get("mode", "")).lower() or "phenomenological" in str(q.get("mode", "")).lower()]
+        elif "mode_b" in bm or "mode b" in bm or "operational" in bm:
+            queries = [q for q in raw_queries if "mode b" in str(q.get("mode", "")).lower() or "operational" in str(q.get("mode", "")).lower()]
+        else:
+            queries = raw_queries
+    else:
+        queries = raw_queries
+
     rows: List[Dict[str, Any]] = []
 
     p_at_k_accum: Dict[int, List[float]] = {k_val: [] for k_val in cutoff_ranks}
@@ -4191,14 +4398,25 @@ def evaluate_rag_benchmark_suite(
     bounded_recall_accum: List[float] = []
     sim_accum: List[float] = []
 
+    # Mode-partitioned accumulators
+    mode_accum: Dict[str, Dict[str, Any]] = {
+        "mode_a": {"p_at_k": {k_val: [] for k_val in cutoff_ranks}, "ndcg": {k_val: [] for k_val in cutoff_ranks}, "purity": [], "mrr": [], "recall": [], "bounded_recall": []},
+        "mode_b": {"p_at_k": {k_val: [] for k_val in cutoff_ranks}, "ndcg": {k_val: [] for k_val in cutoff_ranks}, "purity": [], "mrr": [], "recall": [], "bounded_recall": []},
+    }
+
     for q_spec in queries:
+        q_mode = q_spec.get("mode", "Mode B: Full Operational") if isinstance(q_spec, dict) else "Mode B: Full Operational"
+        is_mode_a = "mode a" in str(q_mode).lower() or "phenomenological" in str(q_mode).lower()
+        mode_key = "mode_a" if is_mode_a else "mode_b"
+
         if verbose:
-            print(f"Evaluating query: {q_spec['query']}")
+            print(f"Evaluating query: {q_spec['query'] if isinstance(q_spec, dict) else q_spec} [{q_mode}]")
             
         row_entry: Dict[str, Any] = {
-            "Query": q_spec["query"],
-            "Category": q_spec.get("category", "General"),
-            "Target Regime": q_spec.get("target_regime") or "N/A",
+            "Query": q_spec["query"] if isinstance(q_spec, dict) else str(q_spec),
+            "Category": q_spec.get("category", "General") if isinstance(q_spec, dict) else "General",
+            "Mode": q_mode,
+            "Target Regime": (q_spec.get("target_regime") if isinstance(q_spec, dict) else None) or "N/A",
         }
 
         # Query once per question at max_k to eliminate redundant LLM calls across cutoff radii
@@ -4213,6 +4431,8 @@ def evaluate_rag_benchmark_suite(
             use_llm_synthesis=False,
             spec=spec_override,
             target_synthetic_values=target_synth,
+            mode=q_mode,
+            disable_spatiotemporal_filters=is_mode_a,
             **kwargs,
         )
 
@@ -4225,6 +4445,8 @@ def evaluate_rag_benchmark_suite(
                 use_llm_parser=use_llm_parser,
                 allow_synthetic_probes=allow_synthetic_probes,
                 precomputed_rag_res=single_rag_res,
+                mode=q_mode,
+                disable_spatiotemporal_filters=is_mode_a,
             )
             p_val = q_res["precision_at_k"]
             ndcg_val = q_res["ndcg_at_k"]
@@ -4233,6 +4455,8 @@ def evaluate_rag_benchmark_suite(
             row_entry[f"Recall@{k_val}"] = q_res["recall_at_k"]
             p_at_k_accum[k_val].append(p_val)
             ndcg_accum[k_val].append(ndcg_val)
+            mode_accum[mode_key]["p_at_k"][k_val].append(p_val)
+            mode_accum[mode_key]["ndcg"][k_val].append(ndcg_val)
 
             if k_val == 5:
                 row_entry["Regime Purity@5"] = q_res["regime_purity"]
@@ -4249,11 +4473,16 @@ def evaluate_rag_benchmark_suite(
                 bounded_recall_accum.append(q_res["bounded_recall_at_k"])
                 sim_accum.append(q_res["mean_similarity"])
 
+                mode_accum[mode_key]["purity"].append(q_res["regime_purity"])
+                mode_accum[mode_key]["mrr"].append(q_res["reciprocal_rank"])
+                mode_accum[mode_key]["recall"].append(q_res["recall_at_k"])
+                mode_accum[mode_key]["bounded_recall"].append(q_res["bounded_recall_at_k"])
+
         rows.append(row_entry)
 
     df_results = pd.DataFrame(rows)
 
-    summary_metrics = {
+    summary_metrics: Dict[str, Any] = {
         f"Mean Precision@{k_val}": float(np.mean(p_at_k_accum[k_val])) if p_at_k_accum.get(k_val) else 0.0
         for k_val in cutoff_ranks
     }
@@ -4276,6 +4505,18 @@ def evaluate_rag_benchmark_suite(
         "Mean Cosine Similarity@5": float(np.mean(sim_accum)) if sim_accum else 0.0,
     })
 
+    # Mode A partitioned summary metrics
+    summary_metrics["mode_a_mean_p_at_5"] = float(np.mean(mode_accum["mode_a"]["p_at_k"][5])) if mode_accum["mode_a"]["p_at_k"].get(5) else 0.0
+    summary_metrics["mode_a_mean_ndcg_at_5"] = float(np.mean(mode_accum["mode_a"]["ndcg"][5])) if mode_accum["mode_a"]["ndcg"].get(5) else 0.0
+    summary_metrics["mode_a_mean_mrr"] = float(np.mean(mode_accum["mode_a"]["mrr"])) if mode_accum["mode_a"]["mrr"] else 0.0
+    summary_metrics["mode_a_regime_purity_at_5"] = float(np.mean(mode_accum["mode_a"]["purity"])) if mode_accum["mode_a"]["purity"] else 0.0
+
+    # Mode B partitioned summary metrics
+    summary_metrics["mode_b_mean_p_at_5"] = float(np.mean(mode_accum["mode_b"]["p_at_k"][5])) if mode_accum["mode_b"]["p_at_k"].get(5) else 0.0
+    summary_metrics["mode_b_mean_ndcg_at_5"] = float(np.mean(mode_accum["mode_b"]["ndcg"][5])) if mode_accum["mode_b"]["ndcg"].get(5) else 0.0
+    summary_metrics["mode_b_mean_mrr"] = float(np.mean(mode_accum["mode_b"]["mrr"])) if mode_accum["mode_b"]["mrr"] else 0.0
+    summary_metrics["mode_b_regime_purity_at_5"] = float(np.mean(mode_accum["mode_b"]["purity"])) if mode_accum["mode_b"]["purity"] else 0.0
+
     # Add snake_case aliases for flexible programmatic access
     for k_val in set(cutoff_ranks + [1, 3, 5, 10]):
         if f"Mean Precision@{k_val}" in summary_metrics:
@@ -4287,4 +4528,63 @@ def evaluate_rag_benchmark_suite(
     summary_metrics["mean_recall_at_5"] = summary_metrics["Mean Recall@5"]
     summary_metrics["mean_bounded_recall_at_5"] = summary_metrics["Mean Bounded Recall@5"]
     return df_results, summary_metrics
+
+
+def generate_decoupled_mode_summary(
+    benchmark_results: Dict[str, Any],
+) -> pd.DataFrame:
+    """Generate a decoupled Mode A (Pure Phenomenological) vs. Mode B (Full Operational) vs. Overall summary table.
+
+    Parameters
+    ----------
+    benchmark_results : dict
+        Mapping from architecture name (e.g. 'Baseline 1: Raw-Data LLM-RAG', 'Baseline 2: Rule-Based SQL', 'Baseline 3: Physics-RAG')
+        to either:
+          - (df_results, summary_dict) tuple
+          - df_results DataFrame
+          - summary_dict dict
+
+    Returns
+    -------
+    pd.DataFrame
+        Publication-ready table comparing architectures across Mode A, Mode B, and Overall.
+    """
+    summary_rows = []
+    for arch_name, res in benchmark_results.items():
+        if isinstance(res, tuple):
+            df_res = res[0]
+        elif isinstance(res, pd.DataFrame):
+            df_res = res
+        else:
+            continue
+
+        if "Mode" not in df_res.columns:
+            continue
+
+        modes_to_eval = [
+            ("Mode A: Pure Phenomenological", df_res[df_res["Mode"].astype(str).str.contains("Mode A|Phenomenological", case=False, na=False)]),
+            ("Mode B: Full Operational", df_res[df_res["Mode"].astype(str).str.contains("Mode B|Operational", case=False, na=False)]),
+            ("Overall Benchmark", df_res),
+        ]
+
+        for mode_label, sub in modes_to_eval:
+            n_q = len(sub)
+            if n_q == 0:
+                continue
+            summary_rows.append({
+                "Architecture": arch_name,
+                "Evaluation Mode": mode_label,
+                "N Queries": n_q,
+                "Mean P@1": float(sub["P@1"].mean()) if "P@1" in sub.columns else 0.0,
+                "Mean P@5": float(sub["P@5"].mean()) if "P@5" in sub.columns else 0.0,
+                "Mean P@10": float(sub["P@10"].mean()) if "P@10" in sub.columns else 0.0,
+                "Mean NDCG@5": float(sub["NDCG@5"].mean()) if "NDCG@5" in sub.columns else 0.0,
+                "Regime Purity@5": float(sub["Regime Purity@5"].mean()) if "Regime Purity@5" in sub.columns else 0.0,
+                "MRR": float(sub["MRR"].mean()) if "MRR" in sub.columns else 0.0,
+                "Mean Recall@5": float(sub["Recall@5"].mean()) if "Recall@5" in sub.columns else 0.0,
+                "Mean Bounded Recall@5": float(sub["Bounded Recall@5"].mean()) if "Bounded Recall@5" in sub.columns else 0.0,
+            })
+
+    return pd.DataFrame(summary_rows)
+
 
