@@ -5336,8 +5336,24 @@ def evaluate_peak_impact_disequilibrium_benchmark(
             "true_peak_power_kW_per_m": true_peak_power,
         }
 
+        # Parse query intent once per query rather than 4x redundantly across each engine
+        parsed_spec = None
+        if use_llm_parser:
+            try:
+                parsed_spec = GeminiPhysicsQueryParser.parse(query_text=q["query"])
+            except Exception:
+                parsed_spec = None
+        if parsed_spec is None:
+            parsed_spec = GeminiPhysicsQueryParser._fallback_parse(q["query"])
+
         for name, eng in rag_engines.items():
-            res = eng.query(q["query"], top_k=k, use_llm_parser=use_llm_parser)
+            res = eng.query(
+                q["query"],
+                top_k=k,
+                use_llm_parser=False,
+                use_llm_synthesis=False,
+                spec=parsed_spec,
+            )
             mdf = res.matches_df
             if len(mdf) > 0:
                 top1_ts = pd.to_datetime(mdf["timestamp"].iloc[0], utc=True) if "timestamp" in mdf.columns else None
