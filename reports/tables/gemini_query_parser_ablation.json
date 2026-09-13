@@ -1,0 +1,16 @@
+[
+  {
+    "query_index": 1,
+    "query": "June 2016 East Coast Low catastrophic erosion event at Narrabeen",
+    "category": "1. Historical Storm Events",
+    "mode": "Mode B: Full Operational",
+    "status": "Hybrid (Regex Backfilled)",
+    "is_pure_zero_shot": false,
+    "n_backfilled_fields": 1,
+    "backfilled_fields": [
+      "target_synthetic_values"
+    ],
+    "backfill_details": {
+      "target_synthetic_values": {
+        "gemini": null,
+        "fallback": 

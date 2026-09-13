@@ -3,6 +3,7 @@
 import pytest
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import RobustScaler
 from unittest.mock import MagicMock
 
 from src.embeddings import (
@@ -854,6 +855,223 @@ def test_evaluate_rag_benchmark_suite_decoupled_modes_and_summary():
     assert "Mode A: Pure Phenomenological" in modes
     assert "Mode B: Full Operational" in modes
     assert "Overall Benchmark" in modes
+
+
+def test_hybrid_cascade_architecture(sample_coastal_df):
+    """Verify Two-Tier Hybrid Cascade executes Tier 1 metadata slicing + Tier 2 latent ranking."""
+    from src.physics_rag import HybridPhysicsRAG
+
+    df = sample_coastal_df.copy()
+    df["site_id"] = ["duck_nc"] * 50 + ["narrabeen_aus"] * 50
+    df["site"] = df["site_id"]
+
+    X_phys, feat_names = build_physics_anchored_feature_matrix(df)
+    scaler = RobustScaler().fit(X_phys)
+    child_vecs = scaler.transform(X_phys)
+
+    phys_rag = PhysicsRAG(
+        df=df,
+        embeddings=child_vecs,
+        feature_names=feat_names,
+        scaler_meta={"scaler": scaler, "scaler_type": "robust"},
+    )
+    hybrid_rag = HybridPhysicsRAG.from_physics_rag(phys_rag)
+
+    # 1. Operational Query with explicit site
+    res_site = hybrid_rag.query(
+        "Narrabeen storm waves with plunging breakers",
+        top_k=5,
+        use_llm_parser=False,
+    )
+    assert len(res_site.matches_df) > 0
+    assert all(res_site.matches_df["site_id"] == "narrabeen_aus")
+
+    # 2. Pure Phenomenological Query without site or date
+    res_pheno = hybrid_rag.query(
+        "Spilling dissipative breakers with surf similarity under 0.4",
+        top_k=5,
+        use_llm_parser=False,
+    )
+    assert len(res_pheno.matches_df) > 0
+    # Can retrieve across both sites
+    assert "duck_nc" in res_pheno.matches_df["site_id"].values or "narrabeen_aus" in res_pheno.matches_df["site_id"].values
+
+
+def test_evaluate_peak_impact_disequilibrium_benchmark(sample_coastal_df):
+    """Verify Peak Impact & Disequilibrium Ranking benchmark captures temporal and physical metrics."""
+    from src.physics_rag import (
+        evaluate_peak_impact_disequilibrium_benchmark,
+        RuleBasedSQLRAG,
+        HybridPhysicsRAG,
+    )
+
+    df = sample_coastal_df.copy()
+    df["site_id"] = "duck_nc"
+    df["site"] = "duck_nc"
+
+    # Inject a distinct storm peak in the middle of the time series
+    mid_idx = 50
+    df.loc[mid_idx, "hs_m"] = 5.2
+    df.loc[mid_idx, "upsilon"] = 85000.0
+    df.loc[mid_idx, "tp_s"] = 14.5
+    peak_ts = df.loc[mid_idx, "timestamp"]
+
+    X_phys, feat_names = build_physics_anchored_feature_matrix(df)
+    scaler = RobustScaler().fit(X_phys)
+    child_vecs = scaler.transform(X_phys)
+
+    phys_rag = PhysicsRAG(
+        df=df,
+        embeddings=child_vecs,
+        feature_names=feat_names,
+        scaler_meta={"scaler": scaler, "scaler_type": "robust"},
+    )
+    hybrid_rag = HybridPhysicsRAG.from_physics_rag(phys_rag)
+    sql_rag = RuleBasedSQLRAG(df=df)
+
+    rag_engines = {
+        "Flat SQL": sql_rag,
+        "Hybrid Cascade": hybrid_rag,
+    }
+
+    test_queries = [
+        {
+            "query": "Duck severe nor'easter storm peak with extreme wave heights",
+            "category": "1. Historical Storm Events",
+            "mask_fn": lambda d: d["site_id"] == "duck_nc",
+            "condition_fn": lambda row, d: float(row.get("hs_m", 0.0)) >= 3.0,
+        }
+    ]
+
+    df_details, df_summary = evaluate_peak_impact_disequilibrium_benchmark(
+        rag_engines=rag_engines,
+        df=df,
+        benchmark_queries=test_queries,
+        k=5,
+        use_llm_parser=False,
+    )
+
+    assert len(df_details) == 1
+    assert "Flat SQL_dt_peak_hrs" in df_details.columns
+    assert "Hybrid Cascade_dt_peak_hrs" in df_details.columns
+    assert "Hybrid Cascade_top1_upsilon" in df_details.columns
+
+    assert len(df_summary) == 2
+    assert "Median |Δt_peak| Error (hrs)" in df_summary.columns
+    assert "Median Top-1 Upsilon" in df_summary.columns
+    assert "Median Top-1 Wave Power (kW/m)" in df_summary.columns
+
+    # Verify valid numeric outputs are produced for both architectures
+    sql_dt = df_details["Flat SQL_dt_peak_hrs"].iloc[0]
+    hyb_dt = df_details["Hybrid Cascade_dt_peak_hrs"].iloc[0]
+    assert np.isfinite(sql_dt)
+    assert np.isfinite(hyb_dt)
+    assert df_details["Hybrid Cascade_top1_upsilon"].iloc[0] >= 0.0
+
+
+def test_directional_pareto_ranking(sample_coastal_df: pd.DataFrame) -> None:
+    """Verify Directional Pareto Ranking rewards energetic overshoot rather than penalizing candidate distance."""
+    from src.physics_rag import HybridPhysicsRAG
+
+    df = sample_coastal_df.iloc[:10].copy().reset_index(drop=True)
+    # Ensure hs_m, tp_s, and upsilon are present
+    df["hs_m"] = [1.0, 2.0, 3.5, 4.8, 1.2, 2.5, 3.6, 5.2, 1.1, 2.1]
+    df["tp_s"] = [8.0, 9.0, 11.0, 14.0, 8.5, 9.5, 11.2, 15.0, 8.0, 9.0]
+    df["upsilon"] = [100.0, 500.0, 2000.0, 8000.0, 150.0, 600.0, 2100.0, 12000.0, 110.0, 550.0]
+
+    rag = HybridPhysicsRAG(df=df)
+    # Query specifying severe storm with lower bound Hs >= 3.5m
+    spec = PhysicsQuerySpec(
+        raw_query="Storm with wave height exceeding 3.5m",
+        target_synthetic_values=TargetSyntheticValues(hs_m=3.5, tp_s=11.0),
+    )
+    result = rag.query("Storm with wave height exceeding 3.5m", spec=spec, top_k=3, use_llm_parser=False)
+    matches = result.matches_df
+
+    # Verify that the highest wave energy events (4.8m and 5.2m) are ranked at the top
+    assert len(matches) == 3
+    top_hs = matches["hs_m"].tolist()
+    # With directional Pareto ranking, 5.2m and 4.8m should be prioritized over 3.5m/3.6m
+    assert top_hs[0] in [5.2, 4.8]
+    assert max(top_hs) >= 4.8
+
+
+def test_site_normalized_disequilibrium() -> None:
+    """Verify site-specific normalization scales raw Upsilon into dimensionless Delta Upsilon* across sites."""
+    from src.embeddings import compute_site_equilibrium_thresholds, compute_site_normalized_disequilibrium
+
+    # Construct two contrasting sites: Duck (low Upsilon) and Truc Vert (high Upsilon)
+    duck_ups = np.array([100.0, 200.0, 350.0, 500.0, 1200.0, 3000.0, 6500.0])
+    tv_ups = np.array([1000.0, 2000.0, 3000.0, 5000.0, 15000.0, 30000.0, 46000.0])
+
+    df = pd.DataFrame({
+        "site_id": ["duck_nc"] * len(duck_ups) + ["truc_vert_france"] * len(tv_ups),
+        "upsilon": np.concatenate([duck_ups, tv_ups]),
+    })
+
+    thresholds = compute_site_equilibrium_thresholds(df)
+    assert "duck_nc" in thresholds
+    assert "truc_vert_france" in thresholds
+
+    # Truc Vert threshold should be vastly larger than Duck
+    assert thresholds["truc_vert_france"]["eq"] > thresholds["duck_nc"]["eq"]
+
+    df["Delta_Upsilon_Star"] = compute_site_normalized_disequilibrium(df, thresholds=thresholds)
+    assert "Delta_Upsilon_Star" in df.columns
+
+    # Median value at each site should be exactly or very near 0.0
+    duck_norm = df[df["site_id"] == "duck_nc"]["Delta_Upsilon_Star"]
+    tv_norm = df[df["site_id"] == "truc_vert_france"]["Delta_Upsilon_Star"]
+    assert np.isclose(duck_norm.median(), 0.0, atol=1e-3)
+    assert np.isclose(tv_norm.median(), 0.0, atol=1e-3)
+
+    # Extreme storm events at both sites should be scaled to O(1) disequilibrium
+    assert duck_norm.max() > 0.5
+    assert tv_norm.max() > 0.5
+
+
+def test_peak_hydrodynamic_work_graded_ndcg(sample_coastal_df: pd.DataFrame) -> None:
+    """Verify 4-tier graded relevance and Graded NDCG evaluation for peak hydrodynamic work."""
+    from src.physics_rag import _make_graded_fn, evaluate_retrieval_query, RuleBasedSQLRAG
+
+    df = sample_coastal_df.iloc[:10].copy().reset_index(drop=True)
+    # Create timestamps and wave heights
+    df["timestamp"] = pd.date_range("2016-06-01", periods=len(df), freq="12h", tz="UTC")
+    df["hs_m"] = [1.5, 1.8, 2.2, 3.2, 4.5, 4.8, 3.0, 2.0, 1.5, 1.2]
+    df["site_id"] = "narrabeen_aus"
+
+    exact_cond = lambda row, d: float(row.get("hs_m", 0.0)) >= 3.0
+    partial_cond = lambda row, d: float(row.get("hs_m", 0.0)) >= 2.0
+    peak_work_cond = lambda row, d: float(row.get("hs_m", 0.0)) >= 4.0
+
+    graded_fn = _make_graded_fn(exact_cond, partial_cond, peak_work_cond)
+
+    # Test scoring:
+    # row 4 (4.5m) and row 5 (4.8m) -> Grade 3
+    assert graded_fn(df.iloc[4], df) == 3
+    assert graded_fn(df.iloc[5], df) == 3
+    # row 3 (3.2m) and row 6 (3.0m) -> Grade 2
+    assert graded_fn(df.iloc[3], df) == 2
+    assert graded_fn(df.iloc[6], df) == 2
+    # row 2 (2.2m) and row 7 (2.0m) -> Grade 1
+    assert graded_fn(df.iloc[2], df) == 1
+    assert graded_fn(df.iloc[7], df) == 1
+    # row 0 (1.5m) -> Grade 0
+    assert graded_fn(df.iloc[0], df) == 0
+
+    # Evaluate query with evaluate_retrieval_query
+    q_spec = {
+        "query": "Narrabeen June 2016 storm peak",
+        "category": "1. Historical Storm Events",
+        "condition_fn": exact_cond,
+        "peak_work_cond": peak_work_cond,
+        "graded_relevance_fn": graded_fn,
+    }
+    rag = RuleBasedSQLRAG(df=df)
+    eval_res = evaluate_retrieval_query(rag, q_spec, k=5)
+    assert "graded_ndcg_at_k" in eval_res
+    assert 0.0 <= eval_res["graded_ndcg_at_k"] <= 1.0
+
 
 
 

@@ -17,6 +17,107 @@ from sklearn.metrics import silhouette_score
 import umap
 
 
+def compute_site_equilibrium_thresholds(df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
+    """Compute site-specific equilibrium and critical disequilibrium thresholds.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset containing 'site_id' (or 'site') and 'upsilon'.
+
+    Returns
+    -------
+    dict
+        Mapping of site identifier to {'eq': median, 'crit': p90 - median, 'iqr': iqr, 'p90': p90}.
+    """
+    site_col = "site_id" if "site_id" in df.columns else ("site" if "site" in df.columns else None)
+    stats: Dict[str, Dict[str, float]] = {}
+
+    if "upsilon" not in df.columns:
+        return stats
+
+    if site_col:
+        for s in df[site_col].dropna().unique():
+            s_str = str(s)
+            sub_u = df.loc[df[site_col] == s, "upsilon"].values
+            sub_u = sub_u[np.isfinite(sub_u)]
+            if len(sub_u) > 0:
+                u_med = float(np.median(sub_u))
+                u_p90 = float(np.percentile(sub_u, 90))
+                u_iqr = float(np.percentile(sub_u, 75) - np.percentile(sub_u, 25))
+                u_crit = max(1.0, u_p90 - u_med)
+                stats[s_str] = {
+                    "eq": u_med,
+                    "crit": u_crit,
+                    "iqr": max(1.0, u_iqr),
+                    "p90": u_p90,
+                }
+
+    all_u = df["upsilon"].dropna().values
+    all_u = all_u[np.isfinite(all_u)]
+    if len(all_u) > 0:
+        g_med = float(np.median(all_u))
+        g_p90 = float(np.percentile(all_u, 90))
+        g_iqr = float(np.percentile(all_u, 75) - np.percentile(all_u, 25))
+        stats["_global"] = {
+            "eq": g_med,
+            "crit": max(1.0, g_p90 - g_med),
+            "iqr": max(1.0, g_iqr),
+            "p90": g_p90,
+        }
+
+    return stats
+
+
+def compute_site_normalized_disequilibrium(
+    df: pd.DataFrame,
+    thresholds: Optional[Dict[str, Dict[str, float]]] = None,
+) -> np.ndarray:
+    """Compute dimensionless, cross-site universal disequilibrium Delta Upsilon*.
+
+    Delta Upsilon* = (Upsilon - Upsilon_{eq, site}) / Upsilon_{crit, site}
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset containing 'upsilon' and optionally 'site_id'/'site'.
+    thresholds : dict, optional
+        Precomputed site equilibrium thresholds.
+
+    Returns
+    -------
+    delta_upsilon_star : np.ndarray
+        Dimensionless disequilibrium values across all rows.
+    """
+    if "upsilon" not in df.columns:
+        return np.zeros(len(df))
+
+    th = thresholds or compute_site_equilibrium_thresholds(df)
+    g_th = th.get("_global", {"eq": 1500.0, "crit": 10000.0})
+
+    site_col = "site_id" if "site_id" in df.columns else ("site" if "site" in df.columns else None)
+    u_vals = df["upsilon"].values.astype(float)
+    du_star = np.zeros(len(df), dtype=float)
+
+    if site_col:
+        assigned = np.zeros(len(df), dtype=bool)
+        for s_val, s_th in th.items():
+            if s_val == "_global":
+                continue
+            mask = (df[site_col].astype(str) == str(s_val)).values
+            if mask.any():
+                du_star[mask] = (u_vals[mask] - s_th["eq"]) / s_th["crit"]
+                assigned[mask] = True
+
+        unassigned = ~assigned
+        if unassigned.any():
+            du_star[unassigned] = (u_vals[unassigned] - g_th["eq"]) / g_th["crit"]
+    else:
+        du_star = (u_vals - g_th["eq"]) / g_th["crit"]
+
+    return du_star
+
+
 def build_physics_anchored_feature_matrix(
     df: pd.DataFrame,
     include_raw: bool = True,

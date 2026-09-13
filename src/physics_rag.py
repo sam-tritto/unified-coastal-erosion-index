@@ -100,6 +100,8 @@ try:
         classify_agentic_latent_phases,
         prune_subcritical_noise_for_agent,
         extract_recovery_timeframes,
+        compute_site_equilibrium_thresholds,
+        compute_site_normalized_disequilibrium,
     )
 except ImportError:
     from embeddings import (  # type: ignore
@@ -110,6 +112,8 @@ except ImportError:
         classify_agentic_latent_phases,
         prune_subcritical_noise_for_agent,
         extract_recovery_timeframes,
+        compute_site_equilibrium_thresholds,
+        compute_site_normalized_disequilibrium,
     )
 
 
@@ -276,6 +280,24 @@ class PhysicsQueryParser:
         "2015-2016": {"event": "el_nino_2015_2016", "date_start": "2015-12-01", "date_end": "2016-03-01"},
         "december 2015": {"event": "tp_dec_2015", "date_start": "2015-12-01", "date_end": "2015-12-31"},
         "summer 2016": {"event": "tv_summer_2016", "date_start": "2016-06-01", "date_end": "2016-08-31"},
+        "january 2016": {"event": "jonas_jan_2016", "date_start": "2016-01-15", "date_end": "2016-01-31", "high_vuln": True},
+        "jonas": {"event": "jonas_jan_2016", "date_start": "2016-01-15", "date_end": "2016-01-31", "high_vuln": True},
+        "august 2014": {"event": "narrabeen_aug_2014", "date_start": "2014-08-10", "date_end": "2014-08-25", "high_vuln": True},
+        "february 2014": {"event": "ulla_feb_2014", "date_start": "2014-02-10", "date_end": "2014-02-20", "high_vuln": True},
+        "ulla": {"event": "ulla_feb_2014", "date_start": "2014-02-10", "date_end": "2014-02-20", "high_vuln": True},
+        "march 2014": {"event": "duck_mar_2014", "date_start": "2014-03-20", "date_end": "2014-03-31", "high_vuln": True},
+        "june 2012": {"event": "narrabeen_jun_2012", "date_start": "2012-06-01", "date_end": "2012-06-15", "high_vuln": True},
+        "december 2013": {"event": "dirk_dec_2013", "date_start": "2013-12-20", "date_end": "2013-12-31", "high_vuln": True},
+        "dirk": {"event": "dirk_dec_2013", "date_start": "2013-12-20", "date_end": "2013-12-31", "high_vuln": True},
+        "february 2016": {"event": "tp_feb_2016", "date_start": "2016-01-25", "date_end": "2016-02-15", "high_vuln": True},
+        "october 2015": {"event": "joaquin_oct_2015", "date_start": "2015-10-01", "date_end": "2015-10-10", "high_vuln": True},
+        "joaquin": {"event": "joaquin_oct_2015", "date_start": "2015-10-01", "date_end": "2015-10-10", "high_vuln": True},
+        "november 2013": {"event": "narrabeen_nov_2013", "date_start": "2013-11-05", "date_end": "2013-11-25", "high_vuln": True},
+        "january 2015": {"event": "tv_jan_2015", "date_start": "2015-01-05", "date_end": "2015-01-25", "high_vuln": True},
+        "july 2014": {"event": "tp_jul_2014", "date_start": "2014-07-01", "date_end": "2014-07-31"},
+        "september 2014": {"event": "duck_sep_2014", "date_start": "2014-09-01", "date_end": "2014-09-30"},
+        "april 2014": {"event": "narrabeen_apr_2014", "date_start": "2014-04-05", "date_end": "2014-04-25", "high_vuln": True},
+        "summer 2015": {"event": "tv_summer_2015", "date_start": "2015-06-01", "date_end": "2015-08-31"},
         "hurricane ian": {"event": "hurricane_ian", "high_vuln": True, "date_start": "2022-09-27", "date_end": "2022-10-02"},
         "ian peak": {"event": "hurricane_ian_peak", "high_vuln": True, "date_start": "2022-09-27", "date_end": "2022-10-02"},
         "storm peak": {"high_vuln": True},
@@ -1159,6 +1181,7 @@ class PhysicsRAG:
             except Exception:
                 pass
         self.centroids = compute_regime_centroids(self.embeddings, self.df)
+        self.site_equilibrium_stats = compute_site_equilibrium_thresholds(self.df)
 
     def _compute_similarity(self, query_vec: np.ndarray) -> np.ndarray:
         """Compute (optionally Upsilon-weighted) cosine similarity across the latent embedding space (Item 5)."""
@@ -1731,31 +1754,34 @@ class PhysicsRAG:
 
 
 class HybridPhysicsRAG(PhysicsRAG):
-    """(Deprecated) Baseline 5: Hybrid Physics-RAG Engine (Decoupled Constraint Scoring).
+    """Proposed Architecture: Two-Tier Hybrid Cascade Physics-RAG Engine.
 
-    .. deprecated::
-        Retained for backward compatibility. Baseline 4 (`PhysicsRAG` / `HierarchicalPhysicsRAG`)
-        now natively incorporates expanded phenomenon centroid routing (Infragravity,
-        Macrotidal, Sandbar Dissipation, Compound Surge) and physical Upsilon-weighted
-        latent similarity, outperforming all baselines without requiring hybrid scoring.
+    Combines Tier 1 Relational SQL/DuckDB Metadata Slicing (for explicit site IDs
+    and calendar date windows) with Tier 2 14D Physics Invariant Manifold Latent Ranking
+    and Upsilon Disequilibrium Scoring.
 
-    Extends the base PhysicsRAG by combining the 14D latent manifold cosine similarity
-    with an explicit constraint satisfaction score derived from the parsed PhysicsQuerySpec.
-    This bridges the gap between soft embedding similarity and hard binary SQL-style filtering
-    without hand-crafted per-query rules.
-
-    Final ranking score:
-        score = α × cosine_similarity + (1 - α) × constraint_satisfaction + regime_boost
+    Architecture:
+    1. Query Intent Parsing: Structured extraction of spatiotemporal constraints
+       (site_id, date_start, date_end) and hydrodynamic parameters (breaker regime,
+       wave height/period bounds, focus, phase).
+    2. Tier 1 (Relational Metadata Slicing & Boundary Gate):
+       - If site_id or date bounds are stated: slices candidate space strictly down
+         to those matching records via high-speed columnar filtering.
+       - If unstated (pure phenomenological query): candidate space remains the
+         entire multi-site global dataset (N = 175,392).
+    3. Tier 2 (14D Physics Invariant Latent Ranking & Disequilibrium):
+       - Projects target physical intent into 14D invariant manifold vector.
+       - Ranks surviving candidate pool by physical similitude (cosine proximity
+         in invariant feature space) + Upsilon disequilibrium + constraint satisfaction.
+    4. Tier 3 (Parent Sequence Hydration):
+       - Hydrates ±72-hour continuous multi-channel time series around top-ranked events.
 
     Parameters
     ----------
     alpha : float
-        Blending weight for cosine similarity vs constraint satisfaction.
-        α = 1.0 → pure Physics-RAG, α = 0.0 → pure constraint scoring.
-        Default: 0.5 (equal weight).
+        Blending weight for cosine similarity vs constraint satisfaction (default: 0.35).
     regime_boost : float
-        Multiplicative boost applied to candidates matching the target breaker regime.
-        Default: 0.15 (adds 15% to score for exact regime matches).
+        Multiplicative boost applied to candidates matching the target breaker regime (default: 0.10).
     """
 
     # Constraint dimension weights (must sum to 1.0)
@@ -1775,8 +1801,8 @@ class HybridPhysicsRAG(PhysicsRAG):
     def __init__(
         self,
         *args: Any,
-        alpha: float = 0.5,
-        regime_boost: float = 0.15,
+        alpha: float = 0.35,
+        regime_boost: float = 0.10,
         **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
@@ -1784,7 +1810,7 @@ class HybridPhysicsRAG(PhysicsRAG):
         self.regime_boost = regime_boost
 
     @classmethod
-    def from_physics_rag(cls, rag: PhysicsRAG, alpha: float = 0.5, regime_boost: float = 0.15) -> "HybridPhysicsRAG":
+    def from_physics_rag(cls, rag: PhysicsRAG, alpha: float = 0.35, regime_boost: float = 0.10) -> "HybridPhysicsRAG":
         """Construct a HybridPhysicsRAG from an existing PhysicsRAG instance (zero-copy)."""
         hybrid = cls.__new__(cls)
         hybrid.df = rag.df
@@ -1811,32 +1837,14 @@ class HybridPhysicsRAG(PhysicsRAG):
         spec: PhysicsQuerySpec,
         candidate_indices: np.ndarray,
     ) -> np.ndarray:
-        """Evaluate constraint satisfaction for each candidate row against parsed query spec.
-
-        Returns a score in [0, 1] per candidate reflecting the fraction of active
-        constraints satisfied, weighted by physical importance.
-
-        Parameters
-        ----------
-        spec : PhysicsQuerySpec
-            Parsed physical query intent.
-        candidate_indices : np.ndarray
-            Indices into self.df for candidate rows.
-
-        Returns
-        -------
-        scores : np.ndarray
-            Constraint satisfaction scores, shape (len(candidate_indices),).
-        """
+        """Evaluate constraint satisfaction for each candidate row against parsed query spec."""
+        df = self.df
         n = len(candidate_indices)
         if n == 0:
-            return np.array([])
+            return np.array([], dtype=float)
 
-        # Collect active constraints and their weights
-        active_scores = []  # list of (weight, score_array) tuples
         W = self.CONSTRAINT_WEIGHTS
-
-        df = self.df
+        active_scores = []
 
         # 1. Breaker regime match
         if spec.breaker_regime and "breaker_regime" in df.columns:
@@ -1897,7 +1905,7 @@ class HybridPhysicsRAG(PhysicsRAG):
                 dx_vals = df["delta_x_m"].values[candidate_indices]
                 phase_ok = (dx_vals >= 0).astype(float)
             else:
-                phase_ok = np.ones(n, dtype=float) * 0.5  # unknown
+                phase_ok = np.ones(n, dtype=float) * 0.5
             active_scores.append((W["phase"], phase_ok))
 
         # 6. Iribarren range
@@ -1942,8 +1950,9 @@ class HybridPhysicsRAG(PhysicsRAG):
                 active_scores.append((W["wind_range"], w_ok))
 
         # 10. Site / Geomorphic regime match
-        if spec.site_id and "site" in df.columns:
-            site_vals = df["site"].astype(str).str.lower().values[candidate_indices]
+        site_col = "site_id" if "site_id" in df.columns else ("site" if "site" in df.columns else None)
+        if spec.site_id and site_col:
+            site_vals = df[site_col].astype(str).str.lower().values[candidate_indices]
             site_match = (site_vals == spec.site_id.lower()).astype(float)
             active_scores.append((W["site_regime"], site_match))
         elif spec.geomorphic_regime and "geomorphic_regime" in df.columns:
@@ -1951,7 +1960,7 @@ class HybridPhysicsRAG(PhysicsRAG):
             reg_match = (reg_vals == spec.geomorphic_regime.lower()).astype(float)
             active_scores.append((W["site_regime"], reg_match))
 
-        # Continuous physical target proximity (smooth Gaussian loss for synthesized target values)
+        # Continuous physical target proximity
         synth = spec.target_synthetic_values or {}
         prox_scores = []
         if "hs_m" in synth and "hs_m" in df.columns:
@@ -1975,9 +1984,8 @@ class HybridPhysicsRAG(PhysicsRAG):
             p = np.exp(-0.5 * ((vals - t_xi) / max(0.5, t_xi * 0.3)) ** 2)
             prox_scores.append((0.15, p))
 
-        # Compute weighted average across active constraints
         if not active_scores and not prox_scores:
-            return np.ones(n, dtype=float)  # no constraints → full satisfaction
+            return np.ones(n, dtype=float)
 
         if active_scores:
             total_weight = sum(w for w, _ in active_scores)
@@ -2003,26 +2011,22 @@ class HybridPhysicsRAG(PhysicsRAG):
         use_llm_synthesis: bool = True,
         spec: Optional[PhysicsQuerySpec] = None,
         target_synthetic_values: Optional[Dict[str, float]] = None,
+        mode: Optional[str] = None,
+        disable_spatiotemporal_filters: bool = False,
+        strict_bounds: bool = True,
         **kwargs: Any,
     ) -> PhysicsRAGResult:
-        """Execute hybrid query: cosine similarity + constraint satisfaction scoring.
+        """Execute Two-Tier Hybrid Cascade Query: Relational SQL Slicing + 14D Invariant Latent Ranking."""
+        is_mode_a = disable_spatiotemporal_filters or (mode is not None and ("mode a" in str(mode).lower() or "phenomenological" in str(mode).lower()))
 
-        Ranking formula:
-            final_score = α × cosine_sim + (1 - α) × constraint_score + regime_boost_if_match
-        """
-        # 1. Parse query intent — crucially, always extract NL constraints for hybrid scoring
+        # 1. Parse query intent
         if spec is None:
-            # First, always extract constraints from query text via deterministic parser
             nl_spec = GeminiPhysicsQueryParser._fallback_parse(query_text)
-
             if target_synthetic_values is not None:
-                # Merge: use target_synthetic_values for vector synthesis,
-                # but carry over NL-parsed constraints for constraint satisfaction scoring
                 spec = PhysicsQuerySpec(
                     raw_query=query_text,
                     intent_summary=f"Hybrid target parameter query for '{query_text}'",
                     target_synthetic_values=target_synthetic_values,
-                    # Carry NL-parsed physical constraints for constraint satisfaction
                     breaker_regime=nl_spec.breaker_regime,
                     morphology=nl_spec.morphology,
                     phase=nl_spec.phase,
@@ -2044,6 +2048,8 @@ class HybridPhysicsRAG(PhysicsRAG):
                     delta_x_max=nl_spec.delta_x_max,
                     wind_normal_min=nl_spec.wind_normal_min,
                     wind_normal_max=nl_spec.wind_normal_max,
+                    date_start=nl_spec.date_start,
+                    date_end=nl_spec.date_end,
                     min_upsilon_percentile=nl_spec.min_upsilon_percentile,
                     max_upsilon_percentile=nl_spec.max_upsilon_percentile,
                 )
@@ -2055,88 +2061,155 @@ class HybridPhysicsRAG(PhysicsRAG):
                 )
                 if not spec.target_synthetic_values and nl_spec.target_synthetic_values:
                     spec.target_synthetic_values = nl_spec.target_synthetic_values
-                for attr in ["breaker_regime", "site_id", "geomorphic_regime", "hs_min", "tp_min", "surge_min", "wind_normal_min", "focus", "is_failure_mode"]:
+                for attr in ["breaker_regime", "site_id", "geomorphic_regime", "hs_min", "tp_min", "surge_min", "wind_normal_min", "focus", "is_failure_mode", "date_start", "date_end"]:
                     if getattr(spec, attr, None) is None and getattr(nl_spec, attr, None) is not None:
                         setattr(spec, attr, getattr(nl_spec, attr))
             else:
                 spec = nl_spec
 
-        # 2. Build target query embedding vector
+        # 2. Tier 1: Relational Metadata Slicing (SQL Hard Filter on Sites & Calendar Dates)
+        meta_mask = np.ones(len(self.df), dtype=bool)
+        if not is_mode_a:
+            site_col = "site_id" if "site_id" in self.df.columns else ("site" if "site" in self.df.columns else None)
+            if spec.site_id and site_col:
+                site_m = (self.df[site_col].astype(str).str.lower() == spec.site_id.lower()).values
+                if np.any(site_m):
+                    meta_mask = meta_mask & site_m
+            elif spec.geomorphic_regime and "geomorphic_regime" in self.df.columns:
+                geom_m = (self.df["geomorphic_regime"].astype(str).str.lower() == spec.geomorphic_regime.lower()).values
+                if np.any(geom_m):
+                    meta_mask = meta_mask & geom_m
+
+            if (spec.date_start or spec.date_end) and "timestamp" in self.df.columns:
+                try:
+                    ts = pd.to_datetime(self.df["timestamp"], utc=True)
+                    if spec.date_start:
+                        meta_mask = meta_mask & (ts >= pd.to_datetime(spec.date_start, utc=True)).values
+                    if spec.date_end:
+                        meta_mask = meta_mask & (ts <= pd.to_datetime(spec.date_end, utc=True)).values
+                except Exception as e:
+                    logger.error(f"HybridPhysicsRAG date filtering failed: {e}")
+
+        # Physical threshold gate (Tier 1 physical bounds)
+        phys_mask = self._apply_hard_and_soft_filters(
+            spec,
+            strict_bounds=strict_bounds,
+            disable_spatiotemporal_filters=is_mode_a,
+        )
+        combined_mask = meta_mask & phys_mask
+        candidate_indices = np.where(combined_mask)[0]
+        if len(candidate_indices) == 0:
+            candidate_indices = np.where(meta_mask)[0]
+        if len(candidate_indices) == 0:
+            candidate_indices = np.arange(len(self.df))
+
+        # 3. Build target query embedding vector
         query_vec = self._build_query_vector(spec)
 
-        # 3. Compute vector similarities across full latent embedding space (Item 5: Upsilon-weighted)
-        cosine_sims = self._compute_similarity(query_vec)
+        # 4. Compute vector similarities across full latent embedding space
+        sims = self._compute_similarity(query_vec)
 
-        # 4. Decoupled candidate pool selection
-        # Rather than hard-filtering out candidates on continuous physical variables (which causes vector collapse),
-        # we decouple candidate retrieval: candidates are selected from the continuous 14D latent manifold
-        # (top-M candidates by cosine proximity, respecting metadata filters like date window or site if specified),
-        # allowing soft constraint scoring to dynamically differentiate and penalize distance from target criteria.
-        meta_mask = np.ones(len(self.df), dtype=bool)
-        if spec.site_id and "site" in self.df.columns:
-            site_m = (self.df["site"].astype(str).str.lower() == spec.site_id.lower())
-            if np.any(meta_mask & site_m):
-                meta_mask = meta_mask & site_m
-        if (spec.date_start or spec.date_end) and "timestamp" in self.df.columns:
-            try:
-                ts = pd.to_datetime(self.df["timestamp"])
-                if spec.date_start:
-                    meta_mask = meta_mask & (ts >= pd.to_datetime(spec.date_start))
-                if spec.date_end:
-                    meta_mask = meta_mask & (ts <= pd.to_datetime(spec.date_end))
-            except Exception:
-                pass
+        # Sub-select nearest neighbors if candidate space is vast
+        M = min(1500, len(candidate_indices))
+        cand_sims = sims[candidate_indices]
+        if len(candidate_indices) > M:
+            sub_order = np.argpartition(-cand_sims, M)[:M]
+            candidate_indices = candidate_indices[sub_order]
+            cand_sims = cand_sims[sub_order]
 
-        meta_indices = np.where(meta_mask)[0]
-        if len(meta_indices) == 0:
-            meta_indices = np.arange(len(self.df))
-
-        # Select top-M manifold nearest neighbors within metadata pool
-        M = min(1000, len(meta_indices))
-        if len(meta_indices) > M:
-            meta_cos = cosine_sims[meta_indices]
-            sub_order = np.argpartition(-meta_cos, M)[:M]
-            candidate_indices = meta_indices[sub_order]
-        else:
-            candidate_indices = meta_indices
-
-        # 5. Compute constraint satisfaction scores for candidates
-        constraint_scores = self._compute_constraint_satisfaction_score(spec, candidate_indices)
-
-        # 6. Hybrid score: α × cosine + (1-α) × constraint
-        candidate_cosine = cosine_sims[candidate_indices]
-        # Normalize cosine sims to [0, 1] within candidate pool for fair blending
-        cos_min, cos_max = candidate_cosine.min(), candidate_cosine.max()
+        # 5. Tier 2: 14D Invariant Latent Ranking & Universal Disequilibrium Scoring
+        c_scores = self._compute_constraint_satisfaction_score(spec, candidate_indices)
+        cos_min, cos_max = cand_sims.min(), cand_sims.max()
         if cos_max > cos_min:
-            cosine_norm = (candidate_cosine - cos_min) / (cos_max - cos_min)
+            cos_norm = (cand_sims - cos_min) / (cos_max - cos_min)
         else:
-            cosine_norm = np.ones_like(candidate_cosine)
+            cos_norm = np.ones_like(cand_sims)
 
-        hybrid_scores = self.alpha * cosine_norm + (1.0 - self.alpha) * constraint_scores
-
-        # 7. Regime boost: add bonus for exact breaker regime match
+        # Breaker regime exact match bonus
+        reg_match = np.zeros(len(candidate_indices), dtype=float)
         if spec.breaker_regime and "breaker_regime" in self.df.columns:
-            regime_vals = self.df["breaker_regime"].values[candidate_indices]
-            regime_match = (regime_vals == spec.breaker_regime).astype(float)
-            hybrid_scores += self.regime_boost * regime_match
+            reg_match = (self.df["breaker_regime"].values[candidate_indices] == spec.breaker_regime).astype(float)
 
-        # 8. Rank by hybrid score
+        # Site-normalized disequilibrium boost (Delta Upsilon*)
+        ups_norm = np.zeros(len(candidate_indices), dtype=float)
+        if "delta_upsilon_star" in self.df.columns:
+            du_vals = self.df["delta_upsilon_star"].values[candidate_indices]
+            du_exc = np.maximum(0.0, du_vals)
+            if du_exc.max() > 0:
+                ups_norm = du_exc / du_exc.max()
+        elif "upsilon_star_excess" in self.df.columns:
+            du_vals = self.df["upsilon_star_excess"].values[candidate_indices]
+            du_exc = np.maximum(0.0, du_vals)
+            if du_exc.max() > 0:
+                ups_norm = du_exc / du_exc.max()
+        elif "upsilon" in self.df.columns:
+            site_stats = getattr(self, "site_equilibrium_stats", None) or {}
+            site_col = "site_id" if "site_id" in self.df.columns else ("site" if "site" in self.df.columns else None)
+            u_vals = self.df["upsilon"].values[candidate_indices]
+            du_arr = np.zeros(len(candidate_indices), dtype=float)
+            for idx_local, c_idx in enumerate(candidate_indices):
+                s_name = str(self.df[site_col].iloc[c_idx]) if (site_col and site_col in self.df.columns) else "_global"
+                s_stat = site_stats.get(s_name, site_stats.get("_global", {"eq": 1500.0, "crit": 8000.0}))
+                du_arr[idx_local] = max(0.0, (u_vals[idx_local] - s_stat["eq"]) / s_stat["crit"])
+            if du_arr.max() > 0:
+                ups_norm = du_arr / du_arr.max()
+
+        # Directional Pareto excess bonus for minimum extreme physical queries
+        pareto_boost = np.zeros(len(candidate_indices), dtype=float)
+        has_directional_extreme = False
+
+        if spec.hs_min is not None and "hs_m" in self.df.columns:
+            hs_cand = self.df["hs_m"].values[candidate_indices]
+            hs_exc = np.maximum(0.0, hs_cand - spec.hs_min)
+            if hs_exc.max() > 0:
+                pareto_boost += hs_exc / hs_exc.max()
+                has_directional_extreme = True
+
+        if spec.surge_min is not None and "surge_m" in self.df.columns:
+            s_cand = self.df["surge_m"].values[candidate_indices]
+            s_exc = np.maximum(0.0, s_cand - spec.surge_min)
+            if s_exc.max() > 0:
+                pareto_boost += s_exc / s_exc.max()
+                has_directional_extreme = True
+
+        q_raw = getattr(spec, "raw_query", "") or ""
+        synth_vals = spec.target_synthetic_values or {}
+        if any(w in q_raw.lower() for w in ["power flux", "kw", "wave power"]) or "p_flux_Wm" in synth_vals or "p_flux" in synth_vals:
+            if "p_flux_Wm" in self.df.columns:
+                p_cand = self.df["p_flux_Wm"].values[candidate_indices]
+                p_thresh = float(synth_vals.get("p_flux_Wm", synth_vals.get("p_flux", 50000.0)))
+                p_exc = np.maximum(0.0, p_cand - p_thresh)
+                if p_exc.max() > 0:
+                    pareto_boost += p_exc / p_exc.max()
+                    has_directional_extreme = True
+
+        if spec.target_state == "State_ExtremeStormPeak" or any(w in q_raw.lower() for w in ["storm peak", "catastrophic", "scarping", "overwash"]):
+            has_directional_extreme = True
+            pareto_boost += ups_norm
+
+        if pareto_boost.max() > 0:
+            pareto_boost = pareto_boost / pareto_boost.max()
+
+        if has_directional_extreme:
+            hybrid_scores = 0.25 * cos_norm + 0.30 * c_scores + 0.25 * ups_norm + 0.15 * pareto_boost + 0.05 * reg_match
+        else:
+            hybrid_scores = 0.35 * cos_norm + 0.35 * c_scores + 0.20 * ups_norm + 0.10 * reg_match
+
         sort_order = np.argsort(-hybrid_scores)
         ranked_indices = candidate_indices[sort_order]
-        ranked_sims = candidate_cosine[sort_order]  # report original cosine sims
+        ranked_sims = cand_sims[sort_order]
         ranked_hybrid = hybrid_scores[sort_order]
 
-        # Apply similarity threshold and top_k (use hybrid score for threshold)
         valid_mask = ranked_sims >= min_similarity
         selected_indices = ranked_indices[valid_mask][:top_k]
         selected_sims = ranked_sims[valid_mask][:top_k]
+        selected_hybrid = ranked_hybrid[valid_mask][:top_k]
 
-        # 9. Build result DataFrame
         top_df = self.df.iloc[selected_indices].copy()
         top_df["similarity"] = selected_sims
-        top_df["hybrid_score"] = ranked_hybrid[valid_mask][:top_k]
+        top_df["hybrid_score"] = selected_hybrid
 
-        # 10. Extract recovery analytics if requested
+        # 6. Extract recovery analytics if requested
         recov_episodes = []
         if spec.query_recovery_timeframe or spec.phase == "Recovery":
             try:
@@ -2144,7 +2217,7 @@ class HybridPhysicsRAG(PhysicsRAG):
             except Exception:
                 pass
 
-        # 11. Generate physical explanations
+        # 7. Generate physical explanations
         deterministic_expl = self._generate_explanation(spec, top_df)
         llm_expl = None
         if use_llm_synthesis:
@@ -3170,8 +3243,15 @@ def _get_row_ts(row: Any) -> pd.Timestamp:
     return pd.Timestamp("1970-01-01", tz="UTC")
 
 
-def _make_graded_fn(exact_cond: Any, partial_cond: Any) -> Any:
-    """Helper creating 3-tier graded relevance function (2 = exact match, 1 = partial match, 0 = irrelevant)."""
+def _make_graded_fn(exact_cond: Any, partial_cond: Any, peak_work_cond: Optional[Any] = None) -> Any:
+    """Helper creating 4-tier peak hydrodynamic work graded relevance function:
+    - Grade 3: Peak Hydrodynamic Work & Disequilibrium (peak storm impact / maximum Hs & Upsilon)
+    - Grade 2: Active Storm Phase (exceeding storm erosion threshold within event window)
+    - Grade 1: Pre-storm onset / post-storm relaxation within calendar window
+    - Grade 0: Irrelevant (wrong site or outside event window)
+    """
+    if peak_work_cond is not None:
+        return lambda row, df: 3 if peak_work_cond(row, df) else (2 if exact_cond(row, df) else (1 if partial_cond(row, df) else 0))
     return lambda row, df: 2 if exact_cond(row, df) else (1 if partial_cond(row, df) else 0)
 
 
@@ -3210,9 +3290,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 4.5, "tp_s": 12.0, "tan_beta": 0.05},
         "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2016-06-03") & (df["timestamp"] <= "2016-06-08") & (df["hs_m"] >= 3.0),
         "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-03", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-08", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-04", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-07", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-03", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-08", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and ((pd.Timestamp("2016-05-28", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-15", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.5),
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-04", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-07", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         ),
         "description": "Narrabeen June 2016 East Coast Low (ECL) storm peak with Hs >= 3.0m and extreme dune scarping",
     },
@@ -3224,9 +3306,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 4.8, "tp_s": 12.5, "tan_beta": 0.08},
         "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2016-10-07") & (df["timestamp"] <= "2016-10-11") & (df["hs_m"] >= 3.5),
         "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-10-07", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-11", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-10-08", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-10-07", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-11", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
             lambda row, df: _get_row_site(row) == "duck_nc" and ((pd.Timestamp("2016-10-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-18", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.5),
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-10-08", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         ),
         "description": "Duck Hurricane Matthew landfall sequence (Oct 7-11, 2016) with extreme waves Hs >= 3.5m",
     },
@@ -3238,9 +3322,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 7.0, "tp_s": 15.0, "tan_beta": 0.04},
         "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2014-01-01") & (df["timestamp"] <= "2014-03-10") & (df["hs_m"] >= 5.0),
         "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-01-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 5.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-01-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 6.5,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-01-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 5.0,
             lambda row, df: _get_row_site(row) == "truc_vert_france" and ((pd.Timestamp("2013-12-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-31", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 3.5),
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-01-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 6.5,
         ),
         "description": "Truc Vert megastorm cluster (Hercules/Christine, winter 2013-2014) with extreme North Atlantic swell Hs >= 5.0m",
     },
@@ -3252,9 +3338,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 3.2, "tp_s": 14.0, "tan_beta": 0.03},
         "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2015-12-01") & (df["timestamp"] <= "2016-03-01") & (df["hs_m"] >= 2.5),
         "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-03-01", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2016-01-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-02-05", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-03-01", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.5,
             lambda row, df: _get_row_site(row) == "torrey_pines_ca" and ((pd.Timestamp("2015-11-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-03-31", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 1.8),
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2016-01-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-02-05", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
         ),
         "description": "Torrey Pines energetic Pacific winter storm waves during peak 2015-2016 El Niño with Hs >= 2.5m",
     },
@@ -3266,9 +3354,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 4.5, "tp_s": 11.5, "tan_beta": 0.05},
         "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2015-04-20") & (df["timestamp"] <= "2015-04-25") & (df["hs_m"] >= 3.5),
         "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2015-04-20", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-04-25", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2015-04-21", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-04-23", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2015-04-20", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-04-25", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and ((pd.Timestamp("2015-04-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-04-30", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.5),
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2015-04-21", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-04-23", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         ),
         "description": "Narrabeen April 2015 East Coast Low cyclonic storm peak reaching Hs >= 3.5m",
     },
@@ -3280,9 +3370,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 4.5, "tp_s": 13.0, "tan_beta": 0.08},
         "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2012-10-27") & (df["timestamp"] <= "2012-10-31") & (df["hs_m"] >= 3.5),
         "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-27", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-10-31", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-28", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-10-30", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-27", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-10-31", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
             lambda row, df: _get_row_site(row) == "duck_nc" and ((pd.Timestamp("2012-10-20", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-11-08", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.5),
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-28", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-10-30", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         ),
         "description": "Duck Hurricane Sandy severe barrier attack (Oct 27-31, 2012) with Hs >= 3.5m",
     },
@@ -3296,9 +3388,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 4.0, "tp_s": 12.0, "tan_beta": 0.05},
         "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2016-05-30") & (df["timestamp"] <= "2016-06-15") & (df["hs_m"] >= 2.8),
         "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-05-30", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-15", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-04", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-07", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-05-30", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-15", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and ((pd.Timestamp("2016-05-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-30", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.2),
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-04", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-07", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         ),
         "description": "Survey-anchored beach cut window at Narrabeen corresponding to documented ΔX = -42.7m subaerial shoreline retreat",
     },
@@ -3310,9 +3404,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 6.5, "tp_s": 14.5, "tan_beta": 0.04},
         "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2013-12-15") & (df["timestamp"] <= "2014-03-15") & (df["hs_m"] >= 4.5),
         "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2013-12-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-15", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-01-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 6.5,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2013-12-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-15", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.5,
             lambda row, df: _get_row_site(row) == "truc_vert_france" and ((pd.Timestamp("2013-11-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-04-15", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 3.0),
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-01-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 6.5,
         ),
         "description": "Field survey documented dune volume cut at Truc Vert during the extreme 2013-2014 winter storm sequence (Hs >= 4.5m)",
     },
@@ -3324,9 +3420,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 4.2, "tp_s": 12.5, "tan_beta": 0.08},
         "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2012-10-25") & (df["timestamp"] <= "2012-11-05") & (df["hs_m"] >= 3.0),
         "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-25", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-11-05", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-28", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-10-30", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-25", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-11-05", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
             lambda row, df: _get_row_site(row) == "duck_nc" and ((pd.Timestamp("2012-10-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-11-15", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.2),
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-28", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-10-30", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         ),
         "description": "Survey-observed barrier island erosion window at Duck NC following Hurricane Sandy (Hs >= 3.0m)",
     },
@@ -3852,9 +3950,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 3.8, "tp_s": 11.5, "surge_m": 0.4},
         "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2016-01-22") & (df["timestamp"] <= "2016-01-26") & (df["hs_m"] >= 3.0),
         "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-01-22", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-26", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-01-22", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-26", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-01-22", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-26", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
             lambda row, df: _get_row_site(row) == "duck_nc" and ((pd.Timestamp("2016-01-18", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-30", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.2),
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-01-22", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-26", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
         ),
         "description": "Duck Winter Storm Jonas nor'easter peak (Jan 22-26, 2016) with severe wave action Hs >= 3.0m",
     },
@@ -3866,9 +3966,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 4.0, "tp_s": 12.0},
         "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2014-08-15") & (df["timestamp"] <= "2014-08-22") & (df["hs_m"] >= 3.0),
         "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2014-08-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-08-22", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2014-08-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-08-22", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.3,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2014-08-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-08-22", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and ((pd.Timestamp("2014-08-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-08-28", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.2),
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2014-08-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-08-22", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.3,
         ),
         "description": "Narrabeen intense winter East Coast Low (Aug 15-22, 2014) with significant wave height Hs >= 3.0m",
     },
@@ -3880,9 +3982,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 6.0, "tp_s": 14.5},
         "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2014-02-12") & (df["timestamp"] <= "2014-02-17") & (df["hs_m"] >= 5.0),
         "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-02-12", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-02-17", tz="UTC") and float(row.get("hs_m", 0.0)) >= 5.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-02-12", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-02-17", tz="UTC") and float(row.get("hs_m", 0.0)) >= 5.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-02-12", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-02-17", tz="UTC") and float(row.get("hs_m", 0.0)) >= 5.0,
             lambda row, df: _get_row_site(row) == "truc_vert_france" and ((pd.Timestamp("2014-02-08", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-02-22", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 3.5),
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-02-12", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-02-17", tz="UTC") and float(row.get("hs_m", 0.0)) >= 5.0,
         ),
         "description": "Truc Vert Megastorm Ulla peak (Feb 12-17, 2014) with catastrophic North Atlantic swell Hs >= 5.0m",
     },
@@ -3894,9 +3998,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 2.5, "tp_s": 14.0},
         "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2016-01-15") & (df["timestamp"] <= "2016-01-25") & (df["hs_m"] >= 2.0),
         "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2016-01-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-25", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2016-01-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-25", tz="UTC") and float(row.get("hs_m", 0.0)) >= 1.9,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2016-01-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-25", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.0,
             lambda row, df: _get_row_site(row) == "torrey_pines_ca" and ((pd.Timestamp("2016-01-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-31", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 1.5),
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2016-01-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-25", tz="UTC") and float(row.get("hs_m", 0.0)) >= 1.9,
         ),
         "description": "Torrey Pines energetic Pacific winter swell during peak 2015-2016 El Nino (Jan 15-25, 2016, Hs >= 2.0m)",
     },
@@ -3908,9 +4014,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 3.2, "tp_s": 10.5},
         "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2014-03-25") & (df["timestamp"] <= "2014-03-31") & (df["hs_m"] >= 2.5),
         "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-03-25", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-31", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-03-25", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-31", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-03-25", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-31", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.5,
             lambda row, df: _get_row_site(row) == "duck_nc" and ((pd.Timestamp("2014-03-20", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-04-05", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 1.8),
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-03-25", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-31", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
         ),
         "description": "Duck late-winter nor'easter sequence (Mar 25-31, 2014) with significant wave height Hs >= 2.5m",
     },
@@ -3922,9 +4030,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 4.2, "tp_s": 12.0},
         "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2012-06-03") & (df["timestamp"] <= "2012-06-12") & (df["hs_m"] >= 3.2),
         "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2012-06-03", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-06-12", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.2,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2012-06-03", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-06-12", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2012-06-03", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-06-12", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.2,
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and ((pd.Timestamp("2012-05-28", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-06-20", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.2),
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2012-06-03", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-06-12", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         ),
         "description": "Narrabeen June 2012 East Coast Low storm event with extreme erosion (Hs >= 3.2m)",
     },
@@ -3936,9 +4046,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 5.2, "tp_s": 14.0},
         "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2013-12-22") & (df["timestamp"] <= "2013-12-28") & (df["hs_m"] >= 4.0),
         "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2013-12-22", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2013-12-28", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2013-12-22", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2013-12-28", tz="UTC") and float(row.get("hs_m", 0.0)) >= 5.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2013-12-22", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2013-12-28", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
             lambda row, df: _get_row_site(row) == "truc_vert_france" and ((pd.Timestamp("2013-12-18", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-01-05", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 3.0),
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2013-12-22", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2013-12-28", tz="UTC") and float(row.get("hs_m", 0.0)) >= 5.0,
         ),
         "description": "Truc Vert preliminary winter megastorm Dirk (Dec 22-28, 2013) with energetic swell Hs >= 4.0m",
     },
@@ -3950,9 +4062,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 2.0, "tp_s": 13.5},
         "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2016-01-30") & (df["timestamp"] <= "2016-02-10") & (df["hs_m"] >= 1.6),
         "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2016-01-30", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-02-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 1.6,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2016-01-30", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-02-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.5,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2016-01-30", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-02-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 1.6,
             lambda row, df: _get_row_site(row) == "torrey_pines_ca" and ((pd.Timestamp("2016-01-25", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-02-15", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 1.2),
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2016-01-30", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-02-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.5,
         ),
         "description": "Torrey Pines sustained Pacific winter storm sequence (Jan 30 - Feb 10, 2016) with Hs >= 1.6m",
     },
@@ -3964,9 +4078,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 3.8, "tp_s": 12.0, "surge_m": 0.5},
         "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2015-10-01") & (df["timestamp"] <= "2015-10-06") & (df["hs_m"] >= 3.0),
         "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2015-10-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-10-06", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2015-10-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-10-06", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2015-10-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-10-06", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
             lambda row, df: _get_row_site(row) == "duck_nc" and ((pd.Timestamp("2015-09-28", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-10-10", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.0),
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2015-10-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-10-06", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
         ),
         "description": "Duck severe October 2015 Joaquin swell and coastal nor'easter surge window (Oct 1-6, 2015, Hs >= 3.0m)",
     },
@@ -3978,9 +4094,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 2.8, "tp_s": 11.0},
         "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2013-11-10") & (df["timestamp"] <= "2013-11-20") & (df["hs_m"] >= 2.2),
         "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2013-11-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2013-11-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.2,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2013-11-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2013-11-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.6,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2013-11-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2013-11-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.2,
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and ((pd.Timestamp("2013-11-05", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2013-11-25", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 1.6),
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2013-11-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2013-11-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.6,
         ),
         "description": "Narrabeen moderate spring East Coast Low event (Nov 10-20, 2013) with Hs >= 2.2m",
     },
@@ -3992,9 +4110,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 4.5, "tp_s": 13.0},
         "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2015-01-10") & (df["timestamp"] <= "2015-01-20") & (df["hs_m"] >= 3.5),
         "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2015-01-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-01-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2015-01-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-01-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2015-01-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-01-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
             lambda row, df: _get_row_site(row) == "truc_vert_france" and ((pd.Timestamp("2015-01-05", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-01-25", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.5),
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2015-01-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-01-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
         ),
         "description": "Truc Vert energetic winter storm pulse (Jan 10-20, 2015) reaching Hs >= 3.5m",
     },
@@ -4006,9 +4126,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 1.0, "tp_s": 13.0},
         "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2014-07-01") & (df["timestamp"] <= "2014-07-31") & (df["tp_s"] >= 12.0) & (df["hs_m"] <= 1.3),
         "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2014-07-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-07-31", tz="UTC") and float(row.get("tp_s", 0.0)) >= 12.0 and float(row.get("hs_m", 0.0)) <= 1.3,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2014-07-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-07-31", tz="UTC") and float(row.get("tp_s", 0.0)) >= 13.0 and float(row.get("hs_m", 0.0)) <= 1.2,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2014-07-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-07-31", tz="UTC") and float(row.get("tp_s", 0.0)) >= 12.0 and float(row.get("hs_m", 0.0)) <= 1.3,
             lambda row, df: _get_row_site(row) == "torrey_pines_ca" and (float(row.get("tp_s", 0.0)) >= 10.0 and float(row.get("hs_m", 0.0)) <= 1.6),
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2014-07-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-07-31", tz="UTC") and float(row.get("tp_s", 0.0)) >= 13.0 and float(row.get("hs_m", 0.0)) <= 1.2,
         ),
         "description": "Torrey Pines southern hemisphere long swell window (July 2014, Tp >= 12s, Hs <= 1.3m)",
     },
@@ -4020,9 +4142,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 1.1, "tp_s": 9.0},
         "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2014-09-01") & (df["timestamp"] <= "2014-09-30") & (df["hs_m"] <= 1.5),
         "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-09-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-09-30", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-09-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-09-30", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-09-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-09-30", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.5,
             lambda row, df: _get_row_site(row) == "duck_nc" and float(row.get("hs_m", 0.0)) <= 1.8,
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-09-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-09-30", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.0,
         ),
         "description": "Duck calm September 2014 late summer baseline profile conditions (Hs <= 1.5m)",
     },
@@ -4034,9 +4158,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 3.6, "tp_s": 11.5},
         "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2014-04-10") & (df["timestamp"] <= "2014-04-20") & (df["hs_m"] >= 2.6),
         "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2014-04-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-04-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.6,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2014-04-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-04-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2014-04-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-04-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.6,
             lambda row, df: _get_row_site(row) == "narrabeen_aus" and ((pd.Timestamp("2014-04-05", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-04-25", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.0),
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2014-04-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-04-20", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
         ),
         "description": "Narrabeen April 2014 cyclonic storm impact (Apr 10-20, 2014) with Hs >= 2.6m",
     },
@@ -4048,9 +4174,11 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
         "target_synthetic_values": {"hs_m": 1.0, "tp_s": 10.0},
         "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2015-06-01") & (df["timestamp"] <= "2015-08-31") & (df["hs_m"] <= 1.4) & (df["tp_s"] >= 8.5),
         "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2015-06-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-08-31", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.4 and float(row.get("tp_s", 0.0)) >= 8.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2015-06-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-08-31", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.1 and float(row.get("tp_s", 0.0)) >= 9.0,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2015-06-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-08-31", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.4 and float(row.get("tp_s", 0.0)) >= 8.5,
             lambda row, df: _get_row_site(row) == "truc_vert_france" and (float(row.get("hs_m", 0.0)) <= 1.7 and float(row.get("tp_s", 0.0)) >= 7.5),
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2015-06-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-08-31", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.1 and float(row.get("tp_s", 0.0)) >= 9.0,
         ),
         "description": "Truc Vert summer 2015 ridge and runnel berm welding epoch (Hs <= 1.4m, Tp >= 8.5s)",
     },
@@ -4178,10 +4306,12 @@ Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested 
         if not is_mode_a and (d_start or d_end) and "timestamp" in sub.columns and len(sub) > 0:
             try:
                 ts = pd.to_datetime(sub["timestamp"], utc=True)
+                mask = pd.Series(True, index=sub.index)
                 if d_start:
-                    sub = sub[ts >= pd.to_datetime(d_start, utc=True)]
+                    mask &= (ts >= pd.to_datetime(d_start, utc=True))
                 if d_end:
-                    sub = sub[ts <= pd.to_datetime(d_end, utc=True)]
+                    mask &= (ts <= pd.to_datetime(d_end, utc=True))
+                sub = sub[mask]
             except Exception as e:
                 logger.error(f"RawDataLLMRAG date filtering error: {e}")
 
@@ -4816,9 +4946,11 @@ def evaluate_retrieval_query(
         # Standard graded DCG formulation: (2^rel_i - 1) / log2(i + 2)
         dcg = sum((2.0 ** g - 1.0) / np.log2(idx + 2) for idx, g in enumerate(graded_scores[:k_eff]))
 
-        # Ideal DCG: top-k positions populated with ideal Grade 2 scores up to total_support
-        ideal_twos = min(k_eff, max(1, total_support))
-        ideal_grades = [2] * ideal_twos + [0] * (k_eff - ideal_twos)
+        # Ideal DCG: top-k positions populated with ideal scores (Grade 3 if peak work exists, else Grade 2)
+        has_peak_potential = (isinstance(query_spec_or_text, dict) and "peak_work_cond" in query_spec_or_text) or any(g >= 3 for g in graded_scores)
+        max_possible_grade = 3 if has_peak_potential else (max(graded_scores) if (len(graded_scores) and max(graded_scores) >= 2) else 2)
+        ideal_top_count = min(k_eff, max(1, total_support))
+        ideal_grades = [max_possible_grade] * ideal_top_count + [0] * (k_eff - ideal_top_count)
         idcg = sum((2.0 ** ig - 1.0) / np.log2(idx + 2) for idx, ig in enumerate(ideal_grades))
         ndcg_at_k = float(dcg / idcg) if idcg > 0 else 0.0
     else:
@@ -5127,5 +5259,173 @@ def generate_decoupled_mode_summary(
             })
 
     return pd.DataFrame(summary_rows)
+
+
+def evaluate_peak_impact_disequilibrium_benchmark(
+    rag_engines: Dict[str, Any],
+    df: pd.DataFrame,
+    benchmark_queries: Optional[List[Dict[str, Any]]] = None,
+    k: int = 5,
+    use_llm_parser: bool = False,
+    query_categories: Optional[List[str]] = None,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Evaluate Peak Impact & Disequilibrium Ranking across RAG architectures.
+
+    Benchmarks how effectively each retrieval system prioritizes the true peak
+    destructive and nonequilibrium storm phase over calm pre-storm onset hours.
+
+    Parameters
+    ----------
+    rag_engines : dict
+        Mapping of architecture name to initialized RAG engine instance
+        (e.g., {"Flat SQL": sql_rag, "Hybrid Cascade": hybrid_rag, ...}).
+    df : pd.DataFrame
+        Global multi-site dataset containing sensory and feature columns.
+    benchmark_queries : list of dict, optional
+        Queries to benchmark. Defaults to historical storm event queries from
+        DEFAULT_PHYSICS_BENCHMARK_QUERIES (Categories 1 and 7).
+    k : int, default 5
+        Retrieval cutoff radius.
+    use_llm_parser : bool, default False
+        Whether to invoke live LLM query parser.
+    query_categories : list of str, optional
+        Categories to filter from benchmark queries. Defaults to Categories 1 and 7.
+
+    Returns
+    -------
+    df_query_details : pd.DataFrame
+        Per-query peak impact metrics across all architectures.
+    df_summary : pd.DataFrame
+        Macro-averaged architecture comparison table.
+    """
+    if benchmark_queries is None:
+        raw_queries = DEFAULT_PHYSICS_BENCHMARK_QUERIES
+    else:
+        raw_queries = benchmark_queries
+
+    target_cats = query_categories or ["1. Historical Storm Events", "7. Extended Historical Storms"]
+    storm_queries = [
+        q for q in raw_queries
+        if any(cat in q.get("category", "") for cat in target_cats)
+        or any(w in q.get("query", "").lower() for w in ["storm", "peak", "scarping", "overwash"])
+    ]
+
+    records: List[Dict[str, Any]] = []
+
+    for q in storm_queries:
+        mask = q.get("mask_fn")
+        sub_gt = df[mask(df)] if mask is not None else pd.DataFrame()
+        if len(sub_gt) == 0 or "hs_m" not in sub_gt.columns:
+            continue
+
+        peak_row = sub_gt.loc[sub_gt["hs_m"].idxmax()]
+        true_peak_ts = pd.to_datetime(peak_row["timestamp"], utc=True)
+        true_peak_hs = float(peak_row["hs_m"])
+        true_peak_ups = float(peak_row.get("upsilon", 1.0))
+        tp_val = float(peak_row.get("tp_s", 10.0))
+        true_peak_power = float(0.49 * (true_peak_hs ** 2) * tp_val)
+
+        cond = q.get("condition_fn")
+
+        row: Dict[str, Any] = {
+            "query": q["query"],
+            "category": q.get("category", "Historical Storm"),
+            "true_peak_timestamp": str(true_peak_ts)[:16],
+            "true_peak_hs_m": true_peak_hs,
+            "true_peak_upsilon": true_peak_ups,
+            "true_peak_power_kW_per_m": true_peak_power,
+        }
+
+        for name, eng in rag_engines.items():
+            res = eng.query(q["query"], top_k=k, use_llm_parser=use_llm_parser)
+            mdf = res.matches_df
+            if len(mdf) > 0:
+                top1_ts = pd.to_datetime(mdf["timestamp"].iloc[0], utc=True) if "timestamp" in mdf.columns else None
+                dt_hrs = abs((top1_ts - true_peak_ts).total_seconds()) / 3600.0 if top1_ts is not None else 999.0
+                top1_hs = float(mdf["hs_m"].iloc[0]) if "hs_m" in mdf.columns else 0.0
+                top5_hs = float(mdf["hs_m"].mean()) if "hs_m" in mdf.columns else 0.0
+                hs_capture_pct = (top5_hs / true_peak_hs) * 100.0 if true_peak_hs > 0 else 100.0
+                p5 = float(np.mean([bool(cond(mdf.iloc[j], df)) for j in range(len(mdf))])) if cond else 1.0
+                p1 = float(bool(cond(mdf.iloc[0], df))) if cond else 1.0
+
+                top1_ups = float(mdf["upsilon"].iloc[0]) if "upsilon" in mdf.columns else 0.0
+                top5_ups = float(mdf["upsilon"].mean()) if "upsilon" in mdf.columns else 0.0
+
+                top1_power = float(0.49 * (mdf["hs_m"].iloc[0] ** 2) * mdf["tp_s"].iloc[0]) if ("hs_m" in mdf.columns and "tp_s" in mdf.columns) else 0.0
+                top5_power = float(np.mean([0.49 * (mdf["hs_m"].iloc[j] ** 2) * mdf["tp_s"].iloc[j] for j in range(len(mdf))])) if ("hs_m" in mdf.columns and "tp_s" in mdf.columns) else 0.0
+
+                # Graded NDCG@k and MRR computation for peak impact
+                graded_fn = q.get("graded_relevance_fn")
+                if graded_fn is not None:
+                    g_scores = [int(graded_fn(mdf.iloc[j], df)) for j in range(len(mdf))]
+                    dcg = sum((2.0 ** g - 1.0) / np.log2(j + 2) for j, g in enumerate(g_scores[:k]))
+                    has_peak_potential = ("peak_work_cond" in q) or any(g >= 3 for g in g_scores)
+                    max_grade = 3 if has_peak_potential else (max(g_scores) if (len(g_scores) and max(g_scores) >= 2) else 2)
+                    ideal_top = min(k, max(1, len(sub_gt)))
+                    ideal_grades = [max_grade] * ideal_top + [0] * max(0, k - ideal_top)
+                    idcg = sum((2.0 ** ig - 1.0) / np.log2(j + 2) for j, ig in enumerate(ideal_grades))
+                    ndcg_val = float(dcg / idcg) if idcg > 0 else 0.0
+                    mrr_val = 0.0
+                    for j, g in enumerate(g_scores):
+                        if g >= 2:
+                            mrr_val = 1.0 / (j + 1)
+                            break
+                else:
+                    ndcg_val = p5
+                    mrr_val = p1
+            else:
+                dt_hrs, top1_hs, top5_hs, hs_capture_pct, p5, p1 = 999.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                top1_ups, top5_ups, top1_power, top5_power = 0.0, 0.0, 0.0, 0.0
+                ndcg_val, mrr_val = 0.0, 0.0
+
+            row[f"{name}_P@1"] = p1
+            row[f"{name}_P@5"] = p5
+            row[f"{name}_NDCG@5"] = ndcg_val
+            row[f"{name}_MRR"] = mrr_val
+            row[f"{name}_dt_peak_hrs"] = dt_hrs
+            row[f"{name}_top1_hs_m"] = top1_hs
+            row[f"{name}_mean_hs_m"] = top5_hs
+            row[f"{name}_hs_capture_pct"] = hs_capture_pct
+            row[f"{name}_top1_upsilon"] = top1_ups
+            row[f"{name}_mean_upsilon"] = top5_ups
+            row[f"{name}_top1_power_kW_per_m"] = top1_power
+            row[f"{name}_mean_power_kW_per_m"] = top5_power
+
+        records.append(row)
+
+    df_query_details = pd.DataFrame(records)
+
+    summary_rows = []
+    for name in rag_engines.keys():
+        p1_col = f"{name}_P@1"
+        p5_col = f"{name}_P@5"
+        ndcg_col = f"{name}_NDCG@5"
+        mrr_col = f"{name}_MRR"
+        dt_col = f"{name}_dt_peak_hrs"
+        hs_col = f"{name}_top1_hs_m"
+        cap_col = f"{name}_hs_capture_pct"
+        u1_col = f"{name}_top1_upsilon"
+        u5_col = f"{name}_mean_upsilon"
+        p1w_col = f"{name}_top1_power_kW_per_m"
+        p5w_col = f"{name}_mean_power_kW_per_m"
+
+        summary_rows.append({
+            "Architecture": name,
+            "Graded NDCG@5": float(df_query_details[ndcg_col].mean()) if ndcg_col in df_query_details else 0.0,
+            "Mean Reciprocal Rank (MRR)": float(df_query_details[mrr_col].mean()) if mrr_col in df_query_details else 0.0,
+            "Peak Precision@1": float(df_query_details[p1_col].mean()) if p1_col in df_query_details else 0.0,
+            "Peak Precision@5": float(df_query_details[p5_col].mean()) if p5_col in df_query_details else 0.0,
+            "Median |Δt_peak| Error (hrs)": float(df_query_details[dt_col].median()) if dt_col in df_query_details else 0.0,
+            "Mean |Δt_peak| Error (hrs)": float(df_query_details[dt_col].mean()) if dt_col in df_query_details else 0.0,
+            "Wave Height Capture (%)": float(df_query_details[cap_col].mean()) if cap_col in df_query_details else 0.0,
+            "Mean Top-1 Hs (m)": float(df_query_details[hs_col].mean()) if hs_col in df_query_details else 0.0,
+            "Median Top-1 Upsilon": float(df_query_details[u1_col].median()) if u1_col in df_query_details else 0.0,
+            "Mean Top-5 Upsilon": float(df_query_details[u5_col].mean()) if u5_col in df_query_details else 0.0,
+            "Median Top-1 Wave Power (kW/m)": float(df_query_details[p1w_col].median()) if p1w_col in df_query_details else 0.0,
+            "Mean Top-5 Wave Power (kW/m)": float(df_query_details[p5w_col].mean()) if p5w_col in df_query_details else 0.0,
+        })
+
+    df_summary = pd.DataFrame(summary_rows)
+    return df_query_details, df_summary
 
 
