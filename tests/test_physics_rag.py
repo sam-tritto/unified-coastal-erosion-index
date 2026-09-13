@@ -734,10 +734,10 @@ def test_raw_data_llm_rag_site_and_date_filtering():
 
 
 def test_decoupled_benchmark_query_stratification():
-    """Verify DEFAULT_PHYSICS_BENCHMARK_QUERIES has exactly 15 Mode A and 15 Mode B queries."""
-    assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES) == 30
-    assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A) == 15
-    assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B) == 15
+    """Verify DEFAULT_PHYSICS_BENCHMARK_QUERIES has exactly 30 Mode A and 30 Mode B queries (60 total)."""
+    assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES) == 60
+    assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A) == 30
+    assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B) == 30
 
     for q in DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A:
         assert "Mode A" in q.get("mode", "")
@@ -749,6 +749,37 @@ def test_decoupled_benchmark_query_stratification():
     q16 = DEFAULT_PHYSICS_BENCHMARK_QUERIES[16]
     assert "extreme wave dissipation during active dune scarping" in q16["query"].lower()
     assert "Mode A" in q16["mode"]
+
+
+def test_evaluate_rag_benchmark_suite_configurable_n():
+    """Verify n_queries parameter allows slicing 1 to 60 queries while preserving balanced stratification."""
+    df = pd.DataFrame({
+        "site_id": ["narrabeen_aus", "duck_nc", "torrey_pines_ca", "truc_vert_france"] * 5,
+        "timestamp": pd.date_range("2012-01-01", periods=20, freq="6ME"),
+        "hs_m": np.linspace(1.0, 5.0, 20),
+        "tp_s": np.linspace(8.0, 16.0, 20),
+        "total_water_level_m": np.linspace(0.5, 2.5, 20),
+        "xi_iribarren": np.linspace(0.2, 1.5, 20),
+        "breaker_regime": ["Spilling"] * 7 + ["Plunging"] * 7 + ["Surging"] * 6,
+        "p_flux_Wm": np.linspace(10000, 80000, 20),
+    })
+    rag = RuleBasedSQLRAG(df)
+
+    # Test N=4: should return 2 Mode A and 2 Mode B queries
+    df_4, _ = evaluate_rag_benchmark_suite(rag=rag, n_queries=4, k_list=[1, 5])
+    assert len(df_4) == 4
+    counts_4 = df_4["Mode"].value_counts().to_dict()
+    assert counts_4.get("Mode A: Pure Phenomenological", 0) == 2
+    assert counts_4.get("Mode B: Full Operational", 0) == 2
+
+    # Test N=1: should return 1 query
+    df_1, _ = evaluate_rag_benchmark_suite(rag=rag, n_queries=1, k_list=[1, 5])
+    assert len(df_1) == 1
+
+    # Test mode_a with N=5
+    df_a, _ = evaluate_rag_benchmark_suite(rag=rag, benchmark_mode="mode_a", n_queries=5, k_list=[1, 5])
+    assert len(df_a) == 5
+    assert (df_a["Mode"] == "Mode A: Pure Phenomenological").all()
 
 
 def test_mode_a_pure_phenomenological_bypasses_filters():
