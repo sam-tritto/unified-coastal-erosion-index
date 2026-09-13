@@ -2134,6 +2134,76 @@ def compute_dimensionless_upsilon(
     return np.asarray(upsilon, dtype=float) / ref
 
 
+def compute_direction_aware_upsilon_disequilibrium(
+    upsilon: Union[float, np.ndarray],
+    upsilon_ref: Union[float, np.ndarray],
+    upsilon_crit: Optional[Union[float, np.ndarray]] = None,
+    target: str = "erosion",
+    sigma: float = 0.35,
+    recovery_mode: str = "capacity_deficit",
+) -> Union[float, np.ndarray]:
+    """Compute Direction-Aware Signed Upsilon Disequilibrium Score S_Upsilon(t).
+
+    Theoretical Formulation:
+    - Erosive / Storm Queries (target = 'erosion'):
+        S_Upsilon(t) = ReLU(Upsilon*(t) - 1.0)
+    - Constructive Swash / Accretion Queries (target = 'recovery'):
+        S_Upsilon(t) = ReLU(1.0 - Upsilon*(t))  [if recovery_mode == 'capacity_deficit']
+        or ReLU((Upsilon_crit - Upsilon(t)) / Upsilon_ref) [if recovery_mode == 'critical_deficit']
+        or max(ReLU(1.0 - Upsilon*), ReLU((Upsilon_crit - Upsilon) / Upsilon_ref)) [if recovery_mode == 'combined']
+    - Equilibrium Background Queries (target = 'equilibrium'):
+        S_Upsilon(t) = exp(- (Upsilon*(t) - 1.0)^2 / (2 * sigma^2))
+
+    Parameters
+    ----------
+    upsilon : float or np.ndarray
+        Dimensional Unified Coastal Vulnerability Index Upsilon [kg/s].
+    upsilon_ref : float or np.ndarray
+        Site reference kinetic forcing flux Upsilon_ref [kg/s].
+    upsilon_crit : float or np.ndarray, optional
+        Critical threshold shear activation flux Upsilon_crit [kg/s].
+    target : str, default 'erosion'
+        Target intent: 'erosion', 'recovery', or 'equilibrium'.
+    sigma : float, default 0.35
+        Gaussian scale parameter for equilibrium background centering.
+    recovery_mode : str, default 'capacity_deficit'
+        Mode for recovery calculation: 'capacity_deficit' (ReLU(1.0 - Upsilon*)),
+        'critical_deficit' (ReLU((Upsilon_crit - Upsilon) / Upsilon_ref)),
+        or 'combined' (maximum of both).
+
+    Returns
+    -------
+    s_upsilon : float or np.ndarray
+        Direction-aware disequilibrium score S_Upsilon(t).
+    """
+    u_arr = np.asarray(upsilon, dtype=float)
+    ref_arr = np.maximum(np.asarray(upsilon_ref, dtype=float), 1e-6)
+    u_star = u_arr / ref_arr
+
+    target_clean = str(target).lower().strip()
+    if target_clean in ["recovery", "accretion", "accretive", "swash", "berm", "calm"]:
+        if recovery_mode in ["critical_deficit", "crit"] and upsilon_crit is not None:
+            crit_arr = np.asarray(upsilon_crit, dtype=float)
+            score = np.maximum(0.0, (crit_arr - u_arr) / ref_arr)
+        elif recovery_mode == "combined" and upsilon_crit is not None:
+            crit_arr = np.asarray(upsilon_crit, dtype=float)
+            score_cap = np.maximum(0.0, 1.0 - u_star)
+            score_crit = np.maximum(0.0, (crit_arr - u_arr) / ref_arr)
+            score = np.maximum(score_cap, score_crit)
+        else:
+            score = np.maximum(0.0, 1.0 - u_star)
+    elif target_clean in ["equilibrium", "steady_state", "stable", "background", "neutral"]:
+        score = np.exp(-((u_star - 1.0) ** 2) / (2.0 * (sigma ** 2)))
+    else:
+        # Default: erosion / storm / peak
+        score = np.maximum(0.0, u_star - 1.0)
+
+    if np.isscalar(upsilon) and np.isscalar(upsilon_ref):
+        return float(score)
+    return score
+
+
+
 def compute_unified_coastal_vulnerability_index(
     hs: Union[float, np.ndarray],
     tp: Union[float, np.ndarray],

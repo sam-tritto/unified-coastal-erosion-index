@@ -235,6 +235,247 @@ DEFAULT_UPSILON_FEATURE_WEIGHTS: Dict[str, float] = {
 }
 
 
+def determine_upsilon_target_intent(
+    spec: Optional[PhysicsQuerySpec] = None,
+    query_text: str = "",
+) -> str:
+    """Classify physical query intent into one of three direction-aware target regimes:
+    - 'erosion': Storms, beach cut, scarping, overwash, high wave energy (S_Upsilon = ReLU(Upsilon* - 1.0)).
+    - 'recovery': Constructive swash, berm accretion, healing, post-storm calm (S_Upsilon = ReLU(1.0 - Upsilon*)).
+    - 'equilibrium': Mean carrying capacity, steady-state background, stability (S_Upsilon = exp(- (Upsilon* - 1.0)^2 / (2*sigma^2))).
+
+    Parameters
+    ----------
+    spec : PhysicsQuerySpec, optional
+        Structured query specification.
+    query_text : str, default ""
+        Raw query text string.
+
+    Returns
+    -------
+    target_intent : str
+        One of 'erosion', 'recovery', or 'equilibrium'.
+    """
+    q_lower = (query_text or "").lower()
+
+    # 1. Recovery / Accretion Intent
+    is_recovery = False
+    if spec is not None:
+        if getattr(spec, "morphology", None) == "Accretive":
+            is_recovery = True
+        elif getattr(spec, "phase", None) == "Recovery":
+            is_recovery = True
+        elif getattr(spec, "query_recovery_timeframe", False):
+            is_recovery = True
+        elif getattr(spec, "target_state", None) in ["State_PostStormRecovery", "State_CalmFairWeather"]:
+            is_recovery = True
+        elif getattr(spec, "focus", None) in ["calm", "recovery"]:
+            is_recovery = True
+        elif getattr(spec, "max_upsilon_percentile", None) is not None:
+            is_recovery = True
+
+    if not is_recovery:
+        recovery_keywords = [
+            "accretion", "accretive", "recovery", "berm welding", "berm building",
+            "berm accretion", "constructive swash", "constructive wave", "swash welding",
+            "healing", "fair weather", "calm", "mild swell", "low wave", "low energy"
+        ]
+        if any(k in q_lower for k in recovery_keywords):
+            is_recovery = True
+
+    if is_recovery:
+        return "recovery"
+
+    # 2. Equilibrium Background Intent
+    is_equilibrium = False
+    if spec is not None:
+        if getattr(spec, "morphology", None) == "Equilibrium":
+            is_equilibrium = True
+        elif getattr(spec, "phase", None) == "Equilibrium":
+            is_equilibrium = True
+        elif getattr(spec, "target_state", None) in ["State_Equilibrium", "State_Background"]:
+            is_equilibrium = True
+
+    if not is_equilibrium:
+        eq_keywords = [
+            "equilibrium", "carrying capacity", "background flux",
+            "steady state", "stable beach", "quasi-equilibrium"
+        ]
+        if any(k in q_lower for k in eq_keywords):
+            is_equilibrium = True
+
+    if is_equilibrium:
+        return "equilibrium"
+
+    # 3. Default: Erosion / Storm
+    return "erosion"
+
+
+def compute_direction_aware_upsilon_disequilibrium(
+    upsilon: Union[float, np.ndarray],
+    upsilon_ref: Union[float, np.ndarray],
+    upsilon_crit: Optional[Union[float, np.ndarray]] = None,
+    target: str = "erosion",
+    sigma: float = 0.35,
+    recovery_mode: str = "capacity_deficit",
+) -> Union[float, np.ndarray]:
+    """Compute Direction-Aware Signed Upsilon Disequilibrium Score S_Upsilon(t).
+
+    Theoretical Formulation:
+    - Erosive / Storm Queries (target = 'erosion'):
+        S_Upsilon(t) = ReLU(Upsilon*(t) - 1.0)
+    - Constructive Swash / Accretion Queries (target = 'recovery'):
+        S_Upsilon(t) = ReLU(1.0 - Upsilon*(t))  [if recovery_mode == 'capacity_deficit']
+        or ReLU((Upsilon_crit - Upsilon(t)) / Upsilon_ref) [if recovery_mode == 'critical_deficit']
+        or max(ReLU(1.0 - Upsilon*), ReLU((Upsilon_crit - Upsilon) / Upsilon_ref)) [if recovery_mode == 'combined']
+    - Equilibrium Background Queries (target = 'equilibrium'):
+        S_Upsilon(t) = exp(- (Upsilon*(t) - 1.0)^2 / (2 * sigma^2))
+
+    Parameters
+    ----------
+    upsilon : float or np.ndarray
+        Dimensional Unified Coastal Vulnerability Index Upsilon [kg/s].
+    upsilon_ref : float or np.ndarray
+        Site reference kinetic forcing flux Upsilon_ref [kg/s].
+    upsilon_crit : float or np.ndarray, optional
+        Critical threshold shear activation flux Upsilon_crit [kg/s].
+    target : str, default 'erosion'
+        Target intent: 'erosion', 'recovery', or 'equilibrium'.
+    sigma : float, default 0.35
+        Gaussian scale parameter for equilibrium background centering.
+    recovery_mode : str, default 'capacity_deficit'
+        Mode for recovery calculation: 'capacity_deficit' (ReLU(1.0 - Upsilon*)),
+        'critical_deficit' (ReLU((Upsilon_crit - Upsilon) / Upsilon_ref)),
+        or 'combined' (maximum of both).
+
+    Returns
+    -------
+    s_upsilon : float or np.ndarray
+        Direction-aware disequilibrium score S_Upsilon(t).
+    """
+    u_arr = np.asarray(upsilon, dtype=float)
+    ref_arr = np.maximum(np.asarray(upsilon_ref, dtype=float), 1e-6)
+    u_star = u_arr / ref_arr
+
+    target_clean = str(target).lower().strip()
+    if target_clean in ["recovery", "accretion", "accretive", "swash", "berm", "calm"]:
+        if recovery_mode in ["critical_deficit", "crit"] and upsilon_crit is not None:
+            crit_arr = np.asarray(upsilon_crit, dtype=float)
+            score = np.maximum(0.0, (crit_arr - u_arr) / ref_arr)
+        elif recovery_mode == "combined" and upsilon_crit is not None:
+            crit_arr = np.asarray(upsilon_crit, dtype=float)
+            score_cap = np.maximum(0.0, 1.0 - u_star)
+            score_crit = np.maximum(0.0, (crit_arr - u_arr) / ref_arr)
+            score = np.maximum(score_cap, score_crit)
+        else:
+            score = np.maximum(0.0, 1.0 - u_star)
+    elif target_clean in ["equilibrium", "steady_state", "stable", "background", "neutral"]:
+        score = np.exp(-((u_star - 1.0) ** 2) / (2.0 * (sigma ** 2)))
+    else:
+        # Default: erosion / storm / peak
+        score = np.maximum(0.0, u_star - 1.0)
+
+    if np.isscalar(upsilon) and np.isscalar(upsilon_ref):
+        return float(score)
+    return score
+
+
+def compute_ranks(scores: Union[np.ndarray, List[float]]) -> np.ndarray:
+    """Compute 1-based ranks from scores in descending order (highest score -> rank 1).
+
+    Handles ties by assigning the average rank to tied elements, matching
+    `scipy.stats.rankdata(-scores, method='average')`.
+
+    Parameters
+    ----------
+    scores : Union[np.ndarray, List[float]]
+        1D array of scores to rank.
+
+    Returns
+    -------
+    ranks : np.ndarray
+        1-based ranks (1.0 to N).
+    """
+    scores_arr = np.asarray(scores, dtype=float)
+    n = len(scores_arr)
+    if n == 0:
+        return np.array([], dtype=float)
+    if n == 1:
+        return np.array([1.0], dtype=float)
+
+    scores_arr = np.nan_to_num(scores_arr, nan=-1e9, posinf=1e9, neginf=-1e9)
+
+    if np.all(scores_arr == scores_arr[0]):
+        return np.full(n, (1.0 + n) / 2.0, dtype=float)
+
+    try:
+        from scipy.stats import rankdata
+        return rankdata(-scores_arr, method="average")
+    except ImportError:
+        order = np.argsort(-scores_arr, kind="mergesort")
+        sorted_scores = scores_arr[order]
+        ranks = np.empty(n, dtype=float)
+        i = 0
+        while i < n:
+            j = i
+            while j < n - 1 and sorted_scores[j + 1] == sorted_scores[i]:
+                j += 1
+            avg_rank = (i + j + 2) / 2.0
+            ranks[order[i : j + 1]] = avg_rank
+            i = j + 1
+        return ranks
+
+
+def compute_reciprocal_rank_fusion(
+    scores_dict: Dict[str, Union[np.ndarray, List[float]]],
+    weights: Optional[Dict[str, float]] = None,
+    k0: int = 60,
+) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+    r"""Compute Reciprocal Rank Fusion (RRF) scores across multiple ranking channels.
+
+    Formula (Cormack, Clarke, & Buettcher, SIGIR 2009):
+    $$\text{RRF\_Score}(d) = \sum_{c \in C} \frac{w_c}{k_0 + \text{rank}_c(d)}$$
+
+    RRF is scale-invariant, immune to outlier distortion, and provides a principled,
+    peer-reviewed consensus ranking across heterogeneous retrieval channels
+    (e.g., dense latent embeddings, physical relational constraints, and hydrodynamic disequilibrium).
+
+    Parameters
+    ----------
+    scores_dict : Dict[str, Union[np.ndarray, List[float]]]
+        Dictionary mapping channel names (e.g. 'cos', 'constraints', 'upsilon')
+        to 1D score arrays where higher values indicate stronger relevance.
+    weights : Optional[Dict[str, float]], default None
+        Channel weights $w_c$. If None or missing for a channel, defaults to 1.0.
+    k0 : int, default 60
+        RRF smoothing constant preventing top-ranked items from excessively dominating.
+        Standard IR constant is 60.
+
+    Returns
+    -------
+    rrf_scores : np.ndarray
+        Total fused RRF score for each candidate.
+    ranks_dict : Dict[str, np.ndarray]
+        Dictionary of 1-based ranks for each channel.
+    """
+    if not scores_dict:
+        return np.array([], dtype=float), {}
+
+    weights = weights or {}
+    first_arr = next(iter(scores_dict.values()))
+    n = len(first_arr)
+    rrf_scores = np.zeros(n, dtype=float)
+    ranks_dict: Dict[str, np.ndarray] = {}
+
+    for channel, scores in scores_dict.items():
+        w = float(weights.get(channel, 1.0))
+        ranks = compute_ranks(scores)
+        ranks_dict[channel] = ranks
+        rrf_scores += w / (float(k0) + ranks)
+
+    return rrf_scores, ranks_dict
+
+
 class PhysicsQueryParser:
     """Deterministic rule-based parser for physical criteria and target embedding profiles."""
 
@@ -1090,7 +1331,8 @@ class PhysicsRAGResult:
         display_cols = [
             c for c in [
                 "timestamp", "hs_m", "tp_s", "surge_m", "wind_normal_ms",
-                "xi_iribarren", "breaker_regime", "upsilon", "upsilon_diseq", "delta_x_m", "similarity"
+                "xi_iribarren", "breaker_regime", "upsilon", "upsilon_diseq", "delta_x_m",
+                "similarity", "rrf_score"
             ] if c in self.matches_df.columns
         ]
 
@@ -1844,14 +2086,33 @@ class HybridPhysicsRAG(PhysicsRAG):
         *args: Any,
         alpha: float = 0.35,
         regime_boost: float = 0.10,
+        rrf_k: int = 60,
+        rrf_weights: Optional[Dict[str, float]] = None,
+        w_cos: float = 1.0,
+        w_constraints: float = 1.0,
+        w_upsilon: float = 1.0,
         **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
         self.alpha = alpha
         self.regime_boost = regime_boost
+        self.rrf_k = rrf_k
+        self.rrf_weights = rrf_weights or {
+            "cos": w_cos,
+            "constraints": w_constraints,
+            "upsilon": w_upsilon,
+        }
 
     @classmethod
-    def from_physics_rag(cls, rag: PhysicsRAG, alpha: float = 0.35, regime_boost: float = 0.10) -> "HybridPhysicsRAG":
+    def from_physics_rag(
+        cls,
+        rag: PhysicsRAG,
+        alpha: float = 0.35,
+        regime_boost: float = 0.10,
+        rrf_k: int = 60,
+        rrf_weights: Optional[Dict[str, float]] = None,
+        **kwargs: Any,
+    ) -> "HybridPhysicsRAG":
         """Construct a HybridPhysicsRAG from an existing PhysicsRAG instance (zero-copy)."""
         hybrid = cls.__new__(cls)
         hybrid.df = rag.df
@@ -1866,6 +2127,8 @@ class HybridPhysicsRAG(PhysicsRAG):
         hybrid.centroids = rag.centroids
         hybrid.alpha = alpha
         hybrid.regime_boost = regime_boost
+        hybrid.rrf_k = rrf_k
+        hybrid.rrf_weights = rrf_weights or {"cos": 1.0, "constraints": 1.0, "upsilon": 1.0}
         hybrid.use_weighted_similarity = getattr(rag, "use_weighted_similarity", True)
         hybrid.feature_weights = getattr(rag, "feature_weights", DEFAULT_UPSILON_FEATURE_WEIGHTS)
         hybrid.feature_weight_vec = getattr(rag, "feature_weight_vec", np.ones(rag.embeddings.shape[1]))
@@ -2177,84 +2440,184 @@ class HybridPhysicsRAG(PhysicsRAG):
         if spec.breaker_regime and "breaker_regime" in self.df.columns:
             reg_match = (self.df["breaker_regime"].values[candidate_indices] == spec.breaker_regime).astype(float)
 
-        # Site-normalized disequilibrium boost (Delta Upsilon*)
-        ups_norm = np.zeros(len(candidate_indices), dtype=float)
-        if "delta_upsilon_star" in self.df.columns:
-            du_vals = self.df["delta_upsilon_star"].values[candidate_indices]
-            du_exc = np.maximum(0.0, du_vals)
-            if du_exc.max() > 0:
-                ups_norm = du_exc / du_exc.max()
-        elif "upsilon_star_excess" in self.df.columns:
-            du_vals = self.df["upsilon_star_excess"].values[candidate_indices]
-            du_exc = np.maximum(0.0, du_vals)
-            if du_exc.max() > 0:
-                ups_norm = du_exc / du_exc.max()
+        # Direction-Aware Signed Upsilon Disequilibrium Scoring (Erosion, Recovery, Equilibrium)
+        q_raw = getattr(spec, "raw_query", "") or ""
+        target_intent = determine_upsilon_target_intent(spec, q_raw)
+
+        # 1. Resolve normalized relative forcing Upsilon* = Upsilon / Upsilon_ref
+        if "upsilon_star" in self.df.columns:
+            u_star_cands = self.df["upsilon_star"].values[candidate_indices]
+        elif "upsilon" in self.df.columns and "upsilon_ref" in self.df.columns:
+            u_cands = self.df["upsilon"].values[candidate_indices]
+            u_ref_cands = np.maximum(self.df["upsilon_ref"].values[candidate_indices], 1e-6)
+            u_star_cands = u_cands / u_ref_cands
         elif "upsilon" in self.df.columns:
             site_stats = getattr(self, "site_equilibrium_stats", None) or {}
             site_col = "site_id" if "site_id" in self.df.columns else ("site" if "site" in self.df.columns else None)
-            u_vals = self.df["upsilon"].values[candidate_indices]
-            du_arr = np.zeros(len(candidate_indices), dtype=float)
+            u_cands = self.df["upsilon"].values[candidate_indices]
+            u_star_cands = np.zeros(len(candidate_indices), dtype=float)
             for idx_local, c_idx in enumerate(candidate_indices):
                 s_name = str(self.df[site_col].iloc[c_idx]) if (site_col and site_col in self.df.columns) else "_global"
                 s_stat = site_stats.get(s_name, site_stats.get("_global", {"eq": 1500.0, "crit": 8000.0}))
-                du_arr[idx_local] = max(0.0, (u_vals[idx_local] - s_stat["eq"]) / s_stat["crit"])
-            if du_arr.max() > 0:
-                ups_norm = du_arr / du_arr.max()
+                u_star_cands[idx_local] = u_cands[idx_local] / max(s_stat.get("eq", 1500.0), 1e-6)
+        else:
+            u_star_cands = np.ones(len(candidate_indices), dtype=float)
 
-        # Directional Pareto excess bonus for minimum extreme physical queries
+        # 2. Compute Direction-Aware Disequilibrium Score S_Upsilon(t)
+        if target_intent == "recovery":
+            # Constructive Swash / Accretion: S_Upsilon(t) = ReLU(1.0 - Upsilon*(t))
+            # or ReLU((Upsilon_crit - Upsilon(t)) / Upsilon_ref)
+            s_ups = np.maximum(0.0, 1.0 - u_star_cands)
+            if "upsilon_crit" in self.df.columns and "upsilon" in self.df.columns and "upsilon_ref" in self.df.columns:
+                u_crit_cands = self.df["upsilon_crit"].values[candidate_indices]
+                u_cands = self.df["upsilon"].values[candidate_indices]
+                u_ref_cands = np.maximum(self.df["upsilon_ref"].values[candidate_indices], 1e-6)
+                s_crit_deficit = np.maximum(0.0, (u_crit_cands - u_cands) / u_ref_cands)
+                s_ups = np.maximum(s_ups, s_crit_deficit)
+        elif target_intent == "equilibrium":
+            # Equilibrium Background: S_Upsilon(t) = exp(- (Upsilon*(t) - 1.0)^2 / (2 * sigma^2))
+            sigma_eq = 0.35
+            s_ups = np.exp(-((u_star_cands - 1.0) ** 2) / (2.0 * (sigma_eq ** 2)))
+        else:
+            # Erosive / Storm Queries: S_Upsilon(t) = ReLU(Upsilon*(t) - 1.0)
+            s_ups = np.maximum(0.0, u_star_cands - 1.0)
+
+        # Normalize disequilibrium score across candidate pool to [0, 1]
+        ups_norm = np.zeros(len(candidate_indices), dtype=float)
+        if len(s_ups) > 0 and s_ups.max() > 0:
+            ups_norm = s_ups / s_ups.max()
+
+        # Directional Pareto excess bonus for physical extremes matching query intent
         pareto_boost = np.zeros(len(candidate_indices), dtype=float)
         has_directional_extreme = False
 
-        if spec.hs_min is not None and "hs_m" in self.df.columns:
-            hs_cand = self.df["hs_m"].values[candidate_indices]
-            hs_exc = np.maximum(0.0, hs_cand - spec.hs_min)
-            if hs_exc.max() > 0:
-                pareto_boost += hs_exc / hs_exc.max()
-                has_directional_extreme = True
-
-        if spec.surge_min is not None and "surge_m" in self.df.columns:
-            s_cand = self.df["surge_m"].values[candidate_indices]
-            s_exc = np.maximum(0.0, s_cand - spec.surge_min)
-            if s_exc.max() > 0:
-                pareto_boost += s_exc / s_exc.max()
-                has_directional_extreme = True
-
-        q_raw = getattr(spec, "raw_query", "") or ""
-        synth_vals = spec.target_synthetic_values or {}
-        if any(w in q_raw.lower() for w in ["power flux", "kw", "wave power"]) or "p_flux_Wm" in synth_vals or "p_flux" in synth_vals:
-            if "p_flux_Wm" in self.df.columns:
-                p_cand = self.df["p_flux_Wm"].values[candidate_indices]
-                p_thresh = float(synth_vals.get("p_flux_Wm", synth_vals.get("p_flux", 50000.0)))
-                p_exc = np.maximum(0.0, p_cand - p_thresh)
-                if p_exc.max() > 0:
-                    pareto_boost += p_exc / p_exc.max()
+        if target_intent == "erosion":
+            if spec.hs_min is not None and "hs_m" in self.df.columns:
+                hs_cand = self.df["hs_m"].values[candidate_indices]
+                hs_exc = np.maximum(0.0, hs_cand - spec.hs_min)
+                if hs_exc.max() > 0:
+                    pareto_boost += hs_exc / hs_exc.max()
                     has_directional_extreme = True
 
-        if spec.target_state == "State_ExtremeStormPeak" or any(w in q_raw.lower() for w in ["storm peak", "catastrophic", "scarping", "overwash"]):
+            if spec.surge_min is not None and "surge_m" in self.df.columns:
+                s_cand = self.df["surge_m"].values[candidate_indices]
+                s_exc = np.maximum(0.0, s_cand - spec.surge_min)
+                if s_exc.max() > 0:
+                    pareto_boost += s_exc / s_exc.max()
+                    has_directional_extreme = True
+
+            synth_vals = spec.target_synthetic_values or {}
+            if any(w in q_raw.lower() for w in ["power flux", "kw", "wave power"]) or "p_flux_Wm" in synth_vals or "p_flux" in synth_vals:
+                if "p_flux_Wm" in self.df.columns:
+                    p_cand = self.df["p_flux_Wm"].values[candidate_indices]
+                    p_thresh = float(synth_vals.get("p_flux_Wm", synth_vals.get("p_flux", 50000.0)))
+                    p_exc = np.maximum(0.0, p_cand - p_thresh)
+                    if p_exc.max() > 0:
+                        pareto_boost += p_exc / p_exc.max()
+                        has_directional_extreme = True
+
+            if spec.target_state == "State_ExtremeStormPeak" or any(w in q_raw.lower() for w in ["storm peak", "catastrophic", "scarping", "overwash"]):
+                has_directional_extreme = True
+                pareto_boost += ups_norm
+        elif target_intent == "recovery":
+            # Constructive Pareto: reward calm low Hs (< 1.5m) and long-period swell (Tp > 10s)
+            if "hs_m" in self.df.columns:
+                hs_cand = self.df["hs_m"].values[candidate_indices]
+                hs_calm = np.maximum(0.0, 1.5 - hs_cand)
+                if hs_calm.max() > 0:
+                    pareto_boost += hs_calm / hs_calm.max()
+                    has_directional_extreme = True
+            if "tp_s" in self.df.columns:
+                tp_cand = self.df["tp_s"].values[candidate_indices]
+                tp_swell = np.maximum(0.0, tp_cand - 10.0)
+                if tp_swell.max() > 0:
+                    pareto_boost += tp_swell / tp_swell.max()
+                    has_directional_extreme = True
+        elif target_intent == "equilibrium":
             has_directional_extreme = True
             pareto_boost += ups_norm
 
         if pareto_boost.max() > 0:
             pareto_boost = pareto_boost / pareto_boost.max()
 
-        if has_directional_extreme:
-            hybrid_scores = 0.25 * cos_norm + 0.30 * c_scores + 0.25 * ups_norm + 0.15 * pareto_boost + 0.05 * reg_match
-        else:
-            hybrid_scores = 0.35 * cos_norm + 0.35 * c_scores + 0.20 * ups_norm + 0.10 * reg_match
+        # Reciprocal Rank Fusion (RRF) across 3 peer-reviewed channels:
+        # 1. Cosine similarity channel (vector embedding match)
+        # 2. Constraints satisfaction channel (physical thresholds + breaker regime match)
+        # 3. Direction-aware Upsilon disequilibrium channel (hydrodynamic work & energy disequilibrium)
+        #
+        # Formula (Cormack, Clarke, & Buettcher, SIGIR 2009):
+        #   RRF_Score(d) = w_cos / (60 + rank_cos(d))
+        #                + w_constraints / (60 + rank_constraints(d))
+        #                + w_upsilon / (60 + rank_upsilon(d))
 
-        sort_order = np.argsort(-hybrid_scores)
+        # Channel 1: Cosine similarity
+        cos_channel_scores = cand_sims
+
+        # Channel 2: Physical constraints + breaker regime match bonus
+        constraint_channel_scores = c_scores + 0.20 * reg_match
+
+        # Channel 3: Direction-aware Upsilon disequilibrium + directional Pareto extreme signal
+        if has_directional_extreme and pareto_boost.max() > 0:
+            upsilon_channel_scores = ups_norm + pareto_boost
+        else:
+            upsilon_channel_scores = s_ups
+
+        # Resolve RRF parameters (default k=60, w_cos=1.0, w_constraints=1.0, w_upsilon=1.0)
+        default_weights = getattr(self, "rrf_weights", None) or {"cos": 1.0, "constraints": 1.0, "upsilon": 1.0}
+        rrf_k = int(kwargs.get("rrf_k", getattr(self, "rrf_k", 60)))
+        query_rrf_weights = kwargs.get("rrf_weights") or {}
+        w_cos = float(kwargs.get("w_cos", query_rrf_weights.get("cos", default_weights.get("cos", 1.0))))
+        w_constraints = float(kwargs.get("w_constraints", query_rrf_weights.get("constraints", default_weights.get("constraints", 1.0))))
+        w_upsilon = float(kwargs.get("w_upsilon", query_rrf_weights.get("upsilon", default_weights.get("upsilon", 1.0))))
+
+        channel_scores = {
+            "cos": cos_channel_scores,
+            "constraints": constraint_channel_scores,
+            "upsilon": upsilon_channel_scores,
+        }
+        channel_weights = {
+            "cos": w_cos,
+            "constraints": w_constraints,
+            "upsilon": w_upsilon,
+        }
+
+        rrf_scores, channel_ranks = compute_reciprocal_rank_fusion(
+            scores_dict=channel_scores,
+            weights=channel_weights,
+            k0=rrf_k,
+        )
+
+        rank_cos = channel_ranks["cos"]
+        rank_constraints = channel_ranks["constraints"]
+        rank_upsilon = channel_ranks["upsilon"]
+
+        sort_order = np.argsort(-rrf_scores)
         ranked_indices = candidate_indices[sort_order]
         ranked_sims = cand_sims[sort_order]
-        ranked_hybrid = hybrid_scores[sort_order]
+        ranked_rrf = rrf_scores[sort_order]
+        ranked_ups_score = ups_norm[sort_order]
+        ranked_rank_cos = rank_cos[sort_order]
+        ranked_rank_constraints = rank_constraints[sort_order]
+        ranked_rank_upsilon = rank_upsilon[sort_order]
 
         valid_mask = ranked_sims >= min_similarity
         selected_indices = ranked_indices[valid_mask][:top_k]
         selected_sims = ranked_sims[valid_mask][:top_k]
-        selected_hybrid = ranked_hybrid[valid_mask][:top_k]
+        selected_rrf = ranked_rrf[valid_mask][:top_k]
+        selected_ups_score = ranked_ups_score[valid_mask][:top_k]
+        selected_rank_cos = ranked_rank_cos[valid_mask][:top_k]
+        selected_rank_constraints = ranked_rank_constraints[valid_mask][:top_k]
+        selected_rank_upsilon = ranked_rank_upsilon[valid_mask][:top_k]
 
         top_df = self.df.iloc[selected_indices].copy()
         top_df["similarity"] = selected_sims
-        top_df["hybrid_score"] = selected_hybrid
+        top_df["rrf_score"] = selected_rrf
+        top_df["hybrid_score"] = selected_rrf  # Maintained for full backwards compatibility
+        top_df["upsilon_diseq_score"] = selected_ups_score
+        top_df["target_intent"] = target_intent
+        top_df["rank_cos"] = selected_rank_cos
+        top_df["rank_constraints"] = selected_rank_constraints
+        top_df["rank_upsilon"] = selected_rank_upsilon
 
         # 6. Extract recovery analytics if requested
         recov_episodes = []
@@ -2743,8 +3106,9 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
         """Deterministic physical causality scoring evaluating sequence dynamics and conservation laws."""
         scores: List[float] = []
         q_lower = query_text.lower()
-        is_storm = any(w in q_lower for w in ["storm", "scarping", "high energy", "extreme", "severe", "over 3m", "over 4m"]) or bool(getattr(spec, "query_storm_evolution", False)) or getattr(spec, "phase", "") == "Erosion" or getattr(spec, "morphology", "") == "Erosive"
-        is_recovery = any(w in q_lower for w in ["accretion", "recovery", "swash", "healing", "calm", "berm"]) or bool(getattr(spec, "query_recovery_timeframe", False)) or getattr(spec, "phase", "") == "Recovery" or getattr(spec, "morphology", "") == "Accretive"
+        target_intent = determine_upsilon_target_intent(spec, query_text)
+        is_storm = (target_intent == "erosion") or any(w in q_lower for w in ["storm", "scarping", "high energy", "extreme", "severe", "over 3m", "over 4m"]) or bool(getattr(spec, "query_storm_evolution", False)) or getattr(spec, "phase", "") == "Erosion" or getattr(spec, "morphology", "") == "Erosive"
+        is_recovery = (target_intent == "recovery") or any(w in q_lower for w in ["accretion", "recovery", "swash", "healing", "calm", "berm"]) or bool(getattr(spec, "query_recovery_timeframe", False)) or getattr(spec, "phase", "") == "Recovery" or getattr(spec, "morphology", "") == "Accretive"
         is_reflective = getattr(spec, "breaker_regime", None) == "Surging" or any(w in q_lower for w in ["surging", "collapsing", "reflective"])
         is_dissipative = getattr(spec, "breaker_regime", None) == "Spilling" or any(w in q_lower for w in ["spilling", "dissipative"])
         is_compound = "compound" in q_lower
@@ -3327,8 +3691,8 @@ def _get_breaker(row: Any) -> str:
     return ""
 
 
-DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
-    # === CATEGORY 1: HISTORICAL STORM EVENTS (6 QUERIES) ===
+ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
+    # === CATEGORY 1: HISTORICAL STORM EVENTS (6 QUERIES - ARCHIVED MODE B) ===
     {
         "query": "June 2016 East Coast Low catastrophic erosion event at Narrabeen",
         "category": "1. Historical Storm Events",
@@ -4232,13 +4596,24 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = [
 
 ]
 
+# Mode A queries: Pure Phenomenological Search across all 175,392 global multi-site hours.
+# This is the primary evaluation regime for latent physical manifolds: testing whether
+# 14D invariant manifolds (surf similarity xi, Dean ratio, Upsilon*, wave power flux)
+# reliably capture hydrodynamic and morphodynamic states across disparate global
+# observatories without calendar/site metadata crutches.
 DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A: List[Dict[str, Any]] = [
-    q for q in DEFAULT_PHYSICS_BENCHMARK_QUERIES if "Mode A" in q.get("mode", "")
+    q for q in ALL_PHYSICS_BENCHMARK_QUERIES_60 if "Mode A" in q.get("mode", "")
 ]
 
-DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B: List[Dict[str, Any]] = [
-    q for q in DEFAULT_PHYSICS_BENCHMARK_QUERIES if "Mode B" in q.get("mode", "")
+# Mode B queries: Full Operational / Historical Named Storms with Calendar Dates.
+# Archived: Mode B tests relational date/site string filtering rather than latent physical manifold similitude.
+ARCHIVED_PHYSICS_BENCHMARK_QUERIES_MODE_B: List[Dict[str, Any]] = [
+    q for q in ALL_PHYSICS_BENCHMARK_QUERIES_60 if "Mode B" in q.get("mode", "")
 ]
+DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B = ARCHIVED_PHYSICS_BENCHMARK_QUERIES_MODE_B
+
+# Primary default benchmark query suite: 30 pure phenomenological queries (Mode A)
+DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A
 
 
 class RawDataLLMRAG:
@@ -5078,17 +5453,28 @@ def evaluate_rag_benchmark_suite(
         raise ValueError("PhysicsRAG instance must be provided via 'rag' or 'rag_engine'.")
         
     cutoff_ranks = k_values if k_values is not None else (k_list or [1, 3, 5, 10])
-    raw_queries = benchmark_queries or DEFAULT_PHYSICS_BENCHMARK_QUERIES
 
-    # Filter queries if benchmark_mode specified
+    if benchmark_queries is not None:
+        raw_queries = benchmark_queries
+    elif benchmark_mode is not None and "all" in str(benchmark_mode).lower():
+        raw_queries = ALL_PHYSICS_BENCHMARK_QUERIES_60
+    elif benchmark_mode is not None and ("mode_b" in str(benchmark_mode).lower() or "operational" in str(benchmark_mode).lower()):
+        raw_queries = ARCHIVED_PHYSICS_BENCHMARK_QUERIES_MODE_B
+    else:
+        # Default: Mode A (Pure Phenomenological Search across all 175k global records)
+        raw_queries = DEFAULT_PHYSICS_BENCHMARK_QUERIES
+
+    # Filter queries if benchmark_mode specified (defaulting to Mode A)
     if benchmark_mode is not None:
         bm = str(benchmark_mode).lower()
         if "mode_a" in bm or "mode a" in bm or "phenomenological" in bm:
             queries = [q for q in raw_queries if "mode a" in str(q.get("mode", "")).lower() or "phenomenological" in str(q.get("mode", "")).lower()]
         elif "mode_b" in bm or "mode b" in bm or "operational" in bm:
             queries = [q for q in raw_queries if "mode b" in str(q.get("mode", "")).lower() or "operational" in str(q.get("mode", "")).lower()]
-        else:
+        elif "all" in bm:
             queries = raw_queries
+        else:
+            queries = [q for q in raw_queries if "mode a" in str(q.get("mode", "")).lower() or "phenomenological" in str(q.get("mode", "")).lower()]
     else:
         queries = raw_queries
 
@@ -5125,7 +5511,7 @@ def evaluate_rag_benchmark_suite(
     }
 
     for q_spec in queries:
-        q_mode = q_spec.get("mode", "Mode B: Full Operational") if isinstance(q_spec, dict) else "Mode B: Full Operational"
+        q_mode = q_spec.get("mode", "Mode A: Pure Phenomenological") if isinstance(q_spec, dict) else "Mode A: Pure Phenomenological"
         is_mode_a = "mode a" in str(q_mode).lower() or "phenomenological" in str(q_mode).lower()
         mode_key = "mode_a" if is_mode_a else "mode_b"
 
@@ -5316,11 +5702,19 @@ def evaluate_peak_impact_disequilibrium_benchmark(
     use_llm_parser: bool = False,
     query_categories: Optional[List[str]] = None,
     parser_mode: str = "pure_gemini",
+    aligned_surveys: Optional[Dict[str, pd.DataFrame]] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Evaluate Peak Impact & Disequilibrium Ranking across RAG architectures.
+    """Evaluate Peak Impact & Disequilibrium Ranking across RAG architectures re-anchored to Geomorphic Ground Truth.
 
-    Benchmarks how effectively each retrieval system prioritizes the true peak
-    destructive and nonequilibrium storm phase over calm pre-storm onset hours.
+    Benchmarks how effectively each retrieval system prioritizes true morphological beach cut,
+    cumulative excess wave power flux, and total water level collision regimes rather than
+    instantaneous wave height peaks.
+
+    Ground-Truth Geomorphic Criteria:
+    1. Total Water Level Collision Regime: TWL = Tide + Surge + R_2% >= z_dune_toe
+       (Sallenger 2000 Storm Impact Scale: Swash -> Collision -> Overwash).
+    2. Cumulative Excess Wave Power Flux: E_excess = Integral max(0, Upsilon(t) - Upsilon_crit(t)) dt.
+    3. Surveyed Cross-Shore Shoreline Displacement: Authentic in-situ RTK-GPS/LIDAR profile retreat (Delta x < 0).
 
     Parameters
     ----------
@@ -5340,6 +5734,9 @@ def evaluate_peak_impact_disequilibrium_benchmark(
         Categories to filter from benchmark queries. Defaults to Categories 1 and 7.
     parser_mode : str, default 'pure_gemini'
         Parser mode ('pure_gemini', 'pure_regex', or 'hybrid').
+    aligned_surveys : dict of str -> pd.DataFrame, optional
+        Dictionary mapping site keys to aligned survey epoch DataFrames. If None,
+        automatically discovered from rag_engines or loaded from in-situ survey files.
 
     Returns
     -------
@@ -5348,8 +5745,35 @@ def evaluate_peak_impact_disequilibrium_benchmark(
     df_summary : pd.DataFrame
         Macro-averaged architecture comparison table.
     """
+    try:
+        from src.physics import COASTAL_SITE_PROFILES
+    except ImportError:
+        from physics import COASTAL_SITE_PROFILES  # type: ignore
+
+    # 0. Automatically discover aligned surveys if not provided
+    if aligned_surveys is None:
+        for eng in rag_engines.values():
+            if getattr(eng, "survey_aligned_epochs", None):
+                aligned_surveys = eng.survey_aligned_epochs
+                break
+        if aligned_surveys is None:
+            try:
+                from src.data import load_site_field_surveys
+                surv_dict = {}
+                for s_name in ["duck_nc", "narrabeen_aus", "torrey_pines_ca", "truc_vert_france"]:
+                    try:
+                        s_df = load_site_field_surveys(s_name)
+                        if len(s_df) > 0:
+                            surv_dict[s_name] = s_df
+                    except Exception:
+                        pass
+                if surv_dict:
+                    aligned_surveys = surv_dict
+            except Exception:
+                aligned_surveys = None
+
     if benchmark_queries is None:
-        raw_queries = DEFAULT_PHYSICS_BENCHMARK_QUERIES
+        raw_queries = ALL_PHYSICS_BENCHMARK_QUERIES_60
     else:
         raw_queries = benchmark_queries
 
@@ -5357,7 +5781,7 @@ def evaluate_peak_impact_disequilibrium_benchmark(
     storm_queries = [
         q for q in raw_queries
         if any(cat in q.get("category", "") for cat in target_cats)
-        or any(w in q.get("query", "").lower() for w in ["storm", "peak", "scarping", "overwash"])
+        or any(w in q.get("query", "").lower() for w in ["storm", "peak", "scarping", "overwash", "cut"])
     ]
 
     records: List[Dict[str, Any]] = []
@@ -5365,28 +5789,108 @@ def evaluate_peak_impact_disequilibrium_benchmark(
     for q in storm_queries:
         mask = q.get("mask_fn")
         sub_gt = df[mask(df)] if mask is not None else pd.DataFrame()
-        if len(sub_gt) == 0 or "hs_m" not in sub_gt.columns:
+        if len(sub_gt) == 0:
             continue
 
-        peak_row = sub_gt.loc[sub_gt["hs_m"].idxmax()]
+        # 1. Identify Site Archetype and Geomorphic Parameters
+        site_key = "duck_nc"
+        site_col = "site_id" if "site_id" in sub_gt.columns else ("site" if "site" in sub_gt.columns else None)
+        if site_col and len(sub_gt) > 0:
+            raw_s = str(sub_gt[site_col].iloc[0]).lower()
+            for k_site in COASTAL_SITE_PROFILES:
+                if k_site in raw_s:
+                    site_key = k_site
+                    break
+        else:
+            q_txt = q.get("query", "").lower()
+            for k_site in COASTAL_SITE_PROFILES:
+                if k_site.split("_")[0] in q_txt or COASTAL_SITE_PROFILES[k_site]["name"].split(",")[0].lower() in q_txt:
+                    site_key = k_site
+                    break
+
+        prof = COASTAL_SITE_PROFILES.get(site_key, {})
+        z_crest = float(prof.get("z_crest_m", prof.get("berm_crest_m", 2.5)))
+        z_dune_toe = float(prof.get("z_dune_toe_m", z_crest * 0.70))
+
+        # 2. Extract Hydrodynamic & Geomorphic Time Series
+        if "total_water_level_m" in sub_gt.columns:
+            twl_gt = sub_gt["total_water_level_m"].values.astype(float)
+        elif "surge_m" in sub_gt.columns and "runup_r2_m" in sub_gt.columns:
+            twl_gt = (sub_gt["surge_m"] + sub_gt["runup_r2_m"]).values.astype(float)
+        else:
+            twl_gt = sub_gt.get("surge_m", pd.Series(0.0, index=sub_gt.index)).values.astype(float)
+
+        u_gt = sub_gt["upsilon"].values.astype(float) if "upsilon" in sub_gt.columns else np.zeros(len(sub_gt))
+        if "upsilon_crit" in sub_gt.columns:
+            u_crit_gt = sub_gt["upsilon_crit"].values.astype(float)
+        else:
+            u_crit_gt = np.full_like(u_gt, 1500.0)
+
+        if "upsilon_excess" in sub_gt.columns:
+            u_excess_gt = sub_gt["upsilon_excess"].values.astype(float)
+        else:
+            u_excess_gt = np.maximum(0.0, u_gt - u_crit_gt)
+
+        # 3. Cumulative Excess Wave Power Flux (Integral of max(0, Upsilon - Upsilon_crit) dt)
+        dt_sec = 3600.0
+        cum_excess_work_MJ_m = float(np.sum(u_excess_gt) * dt_sec / 1e6)
+
+        # 4. Total Water Level Collision Factor & True Geomorphic Peak Determination
+        # Waves attack the subaerial dune/berm face when TWL exceeds dune toe (Sallenger 2000 collision regime)
+        collision_ratio = np.maximum(0.0, (twl_gt - z_dune_toe) / z_dune_toe)
+        geomorphic_work = u_excess_gt * (1.0 + collision_ratio)
+        if np.max(geomorphic_work) == 0:
+            geomorphic_work = u_gt * (1.0 + np.maximum(0.0, twl_gt / 2.0))
+
+        peak_geom_idx = int(np.argmax(geomorphic_work))
+        peak_row = sub_gt.iloc[peak_geom_idx]
         true_peak_ts = pd.to_datetime(peak_row["timestamp"], utc=True)
-        true_peak_hs = float(peak_row["hs_m"])
+        true_peak_hs = float(peak_row.get("hs_m", 0.0))
+        true_peak_twl = float(twl_gt[peak_geom_idx])
         true_peak_ups = float(peak_row.get("upsilon", 1.0))
+        true_peak_excess_ups = float(u_excess_gt[peak_geom_idx])
         tp_val = float(peak_row.get("tp_s", 10.0))
         true_peak_power = float(0.49 * (true_peak_hs ** 2) * tp_val)
+
+        # 5. Surveyed Cross-Shore Shoreline Displacement (Delta x)
+        surveyed_dx = None
+        if aligned_surveys and site_key in aligned_surveys:
+            s_df = aligned_surveys[site_key]
+            if len(s_df) > 0:
+                try:
+                    s_idx = pd.to_datetime(
+                        s_df.index if isinstance(s_df.index, pd.DatetimeIndex) else s_df.get("survey_date", s_df.index),
+                        utc=True,
+                    )
+                    post_mask = s_idx >= (true_peak_ts - pd.Timedelta(days=5))
+                    if np.any(post_mask):
+                        sub_s = s_df[post_mask]
+                        first_post = sub_s.iloc[0]
+                        surveyed_dx = float(first_post.get("surveyed_delta_x_m", first_post.get("cross_shore_change_m", 0.0)))
+                    else:
+                        nearest_idx = int(np.argmin(np.abs((s_idx - true_peak_ts).total_seconds())))
+                        surveyed_dx = float(s_df.iloc[nearest_idx].get("surveyed_delta_x_m", s_df.iloc[nearest_idx].get("cross_shore_change_m", 0.0)))
+                except Exception:
+                    surveyed_dx = None
 
         cond = q.get("condition_fn")
 
         row: Dict[str, Any] = {
             "query": q["query"],
             "category": q.get("category", "Historical Storm"),
+            "site": site_key,
             "true_peak_timestamp": str(true_peak_ts)[:16],
             "true_peak_hs_m": true_peak_hs,
+            "true_peak_twl_m": true_peak_twl,
+            "z_dune_toe_m": z_dune_toe,
             "true_peak_upsilon": true_peak_ups,
+            "true_peak_excess_upsilon": true_peak_excess_ups,
             "true_peak_power_kW_per_m": true_peak_power,
+            "cum_excess_work_MJ_per_m": cum_excess_work_MJ_m,
+            "surveyed_delta_x_m": f"{surveyed_dx:+.2f}" if surveyed_dx is not None else "N/A",
         }
 
-        # Parse query intent once per query rather than 4x redundantly across each engine
+        # Parse query intent once per query
         parsed_spec = None
         if use_llm_parser:
             try:
@@ -5398,6 +5902,9 @@ def evaluate_peak_impact_disequilibrium_benchmark(
                 parsed_spec = PhysicsQuerySpec(raw_query=q["query"], intent_summary="Pure Gemini parsing unavailable")
             else:
                 parsed_spec = GeminiPhysicsQueryParser._fallback_parse(q["query"])
+
+        sub_gt_start = pd.to_datetime(sub_gt["timestamp"].min(), utc=True) - pd.Timedelta(hours=12)
+        sub_gt_end = pd.to_datetime(sub_gt["timestamp"].max(), utc=True) + pd.Timedelta(hours=12)
 
         for name, eng in rag_engines.items():
             res = eng.query(
@@ -5414,37 +5921,84 @@ def evaluate_peak_impact_disequilibrium_benchmark(
                 top1_hs = float(mdf["hs_m"].iloc[0]) if "hs_m" in mdf.columns else 0.0
                 top5_hs = float(mdf["hs_m"].mean()) if "hs_m" in mdf.columns else 0.0
                 hs_capture_pct = (top5_hs / true_peak_hs) * 100.0 if true_peak_hs > 0 else 100.0
-                p5 = float(np.mean([bool(cond(mdf.iloc[j], df)) for j in range(len(mdf))])) if cond else 1.0
-                p1 = float(bool(cond(mdf.iloc[0], df))) if cond else 1.0
 
-                top1_ups = float(mdf["upsilon"].iloc[0]) if "upsilon" in mdf.columns else 0.0
-                top5_ups = float(mdf["upsilon"].mean()) if "upsilon" in mdf.columns else 0.0
+                # Extract TWL and collision regime in retrieved candidates
+                if "total_water_level_m" in mdf.columns:
+                    mdf_twl = mdf["total_water_level_m"].values.astype(float)
+                elif "surge_m" in mdf.columns and "runup_r2_m" in mdf.columns:
+                    mdf_twl = (mdf["surge_m"] + mdf["runup_r2_m"]).values.astype(float)
+                else:
+                    mdf_twl = mdf.get("surge_m", pd.Series(0.0, index=mdf.index)).values.astype(float)
+
+                top1_twl = float(mdf_twl[0]) if len(mdf_twl) > 0 else 0.0
+                mean_top5_twl = float(np.mean(mdf_twl)) if len(mdf_twl) > 0 else 0.0
+                collision_capture_pct = float(np.mean(mdf_twl >= z_dune_toe) * 100.0) if len(mdf_twl) > 0 else 0.0
+
+                # Extract Upsilon and excess kinetic flux in retrieved candidates
+                mdf_u = mdf["upsilon"].values.astype(float) if "upsilon" in mdf.columns else np.zeros(len(mdf))
+                if "upsilon_crit" in mdf.columns:
+                    mdf_crit = mdf["upsilon_crit"].values.astype(float)
+                else:
+                    mdf_crit = np.full_like(mdf_u, 1500.0)
+                mdf_excess = np.maximum(0.0, mdf_u - mdf_crit)
+
+                top1_ups = float(mdf_u[0]) if len(mdf_u) > 0 else 0.0
+                top5_ups = float(np.mean(mdf_u)) if len(mdf_u) > 0 else 0.0
+                top5_excess = float(np.mean(mdf_excess)) if len(mdf_excess) > 0 else 0.0
+                excess_work_capture_pct = (top5_excess / max(1.0, true_peak_excess_ups)) * 100.0 if true_peak_excess_ups > 0 else 100.0
+                cum_excess_retrieved_MJ = float(np.sum(mdf_excess) * 3600.0 / 1e6)
 
                 top1_power = float(0.49 * (mdf["hs_m"].iloc[0] ** 2) * mdf["tp_s"].iloc[0]) if ("hs_m" in mdf.columns and "tp_s" in mdf.columns) else 0.0
                 top5_power = float(np.mean([0.49 * (mdf["hs_m"].iloc[j] ** 2) * mdf["tp_s"].iloc[j] for j in range(len(mdf))])) if ("hs_m" in mdf.columns and "tp_s" in mdf.columns) else 0.0
 
-                # Graded NDCG@k and MRR computation for peak impact
-                graded_fn = q.get("graded_relevance_fn")
-                if graded_fn is not None:
-                    g_scores = [int(graded_fn(mdf.iloc[j], df)) for j in range(len(mdf))]
-                    dcg = sum((2.0 ** g - 1.0) / np.log2(j + 2) for j, g in enumerate(g_scores[:k]))
-                    has_peak_potential = ("peak_work_cond" in q) or any(g >= 3 for g in g_scores)
-                    max_grade = 3 if has_peak_potential else (max(g_scores) if (len(g_scores) and max(g_scores) >= 2) else 2)
-                    ideal_top = min(k, max(1, len(sub_gt)))
-                    ideal_grades = [max_grade] * ideal_top + [0] * max(0, k - ideal_top)
-                    idcg = sum((2.0 ** ig - 1.0) / np.log2(j + 2) for j, ig in enumerate(ideal_grades))
-                    ndcg_val = float(dcg / idcg) if idcg > 0 else 0.0
-                    mrr_val = 0.0
-                    for j, g in enumerate(g_scores):
-                        if g >= 2:
-                            mrr_val = 1.0 / (j + 1)
-                            break
-                else:
-                    ndcg_val = p5
-                    mrr_val = p1
+                # Geomorphic Graded Relevance Scoring (Grades 0 to 3):
+                # - Grade 3: Peak Geomorphic Impact (Active TWL Collision Regime TWL >= z_toe AND Excess Upsilon within storm window)
+                # - Grade 2: Active Hydrodynamic Storm (Elevated waves Hs >= 3m or Upsilon >= Upsilon_crit within storm window)
+                # - Grade 1: Within broad event window but subcritical (no dune collision)
+                # - Grade 0: Outside event window or wrong site
+                g_scores = []
+                for j in range(len(mdf)):
+                    r_ts = _get_row_ts(mdf.iloc[j])
+                    r_site = _get_row_site(mdf.iloc[j])
+                    if r_site and site_key and r_site != site_key:
+                        g_scores.append(0)
+                        continue
+                    if r_ts < sub_gt_start - pd.Timedelta(hours=24) or r_ts > sub_gt_end + pd.Timedelta(hours=24):
+                        g_scores.append(0)
+                        continue
+
+                    is_in_storm_core = (sub_gt_start <= r_ts <= sub_gt_end)
+                    is_collision = (mdf_twl[j] >= z_dune_toe)
+                    is_excess_u = (mdf_excess[j] > 0)
+
+                    if is_in_storm_core and is_collision and is_excess_u:
+                        g_scores.append(3)
+                    elif is_in_storm_core and (is_excess_u or float(mdf["hs_m"].iloc[j]) >= 3.0 or (cond and cond(mdf.iloc[j], df))):
+                        g_scores.append(2)
+                    elif sub_gt_start - pd.Timedelta(hours=48) <= r_ts <= sub_gt_end + pd.Timedelta(hours=48):
+                        g_scores.append(1)
+                    else:
+                        g_scores.append(0)
+
+                dcg = sum((2.0 ** g - 1.0) / np.log2(j + 2) for j, g in enumerate(g_scores[:k]))
+                ideal_top = min(k, max(1, len(sub_gt)))
+                ideal_grades = [3] * ideal_top + [0] * max(0, k - ideal_top)
+                idcg = sum((2.0 ** ig - 1.0) / np.log2(j + 2) for j, ig in enumerate(ideal_grades))
+                ndcg_val = float(dcg / idcg) if idcg > 0 else 0.0
+
+                mrr_val = 0.0
+                for j, g in enumerate(g_scores):
+                    if g >= 2:
+                        mrr_val = 1.0 / (j + 1)
+                        break
+
+                p1 = 1.0 if (len(g_scores) and g_scores[0] >= 2) else 0.0
+                p5 = float(np.mean([g >= 2 for g in g_scores]))
             else:
                 dt_hrs, top1_hs, top5_hs, hs_capture_pct, p5, p1 = 999.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                top1_ups, top5_ups, top1_power, top5_power = 0.0, 0.0, 0.0, 0.0
+                top1_twl, mean_top5_twl, collision_capture_pct = 0.0, 0.0, 0.0
+                top1_ups, top5_ups, excess_work_capture_pct, cum_excess_retrieved_MJ = 0.0, 0.0, 0.0, 0.0
+                top1_power, top5_power = 0.0, 0.0
                 ndcg_val, mrr_val = 0.0, 0.0
 
             row[f"{name}_P@1"] = p1
@@ -5455,8 +6009,13 @@ def evaluate_peak_impact_disequilibrium_benchmark(
             row[f"{name}_top1_hs_m"] = top1_hs
             row[f"{name}_mean_hs_m"] = top5_hs
             row[f"{name}_hs_capture_pct"] = hs_capture_pct
+            row[f"{name}_top1_twl_m"] = top1_twl
+            row[f"{name}_mean_twl_m"] = mean_top5_twl
+            row[f"{name}_collision_capture_pct"] = collision_capture_pct
+            row[f"{name}_excess_work_capture_pct"] = excess_work_capture_pct
             row[f"{name}_top1_upsilon"] = top1_ups
             row[f"{name}_mean_upsilon"] = top5_ups
+            row[f"{name}_cum_excess_MJ_m"] = cum_excess_retrieved_MJ
             row[f"{name}_top1_power_kW_per_m"] = top1_power
             row[f"{name}_mean_power_kW_per_m"] = top5_power
 
@@ -5473,8 +6032,12 @@ def evaluate_peak_impact_disequilibrium_benchmark(
         dt_col = f"{name}_dt_peak_hrs"
         hs_col = f"{name}_top1_hs_m"
         cap_col = f"{name}_hs_capture_pct"
+        twl_col = f"{name}_top1_twl_m"
+        coll_col = f"{name}_collision_capture_pct"
+        exc_col = f"{name}_excess_work_capture_pct"
         u1_col = f"{name}_top1_upsilon"
         u5_col = f"{name}_mean_upsilon"
+        cum_col = f"{name}_cum_excess_MJ_m"
         p1w_col = f"{name}_top1_power_kW_per_m"
         p5w_col = f"{name}_mean_power_kW_per_m"
 
@@ -5484,14 +6047,18 @@ def evaluate_peak_impact_disequilibrium_benchmark(
             "Mean Reciprocal Rank (MRR)": float(df_query_details[mrr_col].mean()) if mrr_col in df_query_details else 0.0,
             "Peak Precision@1": float(df_query_details[p1_col].mean()) if p1_col in df_query_details else 0.0,
             "Peak Precision@5": float(df_query_details[p5_col].mean()) if p5_col in df_query_details else 0.0,
+            "TWL Collision Capture (%)": float(df_query_details[coll_col].mean()) if coll_col in df_query_details else 0.0,
+            "Excess Work Capture (%)": float(df_query_details[exc_col].mean()) if exc_col in df_query_details else 0.0,
             "Median |Δt_peak| Error (hrs)": float(df_query_details[dt_col].median()) if dt_col in df_query_details else 0.0,
             "Mean |Δt_peak| Error (hrs)": float(df_query_details[dt_col].mean()) if dt_col in df_query_details else 0.0,
             "Wave Height Capture (%)": float(df_query_details[cap_col].mean()) if cap_col in df_query_details else 0.0,
             "Mean Top-1 Hs (m)": float(df_query_details[hs_col].mean()) if hs_col in df_query_details else 0.0,
+            "Mean Top-1 TWL (m)": float(df_query_details[twl_col].mean()) if twl_col in df_query_details else 0.0,
             "Median Top-1 Upsilon": float(df_query_details[u1_col].median()) if u1_col in df_query_details else 0.0,
             "Mean Top-5 Upsilon": float(df_query_details[u5_col].mean()) if u5_col in df_query_details else 0.0,
             "Median Top-1 Wave Power (kW/m)": float(df_query_details[p1w_col].median()) if p1w_col in df_query_details else 0.0,
             "Mean Top-5 Wave Power (kW/m)": float(df_query_details[p5w_col].mean()) if p5w_col in df_query_details else 0.0,
+            "Mean Cumulative Excess Impulse (MJ/m)": float(df_query_details[cum_col].mean()) if cum_col in df_query_details else 0.0,
         })
 
     df_summary = pd.DataFrame(summary_rows)

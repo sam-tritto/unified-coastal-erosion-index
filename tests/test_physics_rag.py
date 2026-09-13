@@ -32,6 +32,8 @@ from src.physics_rag import (
     DEFAULT_PHYSICS_BENCHMARK_QUERIES,
     DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A,
     DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B,
+    ARCHIVED_PHYSICS_BENCHMARK_QUERIES_MODE_B,
+    ALL_PHYSICS_BENCHMARK_QUERIES_60,
     evaluate_retrieval_query,
     evaluate_rag_benchmark_suite,
     generate_decoupled_mode_summary,
@@ -735,19 +737,21 @@ def test_raw_data_llm_rag_site_and_date_filtering():
 
 
 def test_decoupled_benchmark_query_stratification():
-    """Verify DEFAULT_PHYSICS_BENCHMARK_QUERIES has exactly 30 Mode A and 30 Mode B queries (60 total)."""
-    assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES) == 60
+    """Verify DEFAULT_PHYSICS_BENCHMARK_QUERIES defaults to Mode A (30 queries) for latent physical manifolds."""
+    assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES) == 30
     assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A) == 30
     assert len(DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B) == 30
+    assert len(ARCHIVED_PHYSICS_BENCHMARK_QUERIES_MODE_B) == 30
+    assert len(ALL_PHYSICS_BENCHMARK_QUERIES_60) == 60
 
     for q in DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A:
         assert "Mode A" in q.get("mode", "")
 
-    for q in DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B:
+    for q in ARCHIVED_PHYSICS_BENCHMARK_QUERIES_MODE_B:
         assert "Mode B" in q.get("mode", "")
 
-    # Verify Q16 specifically mentions extreme wave dissipation during active dune scarping
-    q16 = DEFAULT_PHYSICS_BENCHMARK_QUERIES[16]
+    # Verify Q16 in full suite specifically mentions extreme wave dissipation during active dune scarping
+    q16 = ALL_PHYSICS_BENCHMARK_QUERIES_60[16]
     assert "extreme wave dissipation during active dune scarping" in q16["query"].lower()
     assert "Mode A" in q16["mode"]
 
@@ -766,12 +770,17 @@ def test_evaluate_rag_benchmark_suite_configurable_n():
     })
     rag = RuleBasedSQLRAG(df)
 
-    # Test N=4: should return 2 Mode A and 2 Mode B queries
-    df_4, _ = evaluate_rag_benchmark_suite(rag=rag, n_queries=4, k_list=[1, 5])
+    # Test N=4 with benchmark_mode="all": should return 2 Mode A and 2 Mode B queries
+    df_4, _ = evaluate_rag_benchmark_suite(rag=rag, n_queries=4, k_list=[1, 5], benchmark_mode="all")
     assert len(df_4) == 4
     counts_4 = df_4["Mode"].value_counts().to_dict()
     assert counts_4.get("Mode A: Pure Phenomenological", 0) == 2
     assert counts_4.get("Mode B: Full Operational", 0) == 2
+
+    # Test N=4 with default mode_a: should return 4 Mode A queries
+    df_4_a, _ = evaluate_rag_benchmark_suite(rag=rag, n_queries=4, k_list=[1, 5])
+    assert len(df_4_a) == 4
+    assert (df_4_a["Mode"] == "Mode A: Pure Phenomenological").all()
 
     # Test N=1: should return 1 query
     df_1, _ = evaluate_rag_benchmark_suite(rag=rag, n_queries=1, k_list=[1, 5])
@@ -829,8 +838,8 @@ def test_evaluate_rag_benchmark_suite_decoupled_modes_and_summary():
 
     # Run on a mini query suite covering both modes
     mini_suite = [
-        DEFAULT_PHYSICS_BENCHMARK_QUERIES[0],   # Mode B
-        DEFAULT_PHYSICS_BENCHMARK_QUERIES[16],  # Mode A
+        ARCHIVED_PHYSICS_BENCHMARK_QUERIES_MODE_B[0],   # Mode B
+        DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A[0],    # Mode A
     ]
 
     df_res, summary = evaluate_rag_benchmark_suite(
