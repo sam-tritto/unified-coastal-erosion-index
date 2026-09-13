@@ -658,8 +658,37 @@ Guidelines:
         model_name: str = "gemini-2.5-flash",
         api_key: Optional[str] = None,
         client: Optional[Any] = None,
+        parser_mode: str = "pure_gemini",
+        allow_regex_backfill: Optional[bool] = None,
     ) -> PhysicsQuerySpec:
-        """Parse natural language query using Gemini Flash structured output with automatic fallback."""
+        """Parse natural language query with explicit mode control.
+
+        Parameters
+        ----------
+        query_text : str
+            The natural language engineering query.
+        model_name : str
+            Gemini model name (default: 'gemini-2.5-flash').
+        api_key : str, optional
+            Gemini API key.
+        client : Any, optional
+            Pre-instantiated GenAI client.
+        parser_mode : str, default 'pure_gemini'
+            Parser execution mode:
+            - 'pure_gemini': Pure live Gemini Flash structured output with NO regex backfill.
+            - 'pure_regex': Offline deterministic keyword/regex parsing (no LLM calls).
+            - 'hybrid': Live Gemini Flash with deterministic regex backfill for omitted/null fields.
+        allow_regex_backfill : bool, optional
+            Legacy boolean toggle. If provided, True maps to 'hybrid', False maps to 'pure_gemini'.
+        """
+        # Resolve legacy parameter if supplied
+        if allow_regex_backfill is not None:
+            parser_mode = "hybrid" if allow_regex_backfill else "pure_gemini"
+
+        mode_clean = str(parser_mode).lower().strip()
+        if mode_clean in ["pure_regex", "regex", "deterministic", "fallback"]:
+            return cls._fallback_parse(query_text)
+
         nl_spec = cls._fallback_parse(query_text)
         try:
             from google import genai
@@ -691,7 +720,12 @@ Guidelines:
                     parsed_json = json.loads(response.text)
                     parsed_json["raw_query"] = query_text
                     spec = PhysicsQuerySpec(**parsed_json)
-                    # Merge zero-shot synthetic values from deterministic fallback if Gemini omitted them
+
+                    # In Pure Gemini mode, return directly without regex backfilling
+                    if mode_clean in ["pure_gemini", "gemini_only", "zero_shot"]:
+                        return spec
+
+                    # In Hybrid mode, backfill zero-shot synthetic values & omitted fields from deterministic fallback
                     if not spec.target_synthetic_values and nl_spec.target_synthetic_values:
                         spec.target_synthetic_values = nl_spec.target_synthetic_values
                     for attr in ["breaker_regime", "site_id", "geomorphic_regime", "hs_min", "tp_min", "surge_min", "wind_normal_min", "focus", "is_failure_mode"]:
@@ -700,6 +734,11 @@ Guidelines:
                     return spec
         except Exception as e:
             logger.error(f"Gemini physics query parsing failed for '{query_text}': {e}")
+            if mode_clean in ["pure_gemini", "gemini_only", "zero_shot"]:
+                return PhysicsQuerySpec(
+                    raw_query=query_text,
+                    intent_summary=f"Gemini zero-shot parse failed ({type(e).__name__}): '{query_text}'",
+                )
 
         return nl_spec
 
@@ -1560,10 +1599,12 @@ class PhysicsRAG:
                     target_synthetic_values=target_synthetic_values,
                 )
             elif use_llm_parser:
+                parser_m = kwargs.get("parser_mode", "hybrid")
                 spec = GeminiPhysicsQueryParser.parse(
                     query_text=query_text,
                     model_name=self.model_name,
                     api_key=self.api_key,
+                    parser_mode=parser_m,
                 )
             else:
                 spec = GeminiPhysicsQueryParser._fallback_parse(query_text)
@@ -2054,16 +2095,22 @@ class HybridPhysicsRAG(PhysicsRAG):
                     max_upsilon_percentile=nl_spec.max_upsilon_percentile,
                 )
             elif use_llm_parser:
-                spec = GeminiPhysicsQueryParser.parse(
-                    query_text=query_text,
-                    model_name=self.model_name,
-                    api_key=self.api_key,
-                )
-                if not spec.target_synthetic_values and nl_spec.target_synthetic_values:
-                    spec.target_synthetic_values = nl_spec.target_synthetic_values
-                for attr in ["breaker_regime", "site_id", "geomorphic_regime", "hs_min", "tp_min", "surge_min", "wind_normal_min", "focus", "is_failure_mode", "date_start", "date_end"]:
-                    if getattr(spec, attr, None) is None and getattr(nl_spec, attr, None) is not None:
-                        setattr(spec, attr, getattr(nl_spec, attr))
+                parser_m = str(kwargs.get("parser_mode", "hybrid")).lower().strip()
+                if parser_m in ["pure_regex", "regex", "deterministic"]:
+                    spec = nl_spec
+                else:
+                    spec = GeminiPhysicsQueryParser.parse(
+                        query_text=query_text,
+                        model_name=self.model_name,
+                        api_key=self.api_key,
+                        parser_mode=parser_m,
+                    )
+                    if parser_m not in ["pure_gemini", "gemini_only", "zero_shot"]:
+                        if not spec.target_synthetic_values and nl_spec.target_synthetic_values:
+                            spec.target_synthetic_values = nl_spec.target_synthetic_values
+                        for attr in ["breaker_regime", "site_id", "geomorphic_regime", "hs_min", "tp_min", "surge_min", "wind_normal_min", "focus", "is_failure_mode", "date_start", "date_end"]:
+                            if getattr(spec, attr, None) is None and getattr(nl_spec, attr, None) is not None:
+                                setattr(spec, attr, getattr(nl_spec, attr))
             else:
                 spec = nl_spec
 
@@ -5268,6 +5315,7 @@ def evaluate_peak_impact_disequilibrium_benchmark(
     k: int = 5,
     use_llm_parser: bool = False,
     query_categories: Optional[List[str]] = None,
+    parser_mode: str = "pure_gemini",
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Evaluate Peak Impact & Disequilibrium Ranking across RAG architectures.
 
@@ -5290,6 +5338,8 @@ def evaluate_peak_impact_disequilibrium_benchmark(
         Whether to invoke live LLM query parser.
     query_categories : list of str, optional
         Categories to filter from benchmark queries. Defaults to Categories 1 and 7.
+    parser_mode : str, default 'pure_gemini'
+        Parser mode ('pure_gemini', 'pure_regex', or 'hybrid').
 
     Returns
     -------
@@ -5340,11 +5390,14 @@ def evaluate_peak_impact_disequilibrium_benchmark(
         parsed_spec = None
         if use_llm_parser:
             try:
-                parsed_spec = GeminiPhysicsQueryParser.parse(query_text=q["query"])
+                parsed_spec = GeminiPhysicsQueryParser.parse(query_text=q["query"], parser_mode=parser_mode)
             except Exception:
                 parsed_spec = None
         if parsed_spec is None:
-            parsed_spec = GeminiPhysicsQueryParser._fallback_parse(q["query"])
+            if parser_mode == "pure_gemini":
+                parsed_spec = PhysicsQuerySpec(raw_query=q["query"], intent_summary="Pure Gemini parsing unavailable")
+            else:
+                parsed_spec = GeminiPhysicsQueryParser._fallback_parse(q["query"])
 
         for name, eng in rag_engines.items():
             res = eng.query(
