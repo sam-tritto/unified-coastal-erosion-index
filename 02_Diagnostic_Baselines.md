@@ -1,6 +1,7 @@
 # Notebook 02: Diagnostic Morphodynamic Baselines & Cross-Paradigm Benchmarking
+
 > **Source Document**: [`02_Diagnostic_Baselines.ipynb`](file:////Users/sam/Locals%20Only/unified-coastal-erosion-index/02_Diagnostic_Baselines.ipynb)
-> **Ingestion Target**: Google NotebookLM & Research Paper Reference
+> **Ingestion Target**: Google NotebookLM & Scientific Research Reference
 
 ---
 
@@ -44,7 +45,7 @@ Figure 1 displays a $2 \times 2$ subplot panel of 5-year free-running continuous
 #### Panel (B) Narrabeen-Collaroy, NSW, Australia:
 - **Observed Survey Dynamics**: Contains the highest survey density ($N=175$). From 2012 to 2014, shoreline fluctuates between $-15\text{ m}$ and $+5\text{ m}$. Crucially, between late 2014 and early 2016, the observed beach undergoes a massive multi-annual progradation, advancing seaward from $0\text{ m}$ to $+35\text{ m}$. In June 2016, an extreme East Coast Low (ECL) strikes Collaroy, carving out a catastrophic $-25\text{ m}$ to $-30\text{ m}$ erosional scarp in a matter of hours.
 - **Model Failures & Insights**:
-  - **Signed $\Upsilon$ / $\Upsilon_{\text{aug}}$**: Rapidly oscillates with smooth peak accommodation near $+14.9\text{ m}$ and scarp-damped storm cuts near $-24.8\text{ m}$. **It completely fails to capture the multi-annual $+35\text{ m}$ seaward progradation of 2015–2016.** Because 1D cross-shore equilibrium models assume a fixed equilibrium state, they cannot account for multi-year sandbar welding or embayed 2D rotational sediment trapping.
+  - **Signed $\Upsilon$ / $\Upsilon_{\text{aug}}$**: Rapidly oscillates with smooth peak accommodation near $+14.9\text{ m}$ and scarp-damped storm cuts near $-24.8\text{ m}. **It completely fails to capture the multi-annual $+35\text{ m}$ seaward progradation of 2015–2016.** Because 1D cross-shore equilibrium models assume a fixed equilibrium state, they cannot account for multi-year sandbar welding or embayed 2D rotational sediment trapping.
   - **Yates (2009)**: Nearly flat line with a slow drift down to $-10\text{ m}$. It fails to register either the 2015 accretion or the June 2016 catastrophic ECL erosion.
   - **XBeach 1D**: Mild oscillation between $-5\text{ m}$ and $+5\text{ m}$, lacking the alongshore sediment transport gradients that govern Narrabeen embayment morphodynamics.
 
@@ -192,10 +193,9 @@ When authoring a peer-reviewed research paper based on these baseline findings, 
     2. Explicit 2D alongshore transport coupling (resolving embayment rotation $\Phi_{\text{longshore}}$).
     3. Physics-Informed Machine Learning (SciML architectures, UMAP manifold embeddings, and Neural ODEs) to capture nonlinear, multi-scale morphodynamic memory without unbounded integration drift.
 
-
 ---
 
-## Appendix: Complete Cell-by-Cell Notebook Outline & Technical Methodology
+## Appendix: Complete Cell-by-Cell Execution Trajectory & Technical Methodology
 
 ### Cell 0 (Markdown Documentation)
 
@@ -224,6 +224,7 @@ This notebook implements the definitive cross-paradigm benchmarking suite compar
 - **Statistical Significance**: Williams $t$-tests for dependent correlations, Diebold-Mariano predictive accuracy tests, and 94% highest density intervals (HDIs).
 
 #### Cell 1 (Code Execution): `%load_ext autoreload`
+
 ```python
 %load_ext autoreload
 %autoreload 2
@@ -292,6 +293,7 @@ To prevent temporal lookahead data leakage and evaluate out-of-sample skill acro
 3. **Rolling Update**: The origin is rolled forward through 4 seasonal temporal splits, accumulating strictly out-of-sample prediction errors.
 
 #### Cell 3 (Code Execution): `site_datasets = {}`
+
 ```python
 site_datasets = {}
 site_surveys = {}
@@ -343,6 +345,7 @@ Class I models represent classical analytical and equilibrium formulations:
    $$P_{\text{eq}}(t) = \int_0^\infty P(t-s) \frac{e^{-s/\phi}}{\phi} ds$$
 
 #### Cell 5 (Code Execution): `class_1_sims = {}`
+
 ```python
 class_1_sims = {}
 
@@ -377,6 +380,7 @@ We contrast two distinct operational forecasting modes:
 - **Sequentially Re-Anchored**: Operational rolling-origin forecast re-initialized from the observed GPS position at each survey epoch.
 
 #### Cell 7 (Code Execution): `class_1_metrics = []`
+
 ```python
 class_1_metrics = []
 
@@ -429,6 +433,7 @@ Class II numerical process models solve coupled hydrodynamic and morphodynamic b
 4. Post-storm beach profile recovery.
 
 #### Cell 9 (Code Execution): `class_2_sims = {}`
+
 ```python
 class_2_sims = {}
 
@@ -462,6 +467,7 @@ print("✓ Class II Process-Based simulations executed across all 4 archetypes (
 ### Task 3.1: Free-Running vs. Sequentially Re-Anchored Operational Skill for Class II
 
 #### Cell 11 (Code Execution): `class_2_metrics = []`
+
 ```python
 class_2_metrics = []
 
@@ -524,6 +530,7 @@ where:
 - $\Psi_{\text{impact}}$ scales collision regime runup above berm crest (^+$).
 
 #### Cell 13 (Code Execution): `class_3_sims = {}`
+
 ```python
 class_3_sims = {}
 
@@ -574,6 +581,7 @@ print("✓ Class III Physics-Informed simulations (Raw, Normalized ΔΥ*, and Au
 ### Task 4.1: Free-Running vs. Sequentially Re-Anchored Operational Skill for Class III
 
 #### Cell 15 (Code Execution): `class_3_metrics = []`
+
 ```python
 class_3_metrics = []
 
@@ -626,7 +634,7 @@ Site                          Model  \
 4                          19.77                   -4.625               15.84  
 5                          19.77                   -4.625               15.84  
 6                          19.71                   -0.645               19.59  
-7                          19.71                   -0.645               
+7                          19.71                   -0.645               19.59
 ```
 
 ### Cell 16 (Markdown Documentation)
@@ -638,6 +646,7 @@ Site                          Model  \
 > We now execute the full Walk-Forward Rolling-Origin Cross-Validation across all 4 paradigms and global archetypes over the 2012–2016 golden window. All metrics represent strictly out-of-sample evaluated survey displacement changes ($\Delta X$) and cumulative trajectories ($X_t$).
 
 #### Cell 17 (Code Execution): `print("Executing Walk-Forward (Rolling-Origin) Cross-Validation across all 4 arc`
+
 ```python
 print("Executing Walk-Forward (Rolling-Origin) Cross-Validation across all 4 archetypes (2012–2016)...")
 df_synthesis_wf, df_folds_wf = evaluate_cross_paradigm_walk_forward_cv(
@@ -659,6 +668,57 @@ display(df_synthesis_wf)
 **Execution Log / Output**:
 ```text
 Executing Walk-Forward (Rolling-Origin) Cross-Validation across all 4 archetypes (2012–2016)...
+```
+
+**Execution Log / Output**:
+```text
+Initializing NUTS using jitter+adapt_diag...
+Sequential sampling (4 chains in 1 job)
+NUTS: [gamma, alpha, beta_forcing, sigma_base, sigma_storm, nu_offset]
+Sampling 4 chains for 1_000 tune and 2_000 draw iterations (4_000 + 8_000 draws total) took 5 seconds.
+There was 1 divergence after tuning. Increase `target_accept` or reparameterize.
+Initializing NUTS using jitter+adapt_diag...
+Sequential sampling (4 chains in 1 job)
+NUTS: [gamma, alpha, beta_forcing, sigma_base, sigma_storm, nu_offset]
+Sampling 4 chains for 1_000 tune and 2_000 draw iterations (4_000 + 8_000 draws total) took 5 seconds.
+There was 1 divergence after tuning. Increase `target_accept` or reparameterize.
+Initializing NUTS using jitter+adapt_diag...
+Sequential sampling (4 chains in 1 job)
+NUTS: [gamma, alpha, beta_forcing, sigma_base, sigma_storm, nu_offset]
+Sampling 4 chains for 1_000 tune and 2_000 draw iterations (4_000 + 8_000 draws total) took 5 seconds.
+There were 4 divergences after tuning. Increase `target_accept` or reparameterize.
+Initializing NUTS using jitter+adapt_diag...
+Sequential sampling (4 chains in 1 job)
+NUTS: [gamma, alpha, beta_forcing, sigma_base, sigma_storm, nu_offset]
+Sampling 4 chains for 1_000 tune and 2_000 draw iterations (4_000 + 8_000 draws total) took 5 seconds.
+Initializing NUTS using jitter+adapt_diag...
+Sequential sampling (1 chains in 1 job)
+NUTS: [gamma, alpha, beta_forcing, sigma_base, sigma_storm, nu_offset]
+Sampling 1 chain for 150 tune and 200 draw iterations (150 + 200 draws total) took 0 seconds.
+Only one chain was sampled, this makes it impossible to run some convergence checks
+Initializing NUTS using jitter+adapt_diag...
+Sequential sampling (4 chains in 1 job)
+NUTS: [gamma, alpha, beta_forcing, sigma_base, sigma_storm, nu_offset]
+Sampling 4 chains for 1_000 tune and 2_000 draw iterations (4_000 + 8_000 draws total) took 6 seconds.
+Initializing NUTS using jitter+adapt_diag...
+Sequential sampling (4 chains in 1 job)
+NUTS: [gamma, alpha, beta_forcing, sigma_base, sigma_storm, nu_offset]
+Sampling 4 chains for 1_000 tune and 2_000 draw iterations (4_000 + 8_000 draws total) took 6 seconds.
+Initializing NUTS using jitter+adapt_diag...
+Sequential sampling (4 chains in 1 job)
+NUTS: [gamma, alpha, beta_forcing, sigma_base, sigma_storm, nu_offset]
+Sampling 4 chains for 1_000 tune and 2_000 draw iterations (4_000 + 8_000 draws total) took 7 seconds.
+Initializing NUTS using jitter+adapt_diag...
+Sequential sampling (4 chains in 1 job)
+NUTS: [gamma, alpha, beta_forcing, sigma_base, sigma_storm, nu_offset]
+Sampling 4 chains for 1_000 tune and 2_000 draw iterations (4_000 + 8_000 draws total) took 7 seconds.
+Initializing NUTS using jitter+adapt_diag...
+Sequential sampling (1 chains in 1 job)
+NUTS: [gamma, alpha, beta_forcing, sigma_base, sigma_storm, nu_offset]
+Sampling 1 chain for 150 tune and 200 draw iterations (150 + 200 draws total) took 1 seconds.
+Only one chain was sampled, this makes it impossible to run some convergence checks
+Initializing NU
+... [Output Truncated for Brevity]
 ```
 
 **Execution Log / Output**:
@@ -686,7 +746,30 @@ Paradigm Class                                    Model Name  \
 
    Normalized Position CV R2  Normalized Position CV RMSE  \
 0                   0.199969                     1.191414   
-1                   0.1
+1                   0.199969                     1.191414   
+2                   0.155789                     1.223869   
+3                   0.166774                     1.215880   
+4                  -0.444382                     1.600849   
+5                 -31.200066                     7.558539   
+
+   Normalized Position CV Pearson r  Normalized Position CV BSS  \
+0                          0.448179                    0.199969   
+1                          0.448179                    0.199969   
+2                          0.396829                    0.155789   
+3                          0.412167                    0.166774   
+4                          0.259320                   -0.444382   
+5                          0.052425                  -31.200066   
+
+   Site-Averaged R2 (Δx)  Site-Averaged Pos R2  Position CV R2 Score  \
+0              -0.126374             -0.679685              0.153777   
+1              -0.126374             -0.679685              0.153777   
+2              -0.082576             -0.927283              0.145650   
+3              -0.170265             -0.878872              0.139005   
+4              -0.079860             -2.563859             -0.247572   
+5              -0.122634            -14.697452            -39.812942   
+
+   Position CV RMSE (m)  Position CV Pears
+... [Output Truncated for Brevity]
 ```
 
 ### Cell 18 (Markdown Documentation)
@@ -696,6 +779,7 @@ Paradigm Class                                    Model Name  \
 2. **Error Accumulation & Operational Drift**: Compares analytical, numerical PDE, and $\Upsilon$ formulations.
 
 #### Cell 19 (Code Execution): `fig, axes = plt.subplots(2, 2, figsize=(16, 11))`
+
 ```python
 fig, axes = plt.subplots(2, 2, figsize=(16, 11))
 ax_flat = axes.flatten()
@@ -729,6 +813,7 @@ plt.show()
 We compute pairwise Williams $t$-tests to verify whether the correlation between $\Upsilon$ forcing and field survey displacement is statistically superior to unaugmented wave power or analytical equilibrium metrics.
 
 #### Cell 21 (Code Execution): `from scipy.stats import pearsonr`
+
 ```python
 from scipy.stats import pearsonr
 from src.models import williams_test
@@ -794,6 +879,7 @@ Site  Epochs (N)    r(Upsilon, ΔX)         r(Hs, ΔX)  \
 ```
 
 #### Cell 22 (Code Execution): `fig, ax = plt.subplots(figsize=(10, 5))`
+
 ```python
 fig, ax = plt.subplots(figsize=(10, 5))
 site_names = [COASTAL_SITE_PROFILES[s]["name"].split(",")[0] for s in sites]
@@ -843,6 +929,7 @@ In raw $\Upsilon$ models, cross-site calibration collapses because high-energy A
 By introducing **Normalized Equilibrium $\Upsilon$ ($\Delta \Upsilon^*$)**, the disequilibrium forcing is universally scaled to (1)$, ensuring stable zero-shot kinetic transfer across all four unseen archetypes.
 
 #### Cell 24 (Code Execution): `print("Executing 4-Fold Leave-One-Site-Out (LOSO) Cross-Validation across archet`
+
 ```python
 print("Executing 4-Fold Leave-One-Site-Out (LOSO) Cross-Validation across archetypes...")
 df_synthesis_loso, df_held_out_loso = evaluate_leave_one_site_out_cv(
@@ -912,7 +999,30 @@ Paradigm Class                                    Model Name  \
 6                 0.004183                   0.998008   
 7                 0.076906                   0.960876   
 
-   Normalized LOSO BS
+   Normalized LOSO BSS (Δx)  Normalized Position LOSO R2  \
+0                 -0.013196                    -0.665520   
+1                 -0.013196                    -0.665520   
+2                 -0.004241                    -0.685514   
+3                 -0.953896                    -0.811624   
+4                 -0.020607                    -0.848267   
+5                 -0.003404                    -0.927460   
+6                  0.004183                   -24.338830   
+7                  0.076906                   -38.109939   
+
+   Normalized Position LOSO RMSE  Normalized Position LOSO Pearson r  \
+0                       1.481300                           -0.382890   
+1                       1.481300                           -0.382890   
+2                       1.490165                           -0.341036   
+3                       1.544907                           -0.018061   
+4                       1.560452                           -0.399580   
+5                       1.593532                           -0.370518   
+6                       5.777786                           -0.335920   
+7                       7.178137                            0.199916   
+
+   Normalized Position LOSO BSS  Site-Averaged LOSO R2 (Δx)  \
+0                     -0.665520                   -0.019194   
+1    
+... [Output Truncated for Brevity]
 ```
 
 ### Cell 25 (Markdown Documentation)
@@ -922,6 +1032,7 @@ Paradigm Class                                    Model Name  \
 2. **Transferability Radar / Bar Plots**: Compares out-of-sample RMSE across held-out archetypes.
 
 #### Cell 26 (Code Execution): `fig, axes = plt.subplots(1, 2, figsize=(15, 6))`
+
 ```python
 fig, axes = plt.subplots(1, 2, figsize=(15, 6))
 
@@ -954,6 +1065,7 @@ governs long-term profile equilibrium. We evaluate:
 2. Bayesian MCMC parameter inference (PyMC NUTS) to estimate posterior distributions and 94% HDIs.
 
 #### Cell 28 (Code Execution): `print("Executing Asymmetry Ratio Sensitivity Sweep across all 4 archetypes (2012`
+
 ```python
 print("Executing Asymmetry Ratio Sensitivity Sweep across all 4 archetypes (2012–2016)...")
 df_sweep = evaluate_signed_equilibrium_rate_sensitivity(
@@ -996,6 +1108,7 @@ site                site_name  asymmetry_ratio  c_erosion  c_accretion  \
 ```
 
 #### Cell 29 (Code Execution): `fig, ax = plt.subplots(figsize=(10, 5.5))`
+
 ```python
 fig, ax = plt.subplots(figsize=(10, 5.5))
 
@@ -1015,6 +1128,7 @@ plt.show()
 ```
 
 #### Cell 30 (Code Execution): `print("Running Bayesian MCMC Rate Uncertainty Inference (PyMC NUTS) across arche`
+
 ```python
 print("Running Bayesian MCMC Rate Uncertainty Inference (PyMC NUTS) across archetypes (2012–2016)...")
 df_uq = infer_multi_site_signed_equilibrium_uncertainty(
@@ -1084,10 +1198,12 @@ site                           site_name  c_erosion_mean  \
    r_asym_hdi_lower  r_asym_hdi_upper  r_hat_max      ess_min  
 0          0.245979          2.671791   1.001391  4468.219490  
 1          0.257823          2.318481   1.001010  5778.483171  
-
+2          0.246193          2.628553   1.000969  4891.051721  
+3          0.436722          2.969782   1.002420  4073.578872
 ```
 
 #### Cell 31 (Code Execution): `fig, ax = plt.subplots(figsize=(10, 4.5))`
+
 ```python
 fig, ax = plt.subplots(figsize=(10, 4.5))
 

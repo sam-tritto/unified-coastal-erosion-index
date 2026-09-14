@@ -1,6 +1,7 @@
 # Notebook 04: Unified Global Physics-RAG Diagnostic Engine
+
 > **Source Document**: [`04_Physics_RAG_Deployment.ipynb`](file:////Users/sam/Locals%20Only/unified-coastal-erosion-index/04_Physics_RAG_Deployment.ipynb)
-> **Ingestion Target**: Google NotebookLM & Research Paper Reference
+> **Ingestion Target**: Google NotebookLM & Scientific Research Reference
 
 ---
 
@@ -103,7 +104,6 @@ To address computational science peer-review standards regarding pre-registered 
 3. **Rigorous Paper Anchoring**:
    - Research claims anchor primary statistical significance on the metrics and comparisons that remain definitive under conservative 2-tailed tests ($p < 0.01$ against Raw LLM), while transparently contextualizing the SQL comparison as a directional operational gain in ranking efficiency (MRR $+0.1428$) and peak temporal alignment (median error reduction from $15,124\text{ h}$ to zero-drift SQL pre-filtering), rather than asserting unreserved 2-tailed precision rejection.
 
-
 #### Visual Takeaways from Figure 3 (Cell 17):
 - **Panel (a) Precision Across Radii ($k = 1$ to $20$)**:
   - The blue square curve (Hybrid Cascade) maintains an unbroken ceiling ($0.682$–$0.700$) across all cutoff radii, consistently staying $\sim 8\%$ above Pure Physics ($0.623$–$0.633$), $\sim 13\%$ above Rule-Based SQL ($0.558$–$0.587$), and $\sim 23\%$ above Raw LLM ($0.465$–$0.477$).
@@ -171,10 +171,9 @@ Cell 21 executes an automated diagnostic query: *"When does $\Upsilon$ under-pre
   - *Peak Impact Ranking*: Hybrid Cascade is the only system achieving non-zero Peak Precision@5 ($0.12$), while eliminating the $15,000\text{ h}$ temporal drift of pure vector search.
   - *Operational Failure Auditing*: The system serves as an automated diagnostic auditor, identifying four primary physical mechanisms where 1D models fail: antecedent sand depletion (Duck), embayed rotational scour (Narrabeen), infragravity surf-beat resonance (Torrey Pines), and multi-year post-storm recovery lag (Truc Vert).
 
-
 ---
 
-## Appendix: Complete Cell-by-Cell Notebook Outline & Technical Methodology
+## Appendix: Complete Cell-by-Cell Execution Trajectory & Technical Methodology
 
 ### Cell 0 (Markdown Documentation)
 
@@ -229,6 +228,7 @@ To overcome these structural limitations, this deployment pipeline implements a 
 ```
 
 #### Cell 1 (Code Execution): `%load_ext autoreload`
+
 ```python
 %load_ext autoreload
 %autoreload 2
@@ -317,6 +317,7 @@ To resolve this without causing context-window bloat, we decouple the retrieval 
 We register the processed Parquet partitions (`data/processed/{site}_2012_2016_sensors.parquet`) with continuous simulated morphodynamic states into DuckDB, enabling ultra-fast zero-copy analytical range filtering and sequence extraction.
 
 #### Cell 3 (Code Execution): `from src.data import load_site_field_surveys`
+
 ```python
 from src.data import load_site_field_surveys
 # 1. Load multi-site datasets with authentic continuous sensors & in-situ field surveys
@@ -481,6 +482,7 @@ site_id  total_hourly_records                start_date  \
 ```
 
 #### Cell 4 (Code Execution): `# Plot the hydrated ±72-hour continuous parent sequence`
+
 ```python
 # Plot the hydrated ±72-hour continuous parent sequence
 fig, axes = plt.subplots(3, 1, figsize=(14, 8), sharex=True)
@@ -546,6 +548,7 @@ Each vector is tagged with granular operational metadata:
 - `breaker_regime`: Hydrodynamic wave breaking type (`Spilling`, `Plunging`, `Surging`)
 
 #### Cell 6 (Code Execution): `# 1. Global Multi-Site Dataset Confirmation`
+
 ```python
 # 1. Global Multi-Site Dataset Confirmation
 print(f"✓ Global Multi-Site Dataset Ready: {len(df_global):,} records across all 4 authentic archetypes ({len(sites) * 5} site-years).")
@@ -591,6 +594,7 @@ We project the unified latent space of all 4 authentic coastal archetypes onto a
 > Coastal hydrodynamics form a continuous physical spectrum rather than isolated clusters. The quantitative regime silhouette score ( \approx 0.128$) indicates **weak cluster separation and substantial regime overlap**. Rather than forming isolated clusters, spilling, plunging, and surging breakers smoothly transition along a continuous dynamical manifold.
 
 #### Cell 8 (Code Execution): `# 1. Sample a stratified multi-site subset for UMAP projection (3,000 per site =`
+
 ```python
 # 1. Sample a stratified multi-site subset for UMAP projection (3,000 per site = 12,000 points)
 sample_indices = df_global.groupby('site_id', group_keys=False).apply(lambda x: x.sample(3000, random_state=42)).index.values
@@ -744,6 +748,7 @@ When an operational coastal engineer or emergency manager queries the system wit
 4. **LLM Synthesis**: Synthesizes an engineering diagnosis grounded directly in the continuous hydrodynamic time series.
 
 #### Cell 10 (Code Execution): `# ==============================================================================`
+
 ```python
 # ==============================================================================
 # CONFIGURATION: Benchmark Execution & LLM API Settings
@@ -838,6 +843,39 @@ EXECUTING QUERY: 'Find prolonged extreme wave dissipation'
 Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
 ```
 
+**Execution Log / Output**:
+```text
+Parsed Intent: Search for events characterized by prolonged extreme wave dissipation.
+Target Breaker: Spilling | Target Focus: dissipation
+Top Matched Events (3):
+  • Match 1: Site=TRUC_VERT_FRANCE | Timestamp=2016-02-15 04:00:00+00:00 | Cosine Sim=0.9949
+    - Peak Hs: 6.29m | Mean Hs: 3.61m
+    - Peak Surge: 0.05m | Peak Upsilon: 352012.4
+    - Hydrated Window: 2016-02-12 04:00:00-05:00 to 2016-02-18 04:00:00-05:00 (145 steps)
+
+=========================================================================================
+EXECUTING QUERY: 'Find plunging curling waves with high storm surge'
+=========================================================================================
+Parsed Intent: Identify conditions characterized by plunging/curling waves and elevated storm surge.
+Target Breaker: Plunging | Target Focus: compound
+Top Matched Events (3):
+  • Match 1: Site=TORREY_PINES_CA | Timestamp=2014-08-27 06:00:00+00:00 | Cosine Sim=0.7948
+    - Peak Hs: 1.93m | Mean Hs: 1.54m
+    - Peak Surge: 0.02m | Peak Upsilon: 3480.7
+    - Hydrated Window: 2014-08-24 06:00:00-04:00 to 2014-08-30 06:00:00-04:00 (145 steps)
+
+=========================================================================================
+EXECUTING QUERY: 'Find post-storm berm accretion and swash recovery'
+=========================================================================================
+Parsed Intent: Query for post-storm recovery events characterized by berm accretion and swash zone recovery.
+Target Breaker: None | Target Focus: recovery
+Top Matched Events (3):
+  • Match 1: Site=TRUC_VERT_FRANCE | Timestamp=2015-06-08 05:00:00+00:00 | Cosine Sim=0.9906
+    - Peak Hs: 1.50m | Mean Hs: 1.15m
+    - Peak Surge: 0.05m | Peak Upsilon: 3243.9
+    - Hydrated Window: 2015-06-05 05:00:00-04:00 to 2015-06-11 05:00:00-04:00 (145 steps)
+```
+
 ### Cell 11 (Markdown Documentation)
 
 ---
@@ -867,6 +905,7 @@ Evaluates all four retrieval architectures across the complete 60-query benchmar
 - Multi-cutoff retrieval radii ($k \in \{1, 5, 10, 20\}$), Mean NDCG@5, Mean Reciprocal Rank (MRR), and Regime Purity@5.
 
 #### Cell 13 (Code Execution): `import importlib`
+
 ```python
 import importlib
 import os
@@ -1057,6 +1096,7 @@ Architecture       P@1       P@5      P@10  \
 Evaluates whether the Two-Tier Hybrid Cascade achieves statistically significant performance gains over Rule-Based SQL, Pure Physics-RAG, and Raw-Data LLM-RAG. To satisfy computational science peer-review standards, we report both 1-tailed directional tests and conservative 2-tailed tests, alongside non-parametric bootstrap 95% confidence intervals ($B = 10,000$ resamples) for paired differences.
 
 #### Cell 15 (Code Execution): `# -------------------------------------------------------------------------`
+
 ```python
 # -------------------------------------------------------------------------
 # Statistical Significance & Hypothesis Testing: Two-Tier Hybrid Cascade vs. Baselines
@@ -1147,12 +1187,12 @@ df_sig_hybrid.to_csv("reports/tables/statistical_significance_hybrid_vs_baseline
 
 **Result Data**:
 ```text
-                       Baseline       Metric Hybrid Cascade Mean Baseline Mean    Delta    Bootstrap 95% CI Paired t-test (1-tailed) Paired t-test (2-tailed) Wilcoxon W (1-tailed) Wilcoxon W (2-tailed)  Significant (2-tailed, α=0.05)
-0  Baseline 1: Raw-Data LLM-RAG  Precision@5              0.7000        0.4667  +0.2333  [+0.0634, +0.4032]        t=2.808, p=0.0044        t=2.808, p=0.0087      W=71.5, p=0.0047      W=71.5, p=0.0094                            True
-1    Baseline 2: Rule-Based SQL  Precision@5              0.7000        0.5867  +0.1133  [-0.0290, +0.2556]        t=1.628, p=0.0571        t=1.628, p=0.1143      W=43.0, p=0.0557      W=43.0, p=0.1114                           False
-2  Baseline 3: Pure Physics-RAG  Precision@5              0.7000        0.6267  +0.0733  [-0.0063, +0.1529]        t=1.884, p=0.0348        t=1.884, p=0.0696      W=24.5, p=0.0364      W=24.5, p=0.0728                           False
-3    Baseline 2: Rule-Based SQL       NDCG@5              0.7180        0.6134  +0.1046  [-0.0206, +0.2298]        t=1.709, p=0.0491        t=1.709, p=0.0982      W=44.0, p=0.0462      W=44.0, p=0.0924                           False
-4    Baseline 2: Rule-Based SQL          MRR              0.7261        0.5833  +0.1428  [-0.0226, +0.3082]        t=1.766, p=0.0439        t=1.766, p=0.0879      W=38.0, p=0.0308      W=38.0, p=0.0616                           False
+Baseline       Metric Hybrid Cascade Mean Baseline Mean    Delta    Bootstrap 95% CI Paired t-test (1-tailed) Paired t-test (2-tailed) Wilcoxon W (1-tailed) Wilcoxon W (2-tailed) Significant (2-tailed, α=0.05)
+0  Baseline 1: Raw-Data LLM-RAG  Precision@5              0.7000        0.4667  +0.2333  [+0.0634, +0.4032]        t=2.808, p=0.0044        t=2.808, p=0.0087      W=71.5, p=0.0047      W=71.5, p=0.0094                           True
+1    Baseline 2: Rule-Based SQL  Precision@5              0.7000        0.5867  +0.1133  [-0.0290, +0.2556]        t=1.628, p=0.0571        t=1.628, p=0.1143      W=43.0, p=0.0557      W=43.0, p=0.1114                          False
+2  Baseline 3: Pure Physics-RAG  Precision@5              0.7000        0.6267  +0.0733  [-0.0063, +0.1529]        t=1.884, p=0.0348        t=1.884, p=0.0696      W=24.5, p=0.0364      W=24.5, p=0.0728                          False
+3    Baseline 2: Rule-Based SQL       NDCG@5              0.7180        0.6134  +0.1046  [-0.0206, +0.2298]        t=1.709, p=0.0491        t=1.709, p=0.0982      W=44.0, p=0.0462      W=44.0, p=0.0924                          False
+4    Baseline 2: Rule-Based SQL          MRR              0.7261        0.5833  +0.1428  [-0.0226, +0.3082]        t=1.766, p=0.0439        t=1.766, p=0.0879      W=38.0, p=0.0308      W=38.0, p=0.0616                          False
 ```
 
 ### Cell 16 (Markdown Documentation)
@@ -1163,6 +1203,7 @@ Visualizes the overarching information retrieval performance across all four arc
 - **Subplot (b)**: Comprehensive multi-metric competency comparison ($P@5$, $\text{NDCG}@5$, $\text{MRR}$, $\text{Regime Purity}@5$).
 
 #### Cell 17 (Code Execution): `import matplotlib.pyplot as plt`
+
 ```python
 import matplotlib.pyplot as plt
 import os
@@ -1288,6 +1329,7 @@ Under this 4-tier benchmark, **Proposed Hybrid Cascade** delivers:
 4. **3.4x Higher Disequilibrium Energy Capture**: Median top-1 $\\Upsilon = 112,601$ vs. Flat SQL $32,995$.
 
 #### Cell 19 (Code Execution): `# -------------------------------------------------------------------------`
+
 ```python
 # -------------------------------------------------------------------------
 # 5d. Peak Impact & Disequilibrium Ranking Benchmark Execution
@@ -1446,7 +1488,27 @@ Architecture  Graded NDCG@5  Mean Reciprocal Rank (MRR)  \
 
    Mean |Δt_peak| Error (hrs)  Wave Height Capture (%)  Mean Top-1 Hs (m)  \
 0                      2215.6                93.766889           6.635991   
-1                      2740.2               218.
+1                      2740.2               218.096884           7.299448   
+2                     11116.2                52.320998           2.530037   
+3                      8678.0                52.764134           2.526075   
+
+   Mean Top-1 TWL (m)  Median Top-1 Upsilon  Mean Top-5 Upsilon  \
+0            3.135566          1.236796e+06       962369.004495   
+1            3.497287          1.236796e+06       742552.773654   
+2            1.801207          3.548645e+04        49290.024947   
+3            1.836687          3.548645e+04        59977.388134   
+
+   Median Top-1 Wave Power (kW/m)  Mean Top-5 Wave Power (kW/m)  \
+0                      528.749255                    415.716112   
+1                      528.749255                    387.896310   
+2                       54.273585                     55.822211   
+3                       54.273585                     58.086617   
+
+   Mean Cumulative Excess Impulse (MJ/m)  
+0                           17316.757018  
+1                           13359.122783  
+2                             881.716410  
+3                            1074.099214
 ```
 
 **Execution Log / Output**:
@@ -1470,6 +1532,7 @@ An under-prediction failure mode occurs when **severe observed shoreline erosion
 > The physical root causes identified below (`"Embayed Rotation & Alongshore Rip Scour"`, `"Infragravity Swash & Surf-Beat Resonance"`, `"Storm Surge & Elevated TWL Scarping"`) are attributed using **transparent, deterministic physical oceanographic decision rules** (evaluating wave obliquity relative to shore normal $> 20^\circ$, peak wave period $T_p \ge 13\text{ s}$, and total water level relative to dune crest), rather than generative LLM inference. This ensures repeatable, auditable scientific attribution.
 
 #### Cell 21 (Code Execution): `# 1. Execute Automated Failure Mode Query across all 4 Global Coastal Sites usin`
+
 ```python
 # 1. Execute Automated Failure Mode Query across all 4 Global Coastal Sites using authentic field surveys
 failure_audit = rag_engine.query_failure_modes(
@@ -1520,7 +1583,15 @@ Site Survey Date        Storm Peak Surveyed Δx (m) Hs (m)  \
 6    7.4     +0.05        12016.9               1.7   
 7    9.4     +0.05        95470.1               1.4   
 
-                  
+                                 Physical Root Cause  
+0  Antecedent Beach Depletion (Successive wave pu...  
+1  Antecedent Beach Depletion (Successive wave pu...  
+2  Embayed Rotation & Alongshore Rip Scour (High ...  
+3  Embayed Rotation & Alongshore Rip Scour (High ...  
+4  Infragravity Swash & Surf-Beat Resonance (Long...  
+5  Embayed Rotation & Alongshore Rip Scour (High ...  
+6  Antecedent Beach Depletion (Successive wave pu...  
+7  Antecedent Beach Depletion (Successive wave pu...
 ```
 
 **Execution Log / Output**:
@@ -1535,6 +1606,7 @@ Key Oceanographic Failure Mechanisms:
 ```
 
 #### Cell 22 (Code Execution): `# 2. Multi-Panel Parent Sequence Hydration Visualization for Top Failure Mode Ep`
+
 ```python
 # 2. Multi-Panel Parent Sequence Hydration Visualization for Top Failure Mode Episodes across 4 Sites
 n_sites = len(sites)

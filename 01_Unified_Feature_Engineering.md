@@ -1,6 +1,7 @@
 # Notebook 01: Unified Coastal Morphodynamics Feature Engineering Pipeline
+
 > **Source Document**: [`01_Unified_Feature_Engineering.ipynb`](file:////Users/sam/Locals%20Only/unified-coastal-erosion-index/01_Unified_Feature_Engineering.ipynb)
-> **Ingestion Target**: Google NotebookLM & Research Paper Reference
+> **Ingestion Target**: Google NotebookLM & Scientific Research Reference
 
 ---
 
@@ -136,10 +137,9 @@ Cell 22 couples cumulative and peak $\Upsilon$ forcing directly to real surveyed
 2. **The Mandate for Baselines & SciML**:
    This striking empirical divergence proves that attempting to use $\Upsilon$ as a monotonic, unaugmented 1D erosion formula fails on real-world coastlines. This directly motivates **Notebook 02** (where 1D baselines are shown to hit a noise floor of $R^2 \le 0.023$) and **Notebook 03** (where SciML neural ODEs and UMAP latent embeddings resolve multi-modal nonlinear morphodynamics).
 
-
 ---
 
-## Appendix: Complete Cell-by-Cell Notebook Outline & Technical Methodology
+## Appendix: Complete Cell-by-Cell Execution Trajectory & Technical Methodology
 
 ### Cell 0 (Markdown Documentation)
 
@@ -167,6 +167,7 @@ This notebook establishes the foundational feature engineering pipeline for the 
 6. **Empirical Ground-Truth Integration**: Pairs hourly antecedent physics directly against **1,228 authentic in-situ field survey records** (`data/site_field_surveys_2012_2017.csv`).
 
 #### Cell 1 (Code Execution): `import os`
+
 ```python
 import os
 import sys
@@ -217,6 +218,7 @@ print("✓ Core physics and data modules loaded successfully.")
 > All four datasets consist of **100% genuine institutional observations** spanning the exact 5-year golden window (2012–2016; 43,848 hours per site). All raw multi-gigabyte archives (Dryad zips, USACE NetCDFs, OSF files) have been processed, joined, and purged, leaving clean, scale-invariant 5-year Parquets and a 1,228-record authentic in-situ survey catalog.
 
 #### Cell 3 (Code Execution): `sites = ["duck_nc", "narrabeen_aus", "torrey_pines_ca", "truc_vert_france"]`
+
 ```python
 sites = ["duck_nc", "narrabeen_aus", "torrey_pines_ca", "truc_vert_france"]
 site_datasets = {}
@@ -270,6 +272,7 @@ The Unified Coastal Vulnerability Index ($\Upsilon$) decomposes nearshore hydrod
 - **Tier 4 (Directional Collimation Focusing)**: $\Upsilon_4 = \Upsilon_3 \cdot K_{\text{focus}}(\sigma_\theta)$ where $K_{\text{focus}} = 1.0 + \frac{15^\circ - \sigma_\theta}{45^\circ}$
 
 #### Cell 5 (Code Execution): `print("Analyzing constructive physical tier metrics across all 4 archetypes (43,`
+
 ```python
 print("Analyzing constructive physical tier metrics across all 4 archetypes (43,848 hours per site):\n")
 tier_summary = []
@@ -327,6 +330,7 @@ $$\Psi_{\text{steep}} = \operatorname{clip}\left(\left(\frac{s_0}{s_{0,\text{cri
 where $s_{0,\text{crit}} = 0.025$ is the empirical threshold separating long, constructive swell ($s_0 < 0.025$, $\Psi_{\text{steep}} < 1.0$) from destructive, steep storm seas ($s_0 > 0.025$, $\Psi_{\text{steep}} > 1.0$).
 
 #### Cell 7 (Code Execution): `print("Wave steepness (s_0) and steepness modulator (Psi_steep) distribution:\n"`
+
 ```python
 print("Wave steepness (s_0) and steepness modulator (Psi_steep) distribution:\n")
 steepness_records = []
@@ -380,6 +384,7 @@ $$\Psi_{Sxx} = \frac{S_{xx}}{E} = \frac{1}{2} \cos^2(\theta_{\text{rel}})$$
 The dimensionless ratio $\Psi_{Sxx}$ quantifies the shore-normal cross-shore momentum flux driving wave set-up and beach gouging.
 
 #### Cell 9 (Code Execution): `print("Exact radiation stress tensor components across sites (2012-2016):\n")`
+
 ```python
 print("Exact radiation stress tensor components across sites (2012-2016):\n")
 rad_records = []
@@ -433,6 +438,7 @@ The Sallenger (2000) storm impact scale establishes discrete morphodynamic regim
 3. **Overwash Regime ($\text{TWL} \ge z_{\text{dune}}$)**: Runup crests over the barrier, transporting sand landward.
 
 #### Cell 11 (Code Execution): `print("Sallenger (2000) storm impact regimes and freeboard amplification across `
+
 ```python
 print("Sallenger (2000) storm impact regimes and freeboard amplification across sites:\n")
 impact_records = []
@@ -495,6 +501,7 @@ $$\bar{\Upsilon}_\tau(t) = \int_0^\infty \Upsilon(t - s) \frac{e^{-s/\tau}}{\tau
 - $\tau = 365$ days: Interannual carrying capacity baseline.
 
 #### Cell 13 (Code Execution): `print("Multi-scale antecedent exponential memory decay and disequilibrium anomal`
+
 ```python
 print("Multi-scale antecedent exponential memory decay and disequilibrium anomalies:\n")
 memory_records = []
@@ -558,6 +565,7 @@ $$\Upsilon_{\text{ref}} = C_0 \tan(\beta) \left[\frac{H_{s,\text{mean}}^{2.5} T_
 produces a scale-invariant dimensionless forcing index centered at $\Upsilon^* = 1.0$ across all global archetypes.
 
 #### Cell 15 (Code Execution): `print("Scale-invariant relative forcing index (Upsilon* = Upsilon / Upsilon_ref)`
+
 ```python
 print("Scale-invariant relative forcing index (Upsilon* = Upsilon / Upsilon_ref):\n")
 star_records = []
@@ -611,6 +619,7 @@ The following publication-grade diagnostic panels characterize:
 4. Scale-invariant collapse ($\Upsilon^* = \Upsilon / \Upsilon_{\text{ref}}$) demonstrating mathematical invariance.
 
 #### Cell 17 (Code Execution): `fig, axes = plt.subplots(2, 2, figsize=(16, 12))`
+
 ```python
 fig, axes = plt.subplots(2, 2, figsize=(16, 12))
 
@@ -665,6 +674,7 @@ plt.show()
 ```
 
 #### Cell 18 (Code Execution): `# High-Resolution Time Series Case Study: Multi-Scale Antecedent Memory During E`
+
 ```python
 # High-Resolution Time Series Case Study: Multi-Scale Antecedent Memory During Extreme Storm Epochs
 fig, axes = plt.subplots(3, 1, figsize=(16, 11), sharex=False)
@@ -710,6 +720,7 @@ plt.show()
 The table below compiles all key geomorphic parameters, hydrodynamic wave statistics, exact radiation stress tensors, Sallenger collision ratios, and scale-invariant carrying capacities across all four global archetypes over the 2012–2016 golden window ($N=43,848$ hours per site).
 
 #### Cell 20 (Code Execution): `master_summary = []`
+
 ```python
 master_summary = []
 
@@ -768,6 +779,7 @@ Site Archetype    Country Slope tan(beta) D50 (mm) Tide Range (m)  \
 > For each survey epoch, we compute the antecedent cumulative storm work ($W_{\text{storm}} = \int \Upsilon dt$) and peak storm forcing ($\Upsilon_{\max}$) between successive survey dates. This assesses where raw linear forcing correlates directly with erosion ($\Delta X < 0$) versus where complex morphodynamic processes (swell accretion, 3D sandbar rhythms) necessitate nonlinear modeling in `02_Diagnostic_Baselines.ipynb`.
 
 #### Cell 22 (Code Execution): `from scipy.stats import pearsonr, spearmanr`
+
 ```python
 from scipy.stats import pearsonr, spearmanr
 
