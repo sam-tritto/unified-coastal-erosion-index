@@ -2492,9 +2492,15 @@ class HybridPhysicsRAG(PhysicsRAG):
         has_directional_extreme = False
 
         if target_intent == "erosion":
-            if spec.hs_min is not None and "hs_m" in self.df.columns:
+            effective_hs_min = spec.hs_min
+            if effective_hs_min is None:
+                synth_dict = spec.target_synthetic_values.model_dump() if hasattr(spec.target_synthetic_values, "model_dump") else (spec.target_synthetic_values if isinstance(spec.target_synthetic_values, dict) else {})
+                if "hs_m" in synth_dict and (any(w in q_raw.lower() for w in ["exceeding", "over", "above", "greater than", ">", "storm"]) or target_intent == "erosion"):
+                    effective_hs_min = float(synth_dict["hs_m"])
+
+            if effective_hs_min is not None and "hs_m" in self.df.columns:
                 hs_cand = self.df["hs_m"].values[candidate_indices]
-                hs_exc = np.maximum(0.0, hs_cand - spec.hs_min)
+                hs_exc = np.maximum(0.0, hs_cand - effective_hs_min)
                 if hs_exc.max() > 0:
                     pareto_boost += hs_exc / hs_exc.max()
                     has_directional_extreme = True
@@ -5481,7 +5487,7 @@ def evaluate_rag_benchmark_suite(
     # Configurable sample size limit N (supports 1 <= N <= len(DEFAULT_PHYSICS_BENCHMARK_QUERIES))
     limit_n = max_queries if max_queries is not None else n_queries
     if limit_n is not None and limit_n > 0:
-        if benchmark_mode is not None:
+        if benchmark_mode is not None and "all" not in str(benchmark_mode).lower():
             queries = queries[:limit_n]
         else:
             # Balanced sampling across Mode A and Mode B

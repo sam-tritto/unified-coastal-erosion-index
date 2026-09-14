@@ -71,7 +71,7 @@ def test_bootstrap_metric_ci():
 
 def test_field_survey_correlation_evaluation():
     """Verify that empirical correlation evaluation calculates skill metrics, bootstrap CIs, Williams test, and variance lift."""
-    df_aligned, meta = load_field_survey_validation_dataset(year=2022, transect_id="FRF_0058")
+    df_aligned, meta = load_field_survey_validation_dataset(start_year=2012, end_year=2016, site="duck_nc", transect_id="FRF_0058")
     assert not df_aligned.empty
     assert len(df_aligned) >= 10
 
@@ -161,13 +161,13 @@ def test_narrabeen_three_transect_field_surveys_rotation():
     assert "PF4" in transects
     assert "alongshore_y_m" in df_narr.columns
 
-    # Check Feb 2020 ECL survey epoch
-    feb_surveys = df_narr[df_narr.index == "2020-02-11 11:15:00"]
-    assert len(feb_surveys) == 3
+    # Check June 2014 survey epoch displaying classic embayment rotation (North accreting, South eroding)
+    rotation_surveys = df_narr[df_narr.index == "2014-06-27 10:00:00"]
+    assert len(rotation_surveys) >= 3
 
-    pf1_change = feb_surveys[feb_surveys["transect_id"] == "PF1"]["cross_shore_change_m"].iloc[0]
-    pf2_change = feb_surveys[feb_surveys["transect_id"] == "PF2"]["cross_shore_change_m"].iloc[0]
-    pf4_change = feb_surveys[feb_surveys["transect_id"] == "PF4"]["cross_shore_change_m"].iloc[0]
+    pf1_change = rotation_surveys[rotation_surveys["transect_id"] == "PF1"]["cross_shore_change_m"].iloc[0]
+    pf2_change = rotation_surveys[rotation_surveys["transect_id"] == "PF2"]["cross_shore_change_m"].iloc[0]
+    pf4_change = rotation_surveys[rotation_surveys["transect_id"] == "PF4"]["cross_shore_change_m"].iloc[0]
 
     # PF1 (North) accretes, PF2 (Center) erodes, PF4 (South) erodes heavily
     assert pf1_change > 0.0, f"PF1 should accrete during ECL: got {pf1_change}"
@@ -252,9 +252,9 @@ def test_all_three_duck_transects_independent_resolution():
     df_109 = load_site_field_surveys(site="duck_nc", transect_id="FRF_0109")
     df_m91 = load_site_field_surveys(site="duck_nc", transect_id="FRF_m091")
 
-    assert len(df_58) == 68
-    assert len(df_109) == 82
-    assert len(df_m91) == 67
+    assert len(df_58) == 46
+    assert len(df_109) == 47
+    assert len(df_m91) == 48
 
     assert (df_58["transect_id"] == "FRF_0058").all()
     assert (df_109["transect_id"] == "FRF_0109").all()

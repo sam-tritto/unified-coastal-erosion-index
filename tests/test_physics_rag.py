@@ -992,6 +992,7 @@ def test_directional_pareto_ranking(sample_coastal_df: pd.DataFrame) -> None:
     # Query specifying severe storm with lower bound Hs >= 3.5m
     spec = PhysicsQuerySpec(
         raw_query="Storm with wave height exceeding 3.5m",
+        hs_min=3.5,
         target_synthetic_values=TargetSyntheticValues(hs_m=3.5, tp_s=11.0),
     )
     result = rag.query("Storm with wave height exceeding 3.5m", spec=spec, top_k=3, use_llm_parser=False)
