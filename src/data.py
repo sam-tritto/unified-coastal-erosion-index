@@ -59,6 +59,7 @@ try:
         compute_upsilon_disequilibrium,
         compute_signed_equilibrium_rate,
         simulate_signed_equilibrium_upsilon_evolution,
+        simulate_normalized_equilibrium_upsilon_evolution,
         compute_coupled_2d_embayment_displacement,
         simulate_coupled_2d_embayment_evolution,
         DUCK_SHORE_NORMAL_DEG,
@@ -74,6 +75,7 @@ except ImportError:
         compute_upsilon_disequilibrium,
         compute_signed_equilibrium_rate,
         simulate_signed_equilibrium_upsilon_evolution,
+        simulate_normalized_equilibrium_upsilon_evolution,
         compute_coupled_2d_embayment_displacement,
         simulate_coupled_2d_embayment_evolution,
         DUCK_SHORE_NORMAL_DEG,
@@ -1779,8 +1781,8 @@ def load_site_field_surveys(
     # Locate dataset CSV (Unified site_field_surveys.csv)
     possible_paths = [
         csv_path if csv_path is not None else None,
-        "data/site_field_surveys.csv",
         "data/site_field_surveys_2012_2017.csv",
+        "data/site_field_surveys.csv",
         "data/frf_duck_field_surveys.csv",
     ]
     resolved_path = None
@@ -1908,9 +1910,18 @@ def align_hydrodynamics_with_field_surveys(
             )
         else:
             ups_aug_diseq_full = ups_diseq_full
+
+        # Normalized Equilibrium Upsilon (Dimensionless Delta Upsilon*)
+        ups_norm_diseq_full, _ = simulate_normalized_equilibrium_upsilon_evolution(
+            upsilon=df_hydro["upsilon"].values,
+            c_erosion_star=0.02,
+            c_accretion_star=0.01,
+            upsilon_eq_mode="expanding",
+        )
     else:
         ups_diseq_full = np.zeros(len(df_hydro))
         ups_aug_diseq_full = np.zeros(len(df_hydro))
+        ups_norm_diseq_full = np.zeros(len(df_hydro))
 
     if "hs_m" in df_hydro.columns and "tp_s" in df_hydro.columns:
         hs_vals = df_hydro["hs_m"].values
@@ -1957,6 +1968,8 @@ def align_hydrodynamics_with_field_surveys(
         ups_diseq_pos = float(ups_diseq_full[exact_pos]) if exact_pos < len(ups_diseq_full) else 0.0
         ups_aug_delta = float(ups_aug_diseq_full[exact_pos] - ups_aug_diseq_full[prev_pos]) if exact_pos < len(ups_aug_diseq_full) and prev_pos < len(ups_aug_diseq_full) else 0.0
         ups_aug_pos = float(ups_aug_diseq_full[exact_pos]) if exact_pos < len(ups_aug_diseq_full) else 0.0
+        ups_norm_delta = float(ups_norm_diseq_full[exact_pos] - ups_norm_diseq_full[prev_pos]) if exact_pos < len(ups_norm_diseq_full) and prev_pos < len(ups_norm_diseq_full) else 0.0
+        ups_norm_pos = float(ups_norm_diseq_full[exact_pos]) if exact_pos < len(ups_norm_diseq_full) else 0.0
         yates_delta = float(yates_full[exact_pos] - yates_full[prev_pos]) if exact_pos < len(yates_full) and prev_pos < len(yates_full) else 0.0
         yates_pos = float(yates_full[exact_pos]) if exact_pos < len(yates_full) else 0.0
         xbeach_delta = float(xbeach_full[exact_pos] - xbeach_full[prev_pos]) if exact_pos < len(xbeach_full) and prev_pos < len(xbeach_full) else 0.0
@@ -1968,6 +1981,18 @@ def align_hydrodynamics_with_field_surveys(
         cum_ups = float(sub_hydro["upsilon"].sum()) if "upsilon" in sub_hydro.columns else 0.0
         log_ups_mean = float(sub_hydro["log_upsilon"].mean()) if "log_upsilon" in sub_hydro.columns else np.log10(max(mean_ups, 1e-4))
         log_peak_ups = np.log10(max(peak_ups, 1e-4))
+
+        u_vals_ref = df_hydro["upsilon"].values if "upsilon" in df_hydro.columns else np.array([])
+        u_med_ref = float(np.median(u_vals_ref)) if len(u_vals_ref) > 0 else 1500.0
+        u_p90_ref = float(np.percentile(u_vals_ref, 90)) if len(u_vals_ref) > 0 else 10000.0
+        u_crit_ref = max(1.0, u_p90_ref - u_med_ref)
+        if "upsilon" in sub_hydro.columns and len(sub_hydro) > 0:
+            sub_du_star = (sub_hydro["upsilon"].values - u_med_ref) / u_crit_ref
+            mean_du_star = float(np.mean(sub_du_star))
+            peak_du_star = float(np.max(sub_du_star))
+        else:
+            mean_du_star = 0.0
+            peak_du_star = 0.0
 
         max_hs = float(sub_hydro["hs_m"].max()) if "hs_m" in sub_hydro.columns else 0.0
         mean_hs = float(sub_hydro["hs_m"].mean()) if "hs_m" in sub_hydro.columns else 0.0
@@ -2018,6 +2043,8 @@ def align_hydrodynamics_with_field_surveys(
             "antecedent_mean_upsilon_diseq": mean_ups - 2500.0,
             "antecedent_signed_equilibrium_rate": float(sub_hydro["signed_equilibrium_rate"].mean()) if "signed_equilibrium_rate" in sub_hydro.columns else (mean_ups - 2500.0) * -1.2e-5,
             "antecedent_log_upsilon": log_ups_mean,
+            "antecedent_delta_upsilon_star_mean": mean_du_star,
+            "antecedent_delta_upsilon_star_peak": peak_du_star,
             "antecedent_upsilon_memory": ups_mem_val,
             "antecedent_instantaneous_upsilon_memory": ups_mem_inst,
             "antecedent_cum_upsilon": cum_ups,
@@ -2028,6 +2055,8 @@ def align_hydrodynamics_with_field_surveys(
             "antecedent_max_power_Wm": max_power,
             "upsilon_diseq_simulated_delta_x_m": ups_diseq_delta,
             "upsilon_diseq_simulated_pos_m": ups_diseq_pos,
+            "upsilon_norm_diseq_simulated_delta_x_m": ups_norm_delta,
+            "upsilon_norm_diseq_simulated_pos_m": ups_norm_pos,
             "upsilon_aug_diseq_simulated_delta_x_m": ups_aug_delta,
             "upsilon_aug_diseq_simulated_pos_m": ups_aug_pos,
             "yates_simulated_delta_x_m": yates_delta,

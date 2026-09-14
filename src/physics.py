@@ -1347,6 +1347,131 @@ def simulate_signed_equilibrium_upsilon_evolution(
     return x_pos, x_obs
 
 
+def simulate_normalized_equilibrium_upsilon_evolution(
+    upsilon: Optional[np.ndarray] = None,
+    delta_upsilon_star: Optional[np.ndarray] = None,
+    c_erosion_star: float = 0.02,
+    c_accretion_star: float = 0.01,
+    upsilon_eq: Optional[Union[float, np.ndarray, str]] = None,
+    upsilon_crit: Optional[Union[float, np.ndarray]] = None,
+    upsilon_eq_mode: str = "auto",
+    window_hours: Optional[int] = None,
+    min_periods: int = 24,
+    initial_x: float = 0.0,
+    x_bounds: Tuple[float, float] = (-25.0, 15.0),
+    random_seed: int = 42,
+    add_noise: bool = False,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Simulate continuous shoreline morphodynamics driven by Dimensionless Normalized Upsilon Disequilibrium (ΔΥ*).
+
+    Governing Differential Equation:
+        dX/dt = -c_erosion* * max(Delta_Upsilon*(t), 0) + c_accretion* * max(-Delta_Upsilon*(t), 0)
+
+    where dimensionless site-normalized disequilibrium is:
+        Delta_Upsilon*(t) = (Upsilon(t) - Upsilon_eq(t)) / Upsilon_crit
+
+    Eliminates cross-site order-of-magnitude scaling collapse (e.g. Duck vs Truc Vert),
+    yielding scale-universal displacement rates (m/hr per unit normalized disequilibrium).
+
+    Parameters
+    ----------
+    upsilon : np.ndarray, optional
+        Time series of Unified Coastal Vulnerability Index (if delta_upsilon_star not directly provided).
+    delta_upsilon_star : np.ndarray, optional
+        Direct pre-computed dimensionless disequilibrium series. If provided, overrides upsilon calculation.
+    c_erosion_star : float, default 0.02
+        Dimensionless erosive rate scaling constant [m/hr per unit ΔΥ*].
+    c_accretion_star : float, default 0.01
+        Dimensionless accretive rate scaling constant [m/hr per unit ΔΥ*].
+    upsilon_eq : float, np.ndarray, or str, optional
+        Equilibrium threshold value or mode ('median', 'expanding', 'trailing', 'static').
+        If None and upsilon provided, defaults to median(upsilon) or causal expanding mean.
+    upsilon_crit : float or np.ndarray, optional
+        Critical storm threshold scaling scale [kg/s].
+        If None and upsilon provided, defaults to max(1.0, P90(upsilon) - median(upsilon)).
+    upsilon_eq_mode : str, default 'auto'
+        Equilibrium computation mode ('auto', 'median', 'static', 'expanding', 'trailing').
+    window_hours : int, optional
+        Trailing window size in hours for trailing mode.
+    min_periods : int, default 24
+        Warm-up periods for expanding mode.
+    initial_x : float, default 0.0
+        Initial shoreline position offset (m).
+    x_bounds : tuple of float, default (-25.0, 15.0)
+        (min_x, max_x) clipping limits in meters.
+    random_seed : int, default 42
+        Seed for observation noise.
+    add_noise : bool, default False
+        Whether to add simulated survey measurement noise (sigma = 0.15m).
+
+    Returns
+    -------
+    x_pos : np.ndarray
+        Simulated deterministic shoreline cross-shore displacement trajectory (m).
+    x_obs : np.ndarray
+        Simulated observed shoreline position trajectory (m).
+    """
+    if delta_upsilon_star is not None:
+        du_star = np.asarray(delta_upsilon_star, dtype=float)
+        n = len(du_star)
+    elif upsilon is not None:
+        ups_arr = np.asarray(upsilon, dtype=float)
+        n = len(ups_arr)
+
+        # Determine upsilon_eq
+        if isinstance(upsilon_eq, np.ndarray) and len(upsilon_eq) == n:
+            eq_series = upsilon_eq
+        elif upsilon_eq_mode in ["expanding", "expanding_window"] or (isinstance(upsilon_eq, str) and upsilon_eq == "expanding"):
+            init_base = float(np.median(ups_arr)) if len(ups_arr) > 0 else 2500.0
+            eq_series = compute_expanding_window_equilibrium(ups_arr, window_hours=None, min_periods=min_periods, initial_baseline=init_base)
+        elif upsilon_eq_mode in ["trailing", "trailing_window"] or (isinstance(upsilon_eq, str) and "trailing" in upsilon_eq):
+            w_h = window_hours if window_hours is not None else (3 * 365 * 24)
+            init_base = float(np.median(ups_arr)) if len(ups_arr) > 0 else 2500.0
+            eq_series = compute_expanding_window_equilibrium(ups_arr, window_hours=w_h, min_periods=min_periods, initial_baseline=init_base)
+        elif isinstance(upsilon_eq, (int, float)):
+            eq_series = np.full(n, float(upsilon_eq))
+        else:
+            # Default: median of series
+            u_med = float(np.median(ups_arr)) if len(ups_arr) > 0 else 1500.0
+            eq_series = np.full(n, u_med)
+
+        # Determine upsilon_crit
+        if upsilon_crit is not None and not isinstance(upsilon_crit, str):
+            crit_val = np.maximum(np.asarray(upsilon_crit, dtype=float), 1.0)
+        else:
+            u_med_val = float(np.median(ups_arr)) if len(ups_arr) > 0 else 1500.0
+            u_p90 = float(np.percentile(ups_arr, 90)) if len(ups_arr) > 0 else 10000.0
+            crit_val = max(1.0, u_p90 - u_med_val)
+
+        du_star = (ups_arr - eq_series) / crit_val
+    else:
+        raise ValueError("Either 'delta_upsilon_star' or 'upsilon' must be provided.")
+
+    x_pos = np.zeros(n, dtype=float)
+    curr_x = float(initial_x)
+    x_pos[0] = curr_x
+    min_x, max_x = x_bounds
+
+    for t in range(1, n):
+        d_val = du_star[t]
+        d_ero = max(d_val, 0.0)
+        d_acc = max(-d_val, 0.0)
+
+        rate = -c_erosion_star * d_ero + c_accretion_star * d_acc
+        curr_x += rate
+        curr_x = np.clip(curr_x, min_x, max_x)
+        x_pos[t] = curr_x
+
+    if add_noise:
+        rng = np.random.default_rng(random_seed)
+        noise = rng.normal(0.0, 0.15, n)
+        x_obs = x_pos + noise
+    else:
+        x_obs = x_pos.copy()
+
+    return x_pos, x_obs
+
+
 def simulate_coupled_2d_embayment_evolution(
     upsilon: np.ndarray,
     phi_longshore: np.ndarray,

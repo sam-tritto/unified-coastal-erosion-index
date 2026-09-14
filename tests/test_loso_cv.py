@@ -79,8 +79,9 @@ def test_evaluate_leave_one_site_out_cv_smoke():
     for col in required_cols:
         assert col in df_synthesis.columns
         
-    # Verify presence of both Global Default and Calibrated Class III models
+    # Verify presence of both Global Default, Calibrated, and Normalized Class III models
     model_names = set(df_synthesis["Model Name"].unique())
     assert "Signed Equilibrium Upsilon (Global Default)" in model_names
     assert "Signed Equilibrium Upsilon (Calibrated)" in model_names
+    assert "Normalized Equilibrium Upsilon (ΔΥ*)" in model_names
     assert "Bayesian Latent Memory Kernel (Upsilon)" in model_names

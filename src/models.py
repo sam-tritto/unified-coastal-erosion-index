@@ -3094,6 +3094,62 @@ def calibrate_signed_equilibrium_parameters(
     }
 
 
+def calibrate_normalized_equilibrium_parameters(
+    training_data: List[pd.DataFrame],
+    initial_c_erosion_star: float = 0.02,
+    initial_c_accretion_star: float = 0.01,
+    delta_col: str = "upsilon_norm_diseq_simulated_delta_x_m",
+    target_col: str = "surveyed_delta_x_m",
+) -> Dict[str, float]:
+    """Calibrate Dimensionless Normalized Equilibrium Upsilon rate coefficients (c_ero*, c_acc*) across multi-site training sets.
+
+    Fits the positive erosive and negative accretive response rates on pooled multi-site survey data:
+        Delta_X = -c_ero* * max(Delta_Upsilon*, 0) + c_acc* * max(-Delta_Upsilon*, 0)
+
+    Returns
+    -------
+    dict
+        Optimized rate coefficients and linear transfer coefficients.
+    """
+    all_y = []
+    all_norm_delta = []
+
+    for df in training_data:
+        if df.empty or target_col not in df.columns:
+            continue
+        y_vals = df[target_col].values
+        if delta_col in df.columns:
+            d_norm = df[delta_col].values
+        elif "upsilon_diseq_simulated_delta_x_m" in df.columns:
+            d_norm = df["upsilon_diseq_simulated_delta_x_m"].values
+        else:
+            d_norm = np.zeros(len(y_vals))
+        all_y.extend(y_vals)
+        all_norm_delta.extend(d_norm)
+
+    all_y = np.array(all_y)
+    all_norm_delta = np.array(all_norm_delta)
+
+    if len(all_y) < 5 or np.std(all_norm_delta) < 1e-8:
+        return {
+            "c_erosion_star": initial_c_erosion_star,
+            "c_accretion_star": initial_c_accretion_star,
+            "slope": 1.0,
+            "intercept": 0.0,
+        }
+
+    slope, intercept = np.polyfit(all_norm_delta, all_y, 1)
+    c_ero_cal = max(float(initial_c_erosion_star * abs(slope)), 1e-5)
+    c_acc_cal = max(float(initial_c_accretion_star * abs(slope)), 1e-5)
+
+    return {
+        "c_erosion_star": c_ero_cal,
+        "c_accretion_star": c_acc_cal,
+        "slope": float(slope),
+        "intercept": float(intercept),
+    }
+
+
 def evaluate_leave_one_site_out_cv(
     sites: Optional[List[str]] = None,
     draws: int = 300,
@@ -3149,6 +3205,7 @@ def evaluate_leave_one_site_out_cv(
     from src.physics import (
         COASTAL_SITE_PROFILES,
         simulate_signed_equilibrium_upsilon_evolution,
+        simulate_normalized_equilibrium_upsilon_evolution,
     )
 
     if sites is None:
@@ -3184,6 +3241,7 @@ def evaluate_leave_one_site_out_cv(
                 "deltas": {
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Calibrated)"): df_survey["upsilon_diseq_simulated_delta_x_m"].values,
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Global Default)"): df_survey["upsilon_diseq_simulated_delta_x_m"].values,
+                    ("Class III (Bayesian)", "Normalized Equilibrium Upsilon (ΔΥ*)"): df_survey["upsilon_norm_diseq_simulated_delta_x_m"].values if "upsilon_norm_diseq_simulated_delta_x_m" in df_survey.columns else df_survey["upsilon_diseq_simulated_delta_x_m"].values,
                     ("Class III (Bayesian)", "Physics-Augmented Upsilon (Steep/Rad/Impact)"): df_survey["upsilon_aug_diseq_simulated_delta_x_m"].values if "upsilon_aug_diseq_simulated_delta_x_m" in df_survey.columns else df_survey["upsilon_diseq_simulated_delta_x_m"].values,
                     ("Class I (Analytical)", "ShoreFor (2013) Memory"): shorefor_delta,
                     ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_delta_x_m"].values,
@@ -3192,6 +3250,7 @@ def evaluate_leave_one_site_out_cv(
                 "positions": {
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Calibrated)"): df_survey["upsilon_diseq_simulated_pos_m"].values,
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Global Default)"): df_survey["upsilon_diseq_simulated_pos_m"].values,
+                    ("Class III (Bayesian)", "Normalized Equilibrium Upsilon (ΔΥ*)"): df_survey["upsilon_norm_diseq_simulated_pos_m"].values if "upsilon_norm_diseq_simulated_pos_m" in df_survey.columns else df_survey["upsilon_diseq_simulated_pos_m"].values,
                     ("Class III (Bayesian)", "Physics-Augmented Upsilon (Steep/Rad/Impact)"): df_survey["upsilon_aug_diseq_simulated_pos_m"].values if "upsilon_aug_diseq_simulated_pos_m" in df_survey.columns else df_survey["upsilon_diseq_simulated_pos_m"].values,
                     ("Class I (Analytical)", "Yates (2009) Equilibrium"): df_survey["yates_simulated_pos_m"].values,
                     ("Class II (Process/PDE)", "XBeach 1D Process Model"): df_survey["xbeach_simulated_pos_m"].values,
@@ -3220,6 +3279,7 @@ def evaluate_leave_one_site_out_cv(
             shorefor_pos_all, _ = simulate_shorefor_evolution(hs, tp, w_s_ms=ws, random_seed=random_seed)
             xbeach_pos_all, _ = simulate_xbeach_inspired_morphodynamics(hs, tp, surge, w_spd, w_dir, d50_m=d50, tan_beta=tb, random_seed=random_seed)
             signed_eq_pos_all, _ = simulate_signed_equilibrium_upsilon_evolution(ups, c_erosion=1.2e-5, c_accretion=1.8e-5, upsilon_eq_mode="expanding")
+            norm_eq_pos_all, _ = simulate_normalized_equilibrium_upsilon_evolution(ups, c_erosion_star=0.02, c_accretion_star=0.01, upsilon_eq_mode="expanding")
 
             interval = max(1, eval_interval_hours)
             y_sub = y_obs[::interval]
@@ -3236,6 +3296,7 @@ def evaluate_leave_one_site_out_cv(
                 "deltas": {
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Calibrated)"): np.diff(signed_eq_pos_all[::interval]),
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Global Default)"): np.diff(signed_eq_pos_all[::interval]),
+                    ("Class III (Bayesian)", "Normalized Equilibrium Upsilon (ΔΥ*)"): np.diff(norm_eq_pos_all[::interval]),
                     ("Class I (Analytical)", "Yates (2009) Equilibrium"): np.diff(yates_pos_all[::interval]),
                     ("Class I (Analytical)", "ShoreFor (2013) Memory"): np.diff(shorefor_pos_all[::interval]),
                     ("Class II (Process/PDE)", "XBeach 1D Process Model"): np.diff(xbeach_pos_all[::interval]),
@@ -3243,6 +3304,7 @@ def evaluate_leave_one_site_out_cv(
                 "positions": {
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Calibrated)"): signed_eq_pos_all[::interval][1:],
                     ("Class III (Bayesian)", "Signed Equilibrium Upsilon (Global Default)"): signed_eq_pos_all[::interval][1:],
+                    ("Class III (Bayesian)", "Normalized Equilibrium Upsilon (ΔΥ*)"): norm_eq_pos_all[::interval][1:],
                     ("Class I (Analytical)", "Yates (2009) Equilibrium"): yates_pos_all[::interval][1:],
                     ("Class I (Analytical)", "ShoreFor (2013) Memory"): shorefor_pos_all[::interval][1:],
                     ("Class II (Process/PDE)", "XBeach 1D Process Model"): xbeach_pos_all[::interval][1:],
