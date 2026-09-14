@@ -1251,6 +1251,8 @@ def simulate_signed_equilibrium_upsilon_evolution(
     dynamic_eq: bool = False,
     initial_x: float = 0.0,
     x_bounds: Tuple[float, float] = (-25.0, 15.0),
+    damping_mode: str = "asymptotic_tanh",
+    taper_widths: Tuple[float, float] = (8.0, 5.0),
     random_seed: int = 42,
     add_noise: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -1288,6 +1290,13 @@ def simulate_signed_equilibrium_upsilon_evolution(
         Initial shoreline position offset (m).
     x_bounds : tuple of float
         (min_x, max_x) clipping limits in meters.
+    damping_mode : str, default 'asymptotic_tanh'
+        Boundary damping mode ('asymptotic_tanh', 'exponential', or 'hard').
+        Asymptotic damping smoothly tapers displacement rates representing subaerial
+        berm accommodation capacity limits (max_x) and cliff/scarp resistance (min_x),
+        eliminating artificial flat-top saturation plateaus.
+    taper_widths : tuple of float, default (8.0, 5.0)
+        Buffer widths (delta_erosion, delta_accretion) in meters for asymptotic taper.
     random_seed : int
         Seed for survey observation noise.
     add_noise : bool
@@ -1333,8 +1342,42 @@ def simulate_signed_equilibrium_upsilon_evolution(
         d_acc = max(u_eq - u, 0.0)
 
         rate = -c_erosion * d_ero + c_accretion * d_acc
-        curr_x += rate
-        curr_x = np.clip(curr_x, min_x, max_x)
+        if damping_mode in ["asymptotic", "asymptotic_tanh", "tanh"]:
+            delta_ero, delta_acc = taper_widths
+            if rate > 0:
+                headroom = max_x - curr_x
+                if headroom <= 0:
+                    rate = 0.0
+                elif headroom < delta_acc:
+                    h = headroom / max(delta_acc, 0.1)
+                    rate = min(rate * (np.tanh(h * 2.0) ** 2.0), headroom * np.tanh(h))
+            elif rate < 0:
+                footroom = curr_x - min_x
+                if footroom <= 0:
+                    rate = 0.0
+                elif footroom < delta_ero:
+                    f = footroom / max(delta_ero, 0.1)
+                    rate = max(rate * (np.tanh(f * 2.0) ** 2.0), -footroom * np.tanh(f))
+        elif damping_mode in ["exponential", "exp"]:
+            delta_ero, delta_acc = taper_widths
+            if rate > 0:
+                headroom = max_x - curr_x
+                if headroom <= 0:
+                    rate = 0.0
+                elif headroom < delta_acc:
+                    h = headroom / max(delta_acc, 0.1)
+                    taper = (1.0 - np.exp(-3.0 * h)) ** 2.0
+                    rate = min(rate * taper, headroom * (1.0 - np.exp(-h)))
+            elif rate < 0:
+                footroom = curr_x - min_x
+                if footroom <= 0:
+                    rate = 0.0
+                elif footroom < delta_ero:
+                    f = footroom / max(delta_ero, 0.1)
+                    taper = (1.0 - np.exp(-3.0 * f)) ** 2.0
+                    rate = max(rate * taper, -footroom * (1.0 - np.exp(-f)))
+
+        curr_x = np.clip(curr_x + rate, min_x, max_x)
         x_pos[t] = curr_x
 
     if add_noise:
@@ -1359,6 +1402,8 @@ def simulate_normalized_equilibrium_upsilon_evolution(
     min_periods: int = 24,
     initial_x: float = 0.0,
     x_bounds: Tuple[float, float] = (-25.0, 15.0),
+    damping_mode: str = "asymptotic_tanh",
+    taper_widths: Tuple[float, float] = (8.0, 5.0),
     random_seed: int = 42,
     add_noise: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -1399,6 +1444,13 @@ def simulate_normalized_equilibrium_upsilon_evolution(
         Initial shoreline position offset (m).
     x_bounds : tuple of float, default (-25.0, 15.0)
         (min_x, max_x) clipping limits in meters.
+    damping_mode : str, default 'asymptotic_tanh'
+        Boundary damping mode ('asymptotic_tanh', 'exponential', or 'hard').
+        Asymptotic damping smoothly tapers displacement rates representing subaerial
+        berm accommodation capacity limits (max_x) and cliff/scarp resistance (min_x),
+        eliminating artificial flat-top saturation plateaus.
+    taper_widths : tuple of float, default (8.0, 5.0)
+        Buffer widths (delta_erosion, delta_accretion) in meters for asymptotic taper.
     random_seed : int, default 42
         Seed for observation noise.
     add_noise : bool, default False
@@ -1458,8 +1510,42 @@ def simulate_normalized_equilibrium_upsilon_evolution(
         d_acc = max(-d_val, 0.0)
 
         rate = -c_erosion_star * d_ero + c_accretion_star * d_acc
-        curr_x += rate
-        curr_x = np.clip(curr_x, min_x, max_x)
+        if damping_mode in ["asymptotic", "asymptotic_tanh", "tanh"]:
+            delta_ero, delta_acc = taper_widths
+            if rate > 0:
+                headroom = max_x - curr_x
+                if headroom <= 0:
+                    rate = 0.0
+                elif headroom < delta_acc:
+                    h = headroom / max(delta_acc, 0.1)
+                    rate = min(rate * (np.tanh(h * 2.0) ** 2.0), headroom * np.tanh(h))
+            elif rate < 0:
+                footroom = curr_x - min_x
+                if footroom <= 0:
+                    rate = 0.0
+                elif footroom < delta_ero:
+                    f = footroom / max(delta_ero, 0.1)
+                    rate = max(rate * (np.tanh(f * 2.0) ** 2.0), -footroom * np.tanh(f))
+        elif damping_mode in ["exponential", "exp"]:
+            delta_ero, delta_acc = taper_widths
+            if rate > 0:
+                headroom = max_x - curr_x
+                if headroom <= 0:
+                    rate = 0.0
+                elif headroom < delta_acc:
+                    h = headroom / max(delta_acc, 0.1)
+                    taper = (1.0 - np.exp(-3.0 * h)) ** 2.0
+                    rate = min(rate * taper, headroom * (1.0 - np.exp(-h)))
+            elif rate < 0:
+                footroom = curr_x - min_x
+                if footroom <= 0:
+                    rate = 0.0
+                elif footroom < delta_ero:
+                    f = footroom / max(delta_ero, 0.1)
+                    taper = (1.0 - np.exp(-3.0 * f)) ** 2.0
+                    rate = max(rate * taper, -footroom * (1.0 - np.exp(-f)))
+
+        curr_x = np.clip(curr_x + rate, min_x, max_x)
         x_pos[t] = curr_x
 
     if add_noise:
