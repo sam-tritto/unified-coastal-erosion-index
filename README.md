@@ -226,7 +226,7 @@ flowchart TD
     end
 
     subgraph S45 ["Section 4.5: Multi-Site In-Situ Field Survey Benchmark"]
-        S45A["Direct Observed Surveys: 5 Global Sites (Duck, Narrabeen, Torrey Pines, Truc Vert, Oahu)"] --> S45B["Continuous Hourly Hydrodynamic Memory Convolution"]
+        S45A["Direct Observed Surveys: 4 Global Sites (Duck, Narrabeen, Torrey Pines, Truc Vert)"] --> S45B["Continuous Hourly Hydrodynamic Memory Convolution"]
         S45B --> S45C["Multi-Timescale Tracking: Cumulative Position (x_t) & Step Changes (Δx)"]
         S45C --> S45D["Per-Site Standardization: Δx / σ_site & x_t / σ_site"]
         S45D --> S4E2["Output: Standardized Cross-Paradigm Synthesis Table"]

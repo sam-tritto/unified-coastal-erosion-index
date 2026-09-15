@@ -3637,7 +3637,7 @@ def evaluate_survey_epoch_loocv(
     Parameters
     ----------
     sites : list of str, optional
-        List of global coastal site keys (default: all 5 sites).
+        List of global coastal site keys (e.g. ['duck_nc', 'narrabeen_aus'] or Option B archetypes).
     use_field_surveys : bool
         If True (default), evaluates against authentic in-situ GPS/Lidar field surveys.
     data_dir : str
@@ -3652,7 +3652,7 @@ def evaluate_survey_epoch_loocv(
     synthesis_loocv_df : pd.DataFrame
         Global synthesis table aggregated across all survey epochs and sites.
     site_loocv_df : pd.DataFrame
-        Detailed per-site LOOCV breakdown across all 5 archetypes.
+        Detailed per-site LOOCV breakdown across evaluated archetypes.
     """
     import os
     from sklearn.metrics import r2_score, mean_squared_error

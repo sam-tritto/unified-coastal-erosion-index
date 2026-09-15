@@ -24,7 +24,7 @@ $$\Upsilon = \left(\frac{\rho g^{3/2}}{16(2\pi)^{3/2}}\right) \cdot \tan\beta \c
 
 #### Authentic Multi-Site Golden Window (2012–2016):
 All computations execute exclusively across **100% authentic institutional sensor and survey records** spanning 5 full calendar years ($N = 43,848$ contiguous hours per site; $N = 1,228$ in-situ surveys across four contrasting archetypes):
-1. **USACE FRF Duck, NC, USA**: Intermediate barred dissipative Atlantic barrier island ($N=141$ surveys, primary transect $N=48$).
+1. **Duck, NC, USA**: Intermediate barred dissipative Atlantic barrier island ($N=141$ surveys, primary transect $N=48$).
 2. **Narrabeen-Collaroy, NSW, Australia**: High-energy embayed Pacific pocket beach governed by East Coast Lows ($N=849$ surveys, primary transect $N=175$).
 3. **Torrey Pines State Beach, CA, USA**: Low-energy swell-dominated pocket beach in the Southern California Bight ($N=110$ surveys, primary transect $N=55$).
 4. **Truc Vert Beach, Gironde, France**: High-energy meso-macrotidal French Atlantic ridge-and-runnel coast ($N=128$ surveys, primary transect $N=47$).
@@ -48,13 +48,17 @@ Figure 1 displays a $2 \times 2$ subplot panel characterizing the physical clima
 - Horizontal dashed orange line: Critical steepness threshold $s_{0,\text{crit}} = 0.025$ separating swell from steep erosive wind sea (*Johnson 1949*).
 - **The Torrey Pines Low-Steepness Swell Anomaly**:
   - Torrey Pines has a mean steepness of only **$0.0052$**, with **$98.0\%$ of all records lying in the low-steepness swell regime ($s_0 < 0.025$)**!
-  - In contrast, **USACE FRF Duck** has the steepest sea state (mean $s_0 = 0.0173$), with **$28.8\%$ of hours in the steep sea regime ($s_0 \ge 0.025$)** driven by local Atlantic easterlies.
+  - In contrast, **Duck** has the steepest sea state (mean $s_0 = 0.0173$), with **$28.8\%$ of hours in the steep sea regime ($s_0 \ge 0.025$)** driven by local Atlantic easterlies.
   - Narrabeen and Truc Vert are intermediate ($91.4\%$ and $93.1\%$ swell regime).
 
-#### Panel (C) Sallenger (2000) Storm Impact Regimes:
-- Green bars represent the **Swash Regime** ($R_{\text{high}} < Z_{\text{berm}}$), which accounts for **$> 99.9\%$ of hours** across all four sites.
-- The **Collision Regime** ($Z_{\text{berm}} \le R_{\text{high}} < Z_{\text{dune}}$) accounts for **$0.1\%$ of extreme hours** (approx. 40–50 cumulative hours per site over 5 years).
-- The **Overwash Regime** is restricted to extreme peak events (such as Hurricane Sandy at Duck or the June 2016 ECL at Narrabeen).
+#### Panel (C) Tidal Dissipation & Energy Smearing ($\Psi_{\text{tide}}$):
+- **Continuous Dimensionless Scaling**: Boxplots display the continuous tidal energy smearing factor $\Psi_{\text{tide}} = \left[1 + \frac{\text{TR}}{2H_s}\right]^{-1} \in (0, 1]$, proving the core architectural claim that $\Upsilon$ adapts smoothly across global hydrodynamics without heuristic if/else branches or regime toggles.
+- **Micro-tidal Regimes (Duck, Narrabeen, Torrey Pines)**:
+  - At **Duck** ($\text{TR} = 1.0\,\text{m}$, median $\Psi_{\text{tide}} \approx 0.654$, 75th percentile zsh.726$) and **Narrabeen-Collaroy** ($\text{TR} = 1.2\,\text{m}$, median $\Psi_{\text{tide}} \approx 0.685$, 75th percentile zsh.731$), wave energy attack is vertically concentrated within a tight microtidal envelope. Near-total incident wave power is delivered directly to the subaerial berm and foreshore ($\Psi_{\text{tide}} \to 1.0$ during high waves).
+  - At **Torrey Pines Beach** ($\text{TR} = 1.5\,\text{m}$, median $\Psi_{\text{tide}} \approx 0.577$), narrow tidal excursion likewise concentrates long-period swell runup.
+- **Macro-tidal Energy Smearing (Truc Vert Beach)**:
+  - In dramatic contrast, **Truc Vert Beach** ($\text{TR} = 4.5\,\text{m}$) has its entire boxplot dragged heavily downward toward and below zsh.5$ (median $\Psi_{\text{tide}} \approx 0.409$, 25th percentile zsh.329$, dipping to minimum zsh.116$).
+  - Over a macro-tidal range (.5\,\text{m}$), breaking wave dissipation is smeared across a wide intertidal sand sweep ( = \text{TR}/\tan\beta$), naturally diluting the resident wave power delivered to the upper beach scarp. This explains why macro-tidal beaches survive high baseline waves during fair weather and standard swells, with significant dune scarping restricted exclusively to spring high tides coincident with major storm surges.
 
 #### Panel (D) Scale-Invariant Calibration Invariance ($\Upsilon^* = \Upsilon / \Upsilon_{\text{ref}}$):
 - Horizontal purple line: Dimensionless equilibrium reference $\Upsilon^* = 1.0$.
@@ -76,7 +80,7 @@ Figure 2 showcases high-resolution continuous hydrodynamics across three histori
 - Solid red line: 30-day lunar envelope $\bar{\Upsilon}_{30d}$ smoothly elevates to $\sim 20,000\text{ kg/s}$.
 - **Insight**: Multi-scale exponential decay separates the instantaneous destructive wave shock from the multi-week sediment relaxation period.
 
-#### Panel 2: USACE FRF Duck, NC, USA — Late Winter 2014 Nor'easter Cluster:
+#### Panel 2: Duck, NC, USA — Late Winter 2014 Nor'easter Cluster:
 - Spans mid-February to mid-April 2014.
 - Solid green line: Shows a classic "double-tap" storm cluster:
   - First storm apex: March 8, 2014, reaching $\Upsilon = 144,000\text{ kg/s}$.
@@ -100,7 +104,7 @@ Figure 2 showcases high-resolution continuous hydrodynamics across three histori
 #### Constructive 4-Tier $\Upsilon$ Physical Progression (Cell 5):
 | Site Archetype | Tier 1 (Base Core) | Tier 2 (+ Infragravity / TWL) | Tier 3 (+ Radiation Stress / Alongshore) | Tier 4 (+ Wind / Steepness Focus) | Infragravity Lift | Alongshore Lift | Focus Lift |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **USACE FRF Duck, NC** | $3,597 \pm 8,221$ | $5,310 \pm 14,316$ | $6,954 \pm 19,126$ | $7,470 \pm 20,545$ | $+47.6\%$ | $+31.0\%$ | $+7.4\%$ |
+| **Duck** | $3,597 \pm 8,221$ | $5,310 \pm 14,316$ | $6,954 \pm 19,126$ | $7,470 \pm 20,545$ | $+47.6\%$ | $+31.0\%$ | $+7.4\%$ |
 | **Narrabeen-Collaroy, AUS** | $8,287 \pm 14,290$ | $12,991 \pm 26,989$ | $16,188 \pm 32,494$ | $16,756 \pm 33,634$ | $+56.8\%$ | $+24.6\%$ | $+3.5\%$ |
 | **Torrey Pines Beach, CA** | $3,913 \pm 3,714$ | $6,120 \pm 6,494$ | $7,657 \pm 7,828$ | $8,561 \pm 8,752$ | $+56.4\%$ | $+25.1\%$ | $+11.8\%$ |
 | **Truc Vert Beach, France** | $13,554 \pm 25,635$ | $25,041 \pm 56,866$ | $31,591 \pm 69,856$ | $31,591 \pm 69,856$ | $+84.7\%$ | $+26.2\%$ | $+0.0\%$ |
@@ -111,7 +115,7 @@ Figure 2 showcases high-resolution continuous hydrodynamics across three histori
 #### Climatological Summary Table (Cell 20):
 | Observatory | Slope $\tan\beta$ | $D_{50}$ (mm) | Tide Range (m) | Mean $H_s$ (m) | Max $H_s$ (m) | Mean Steepness $s_0$ | Mean $S_{xx}$ (N/m) | Collision Freq (%) | $\Upsilon_{\text{ref}}$ (kg/s) | Surveys ($N$) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **USACE FRF Duck** | $0.080$ | $0.35$ | $1.0\text{ m}$ | $1.11\text{ m}$ | $5.79\text{ m}$ | $0.0173$ | $549.0$ | $0.1\%$ | $1,964\text{ kg/s}$ | $141$ |
+| **Duck** | $0.080$ | $0.35$ | $1.0\text{ m}$ | $1.11\text{ m}$ | $5.79\text{ m}$ | $0.0173$ | $549.0$ | $0.1\%$ | $1,964\text{ kg/s}$ | $141$ |
 | **Narrabeen-Collaroy** | $0.090$ | $0.30$ | $1.2\text{ m}$ | $1.43\text{ m}$ | $6.23\text{ m}$ | $0.0134$ | $613.0$ | $0.1\%$ | $5,783\text{ kg/s}$ | $849$ |
 | **Torrey Pines Beach** | $0.040$ | $0.20$ | $1.5\text{ m}$ | $1.09\text{ m}$ | $4.78\text{ m}$ | $0.0052$ | $675.4$ | $0.0\%$ | $3,374\text{ kg/s}$ | $110$ |
 | **Truc Vert Beach** | $0.060$ | $0.38$ | $4.5\text{ m}$ | $1.83\text{ m}$ | $8.24\text{ m}$ | $0.0110$ | $2,358.6$ | $0.1\%$ | $6,874\text{ kg/s}$ | $128$ |
@@ -124,7 +128,7 @@ Cell 22 couples cumulative and peak $\Upsilon$ forcing directly to real surveyed
 
 | Observatory | Primary Transect | Intervals Evaluated ($N$) | Mean $\Delta X$ (m) | $r(\text{Cumulative } \Upsilon, \Delta X)$ | Spearman $\rho$ | $r(\text{Peak } \Upsilon, \Delta X)$ | Empirical Significance |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **USACE FRF Duck, NC** | `FRF_m091` | 47 | $+0.17 \pm 5.14$ | **$-0.076$** ($p = 0.613$) | $-0.114$ | $+0.051$ ($p = 0.733$) | **Statistically Insignificant ($p > 0.60$)** |
+| **Duck** | `FRF_m091` | 47 | $+0.17 \pm 5.14$ | **$-0.076$** ($p = 0.613$) | $-0.114$ | $+0.051$ ($p = 0.733$) | **Statistically Insignificant ($p > 0.60$)** |
 | **Narrabeen-Collaroy** | `PF1` | 174 | $+0.01 \pm 6.00$ | **$-0.358$** ($p < 0.001$) | $-0.050$ | **$-0.424$** ($p < 0.001$) | **Statistically Significant Erosion** |
 | **Torrey Pines Beach** | `TP_NORTH` | 54 | $+0.18 \pm 6.69$ | **$+0.276$** ($p = 0.043$) | $+0.106$ | **$+0.295$** ($p = 0.030$) | **Statistically Significant ACCRETION ($r > 0$)** |
 | **Truc Vert Beach** | `TV_SOUTH` | 46 | $+0.35 \pm 8.39$ | **$-0.438$** ($p = 0.002$) | $-0.291$ | **$-0.465$** ($p = 0.001$) | **Statistically Significant Erosion** |
@@ -147,13 +151,13 @@ Cell 22 couples cumulative and peak $\Upsilon$ forcing directly to real surveyed
 ## Multi-Site In-Situ Benchmark Across 4 Global Archetypes (2012–2016 Golden Window)
 
 **First-Principles Hydrodynamic Physics, Exact Radiation Stress, Sallenger Storm Impact Regimes & Multi-Scale Antecedent Memory**  
-*USACE FRF Duck, NC (USA) • Narrabeen-Collaroy, NSW (Australia) • Torrey Pines, CA (USA) • Truc Vert, Gironde (France)*
+*Duck, NC (USA) • Narrabeen-Collaroy, NSW (Australia) • Torrey Pines, CA (USA) • Truc Vert, Gironde (France)*
 
 ---
 
 ### Executive Scientific Scope
 This notebook establishes the foundational feature engineering pipeline for the **Unified Coastal Vulnerability Index ($\Upsilon$)**, transitioning the benchmark from single-site empirical observations and synthetic forward models to a **100% authentic multi-site empirical foundation** spanning the **5-year overlapping golden window (2012–2016, $N=43,848$ continuous hours per site)** across four distinct coastal archetypes:
-1. **USACE FRF Duck, NC, USA** (Intermediate barred barrier beach; microtidal wave-dominated)
+1. **Duck, NC, USA** (Intermediate barred barrier beach; microtidal wave-dominated)
 2. **Narrabeen-Collaroy, Sydney, Australia** (Embayed headland-rotational pocket beach; micro-mesotidal)
 3. **Torrey Pines State Beach, CA, USA** (Low-slope pocket beach; mixed semi-diurnal swell)
 4. **Truc Vert Beach, Gironde, France** (High-energy macrotidal ridge-and-runnel beach)
@@ -245,7 +249,7 @@ for s_key in sites:
 **Execution Log / Output**:
 ```text
 Ingesting authentic 5-year sensor parquets (2012-2016, 43,848 hours each)...
-  ✓ duck_nc              | N = 43,848 hours | USACE FRF Duck, NC, USA
+  ✓ duck_nc              | N = 43,848 hours | Duck, NC, USA
     - Foreshore Slope tan(beta): 0.080 | D50: 0.35 mm | Tide Range: 1.0 m | Berm Crest: 2.5 m
   ✓ narrabeen_aus        | N = 43,848 hours | Narrabeen-Collaroy, NSW, Australia
     - Foreshore Slope tan(beta): 0.090 | D50: 0.30 mm | Tide Range: 1.2 m | Berm Crest: 3.0 m
@@ -302,7 +306,7 @@ Analyzing constructive physical tier metrics across all 4 archetypes (43,848 hou
 **Result Data**:
 ```text
 Site      Tier 1 (Base)       Tier 2 (+IG)  \
-0      USACE FRF Duck    3596.6 ± 8220.6   5309.5 ± 14316.5   
+0                Duck    3596.6 ± 8220.6   5309.5 ± 14316.5   
 1  Narrabeen-Collaroy   8287.4 ± 14290.5  12990.6 ± 26989.3   
 2  Torrey Pines Beach    3913.0 ± 3714.0    6119.6 ± 6494.3   
 3     Truc Vert Beach  13554.1 ± 25635.3  25040.9 ± 56865.6   
@@ -361,7 +365,7 @@ Wave steepness (s_0) and steepness modulator (Psi_steep) distribution:
 **Result Data**:
 ```text
 Site Mean Steepness (s_0) Max Steepness (s_0) Mean Psi_steep  \
-0      USACE FRF Duck               0.0173              0.0771          0.770   
+0                Duck               0.0173              0.0771          0.770   
 1  Narrabeen-Collaroy               0.0134              0.0646          0.704   
 2  Torrey Pines Beach               0.0052              0.0491          0.425   
 3     Truc Vert Beach               0.0110              0.0551          0.638   
@@ -415,7 +419,7 @@ Exact radiation stress tensor components across sites (2012-2016):
 **Result Data**:
 ```text
 Site Mean Energy Density (J/m^2) Mean S_xx (N/m)  \
-0      USACE FRF Duck                      1980.7           549.0   
+0                Duck                      1980.7           549.0   
 1  Narrabeen-Collaroy                      2992.5           613.0   
 2  Torrey Pines Beach                      1614.7           675.4   
 3     Truc Vert Beach                      5532.7          2358.6   
@@ -471,7 +475,7 @@ Sallenger (2000) storm impact regimes and freeboard amplification across sites:
 **Result Data**:
 ```text
 Site  Berm Crest z_berm (m) Swash Regime (< z_berm)  \
-0      USACE FRF Duck                    2.5                   99.9%   
+0                Duck                    2.5                   99.9%   
 1  Narrabeen-Collaroy                    3.0                   99.9%   
 2  Torrey Pines Beach                    2.0                  100.0%   
 3     Truc Vert Beach                    3.5                   99.9%   
@@ -537,7 +541,7 @@ Multi-scale antecedent exponential memory decay and disequilibrium anomalies:
 **Result Data**:
 ```text
 Site Mean Upsilon Mean Decay 7d Mean Decay 30d  \
-0      USACE FRF Duck       3314.3        3309.4         3280.9   
+0                Duck       3314.3        3309.4         3280.9   
 1  Narrabeen-Collaroy       4109.3        4110.5         4152.9   
 2  Torrey Pines Beach       3403.4        3405.1         3420.8   
 3     Truc Vert Beach      18376.5       18533.4        18738.3   
@@ -596,7 +600,7 @@ Scale-invariant relative forcing index (Upsilon* = Upsilon / Upsilon_ref):
 **Result Data**:
 ```text
 Site Reference Flux U_ref (kg/s) Mean Upsilon* Std Upsilon*  \
-0      USACE FRF Duck                      1963.7         1.688        6.622   
+0                Duck                      1963.7         1.688        6.622   
 1  Narrabeen-Collaroy                      5783.0         0.711        2.209   
 2  Torrey Pines Beach                      3374.1         1.009        1.471   
 3     Truc Vert Beach                      6873.6         2.673        7.673   
@@ -613,9 +617,9 @@ Site Reference Flux U_ref (kg/s) Mean Upsilon* Std Upsilon*  \
 ## 8. Task 8: Publication-Grade Multi-Site Diagnostic Visualizations
 
 The following publication-grade diagnostic panels characterize:
-1. Morphodynamic regime parameterization (Dean Number $\Omega$, Tidal Smearing $\Psi_{\text{tide}}$, Wave Steepness $s_0$).
+1. Morphodynamic regime parameterization (Dean Number $\Omega$, Tidal Smearing $\Psi_{\text{tide}}$, Wave Steepness $).
 2. Synchronous multi-timescale antecedent memory decay ($\Upsilon$ vs $\bar{\Upsilon}_{30d}$ vs $\bar{\Upsilon}_{365d}$).
-3. Sallenger storm impact regime frequency across coastal archetypes.
+3. Tidal dissipation and energy smearing factor across micro- to macro-tidal archetypes ($\Psi_{\text{tide}}$).
 4. Scale-invariant collapse ($\Upsilon^* = \Upsilon / \Upsilon_{\text{ref}}$) demonstrating mathematical invariance.
 
 #### Cell 17 (Code Execution): `fig, axes = plt.subplots(2, 2, figsize=(16, 12))`
@@ -629,10 +633,10 @@ site_labels = [COASTAL_SITE_PROFILES[s]["name"].split(",")[0] for s in sites]
 sns.boxplot(data=dean_data, ax=axes[0, 0], palette="Set2")
 axes[0, 0].set_xticks(range(len(site_labels)))
 axes[0, 0].set_xticklabels(site_labels, rotation=15, fontweight="bold")
-axes[0, 0].set_ylabel("Dean Number $\\Omega = H_s / (w_s T_p)$", fontweight="bold")
+axes[0, 0].set_ylabel(r"Dean Number $\Omega = H_s / (w_s T_p)$", fontweight="bold")
 axes[0, 0].set_title("(A) Morphodynamic Regime Across Global Sites", fontweight="bold", fontsize=13)
-axes[0, 0].axhline(1.0, color="#27ae60", linestyle="--", alpha=0.7, label="Reflective ($\\Omega < 1$)")
-axes[0, 0].axhline(6.0, color="#e74c3c", linestyle="--", alpha=0.7, label="Dissipative ($\\Omega > 6$)")
+axes[0, 0].axhline(1.0, color="#27ae60", linestyle="--", alpha=0.7, label=r"Reflective ($\Omega < 1$)")
+axes[0, 0].axhline(6.0, color="#e74c3c", linestyle="--", alpha=0.7, label=r"Dissipative ($\Omega > 6$)")
 axes[0, 0].legend(loc="upper right", fontsize=9)
 
 # Panel B: Deep-Water Wave Steepness Distribution (s0)
@@ -640,74 +644,95 @@ s0_data = [site_datasets[s]["wave_steepness_s0"].values for s in sites]
 sns.boxplot(data=s0_data, ax=axes[0, 1], palette="Blues_r")
 axes[0, 1].set_xticks(range(len(site_labels)))
 axes[0, 1].set_xticklabels(site_labels, rotation=15, fontweight="bold")
-axes[0, 1].set_ylabel("Wave Steepness $s_0 = H_s / L_0$", fontweight="bold")
+axes[0, 1].set_ylabel(r"Wave Steepness  = H_s / L_0$", fontweight="bold")
 axes[0, 1].set_title("(B) Wave Steepness Across Sites", fontweight="bold", fontsize=13)
-axes[0, 1].axhline(0.025, color="#e67e22", linestyle="--", linewidth=1.5, label="Crit Steepness $s_{0,\\mathrm{crit}}=0.025$")
+axes[0, 1].axhline(0.025, color="#e67e22", linestyle="--", linewidth=1.5, label=r"Crit Steepness {0,\mathrm{crit}} = 0.025$")
 axes[0, 1].legend(loc="upper right", fontsize=9)
 
-# Panel C: Sallenger Storm Impact Regime Frequencies
-regime_counts = {}
-for s in sites:
-    vc = site_datasets[s]["impact_regime"].value_counts(normalize=True) * 100
-    regime_counts[COASTAL_SITE_PROFILES[s]["name"].split(",")[0]] = [vc.get("swash", 0.0), vc.get("collision", 0.0), vc.get("overwash", 0.0)]
-
-df_reg = pd.DataFrame(regime_counts, index=["Swash", "Collision", "Overwash"]).T
-df_reg.plot(kind="bar", stacked=True, ax=axes[1, 0], color=["#2ecc71", "#e67e22", "#e74c3c"], edgecolor="#2c3e50")
-axes[1, 0].set_ylabel("Occurrence Frequency (%)", fontweight="bold")
-axes[1, 0].set_title("(C) Sallenger Storm Impact Regimes", fontweight="bold", fontsize=13)
-axes[1, 0].set_xticks(range(len(df_reg.index)))
-axes[1, 0].set_xticklabels(df_reg.index, rotation=15, fontweight="bold")
-axes[1, 0].legend(loc="upper right", fontsize=9)
+# Panel C: Tidal Dissipation & Energy Smearing Factor (Psi_tide)
+psi_tide_data = [site_datasets[s]["psi_tide"].values for s in sites]
+sns.boxplot(data=psi_tide_data, ax=axes[1, 0], palette="crest")
+axes[1, 0].set_xticks(range(len(site_labels)))
+axes[1, 0].set_xticklabels(site_labels, rotation=15, fontweight="bold")
+axes[1, 0].set_ylabel(r"Tidal Smearing Factor $\Psi_{\mathrm{tide}}$ [-]", fontweight="bold")
+axes[1, 0].set_title(r"(C) Tidal Dissipation & Energy Smearing ($\Psi_{tide}$)", fontweight="bold", fontsize=13)
+axes[1, 0].set_ylim(0.0, 1.05)
+axes[1, 0].axhline(1.0, color="#27ae60", linestyle="--", alpha=0.8, linewidth=1.5, label=r"Microtidal Limit ($\Psi_{\mathrm{tide}} \to 1.0$)")
+axes[1, 0].axhline(0.5, color="#e74c3c", linestyle=":", alpha=0.8, linewidth=1.5, label=r"Macrotidal Damping ($\Psi_{\mathrm{tide}} \leq 0.5$)")
+axes[1, 0].legend(loc="lower left", fontsize=9, frameon=True)
 
 # Panel D: Scale-Invariant Collapse (Normalized Upsilon*)
 u_star_data = [np.clip(site_datasets[s]["upsilon_star"].values, 0, 6) for s in sites]
 sns.boxplot(data=u_star_data, ax=axes[1, 1], palette="Purples_r")
 axes[1, 1].set_xticks(range(len(site_labels)))
 axes[1, 1].set_xticklabels(site_labels, rotation=15, fontweight="bold")
-axes[1, 1].set_ylabel("Dimensionless Relative Forcing $\\Upsilon^*$", fontweight="bold")
-axes[1, 1].set_title("(D) Scale-Invariant Calibration Invariance ($\\Upsilon^* \\approx 1.0$)", fontweight="bold", fontsize=13)
-axes[1, 1].axhline(1.0, color="#8e44ad", linestyle="-", linewidth=2.0, label="Equilibrium Reference ($\\Upsilon^* = 1.0$)")
+axes[1, 1].set_ylabel(r"Dimensionless Relative Forcing $\Upsilon^*$", fontweight="bold")
+axes[1, 1].set_title(r"(D) Scale-Invariant Calibration Invariance ($\Upsilon^* \approx 1.0$)", fontweight="bold", fontsize=13)
+axes[1, 1].axhline(1.0, color="#8e44ad", linestyle="-", linewidth=2.0, label=r"Equilibrium Reference ($\Upsilon^* = 1.0$)")
 axes[1, 1].legend(loc="upper right", fontsize=9)
 
 plt.tight_layout()
 plt.show()
 ```
 
-#### Cell 18 (Code Execution): `# High-Resolution Time Series Case Study: Multi-Scale Antecedent Memory During E`
+#### Cell 18 (Code Execution): `fig, axes = plt.subplots(2, 2, figsize=(16, 12))`
 
 ```python
-# High-Resolution Time Series Case Study: Multi-Scale Antecedent Memory During Extreme Storm Epochs
-fig, axes = plt.subplots(3, 1, figsize=(16, 11), sharex=False)
+fig, axes = plt.subplots(2, 2, figsize=(16, 12))
 
-# 1. Narrabeen: June 2016 East Coast Low (Extreme embayment rotation and scarping)
-df_nar = site_datasets["narrabeen_aus"]
-ecl_slice = df_nar.loc["2016-05-15":"2016-07-15"]
-axes[0].plot(ecl_slice.index, ecl_slice["upsilon"], label="Hourly Kinetic Flux $\\Upsilon(t)$", color="#2980b9", lw=1.2)
-axes[0].plot(ecl_slice.index, ecl_slice["upsilon_decay_7d"], label="7-Day Synoptic Memory $\\bar{\\Upsilon}_{7d}$", color="#e67e22", lw=1.8, linestyle="--")
-axes[0].plot(ecl_slice.index, ecl_slice["upsilon_decay_30d"], label="30-Day Lunar Envelope $\\bar{\\Upsilon}_{30d}$", color="#c0392b", lw=2.2)
-axes[0].set_ylabel("$\\Upsilon$ [kg/s]", fontweight="bold")
-axes[0].set_title("Narrabeen-Collaroy, Australia — June 2016 East Coast Low Storm Sequence", fontweight="bold", fontsize=12)
-axes[0].legend(loc="upper right", fontsize=9)
+site_labels = [COASTAL_SITE_PROFILES[s]["name"].split(",")[0] for s in sites]
 
-# 2. Duck, NC: March 2014 Nor'easter Storm
-df_duck = site_datasets["duck_nc"]
-duck_slice = df_duck.loc["2014-02-15":"2014-04-15"]
-axes[1].plot(duck_slice.index, duck_slice["upsilon"], label="Hourly Kinetic Flux $\\Upsilon(t)$", color="#16a085", lw=1.2)
-axes[1].plot(duck_slice.index, duck_slice["upsilon_decay_7d"], label="7-Day Synoptic Memory $\\bar{\\Upsilon}_{7d}$", color="#e67e22", lw=1.8, linestyle="--")
-axes[1].plot(duck_slice.index, duck_slice["upsilon_decay_30d"], label="30-Day Lunar Envelope $\\bar{\\Upsilon}_{30d}$", color="#c0392b", lw=2.2)
-axes[1].set_ylabel("$\\Upsilon$ [kg/s]", fontweight="bold")
-axes[1].set_title("USACE FRF Duck, NC, USA — Late Winter 2014 Nor'easter Sequence", fontweight="bold", fontsize=12)
-axes[1].legend(loc="upper right", fontsize=9)
+# Harmonious, domain-aligned site color palette (consistent across all subplots)
+site_palette = {
+    'duck_nc': '#1f77b4',          # Atlantic Ocean Blue (Barrier Island)
+    'narrabeen_aus': '#e76f51',     # Warm Coral / Terracotta (Embayed Beach)
+    'torrey_pines_ca': '#2a9d8f',   # California Coastal Teal (Pocket Beach)
+    'truc_vert_france': '#7b2cbf',  # French Atlantic Amethyst (Macrotidal)
+}
+site_colors = [site_palette[s] for s in sites]
 
-# 3. Truc Vert: Early 2014 Monster Atlantic Winter Storms (Hercules, Christine, Nadja)
-df_tv = site_datasets["truc_vert_france"]
-tv_slice = df_tv.loc["2014-01-01":"2014-03-15"]
-axes[2].plot(tv_slice.index, tv_slice["upsilon"], label="Hourly Kinetic Flux $\\Upsilon(t)$", color="#8e44ad", lw=1.2)
-axes[2].plot(tv_slice.index, tv_slice["upsilon_decay_7d"], label="7-Day Synoptic Memory $\\bar{\\Upsilon}_{7d}$", color="#e67e22", lw=1.8, linestyle="--")
-axes[2].plot(tv_slice.index, tv_slice["upsilon_decay_30d"], label="30-Day Lunar Envelope $\\bar{\\Upsilon}_{30d}$", color="#c0392b", lw=2.2)
-axes[2].set_ylabel("$\\Upsilon$ [kg/s]", fontweight="bold")
-axes[2].set_title("Truc Vert, France — Winter 2013-2014 Historical Mega-Storm Sequence", fontweight="bold", fontsize=12)
-axes[2].legend(loc="upper right", fontsize=9)
+# Panel A: Morphodynamic Regime Parameterization (Dean Number Omega)
+dean_data = [site_datasets[s]["dean_number"].values for s in sites]
+sns.boxplot(data=dean_data, ax=axes[0, 0], palette=site_colors)
+axes[0, 0].set_xticks(range(len(site_labels)))
+axes[0, 0].set_xticklabels(site_labels, rotation=15, fontweight="bold")
+axes[0, 0].set_ylabel(r"Dean Number $\Omega = H_s / (w_s T_p)$", fontweight="bold")
+axes[0, 0].set_title("(A) Morphodynamic Regime Across Global Sites", fontweight="bold", fontsize=13)
+axes[0, 0].axhline(1.0, color="#27ae60", linestyle="--", alpha=0.8, linewidth=1.5, label=r"Reflective ($\Omega < 1$)")
+axes[0, 0].axhline(6.0, color="#e74c3c", linestyle="--", alpha=0.8, linewidth=1.5, label=r"Dissipative ($\Omega > 6$)")
+axes[0, 0].legend(loc="upper right", fontsize=9, frameon=True)
+
+# Panel B: Deep-Water Wave Steepness Distribution (s0)
+s0_data = [site_datasets[s]["wave_steepness_s0"].values for s in sites]
+sns.boxplot(data=s0_data, ax=axes[0, 1], palette=site_colors)
+axes[0, 1].set_xticks(range(len(site_labels)))
+axes[0, 1].set_xticklabels(site_labels, rotation=15, fontweight="bold")
+axes[0, 1].set_ylabel(r"Wave Steepness $s_0 = H_s / L_0$", fontweight="bold")
+axes[0, 1].set_title("(B) Wave Steepness Across Sites", fontweight="bold", fontsize=13)
+axes[0, 1].axhline(0.025, color="#c0392b", linestyle="--", linewidth=1.8, label=r"Crit Steepness $s_{0,\mathrm{crit}} = 0.025$")
+axes[0, 1].legend(loc="upper right", fontsize=9, frameon=True)
+
+# Panel C: Tidal Dissipation & Energy Smearing Factor (Psi_tide)
+psi_tide_data = [site_datasets[s]["psi_tide"].values for s in sites]
+sns.boxplot(data=psi_tide_data, ax=axes[1, 0], palette=site_colors)
+axes[1, 0].set_xticks(range(len(site_labels)))
+axes[1, 0].set_xticklabels(site_labels, rotation=15, fontweight="bold")
+axes[1, 0].set_ylabel(r"Tidal Smearing Factor $\Psi_{\mathrm{tide}}$ [-]", fontweight="bold")
+axes[1, 0].set_title(r"(C) Tidal Dissipation & Energy Smearing ($\Psi_{tide}$)", fontweight="bold", fontsize=13)
+axes[1, 0].set_ylim(0.0, 1.05)
+axes[1, 0].axhline(1.0, color="#27ae60", linestyle="--", alpha=0.8, linewidth=1.5, label=r"Microtidal Limit ($\Psi_{\mathrm{tide}} \to 1.0$)")
+axes[1, 0].axhline(0.5, color="#e74c3c", linestyle=":", alpha=0.8, linewidth=1.5, label=r"Macrotidal Damping ($\Psi_{\mathrm{tide}} \leq 0.5$)")
+axes[1, 0].legend(loc="lower left", fontsize=9, frameon=True)
+
+# Panel D: Scale-Invariant Collapse (Normalized Upsilon*)
+u_star_data = [np.clip(site_datasets[s]["upsilon_star"].values, 0, 6) for s in sites]
+sns.boxplot(data=u_star_data, ax=axes[1, 1], palette=site_colors)
+axes[1, 1].set_xticks(range(len(site_labels)))
+axes[1, 1].set_xticklabels(site_labels, rotation=15, fontweight="bold")
+axes[1, 1].set_ylabel(r"Dimensionless Relative Forcing $\Upsilon^*$", fontweight="bold")
+axes[1, 1].set_title(r"(D) Scale-Invariant Calibration Invariance ($\Upsilon^* \approx 1.0$)", fontweight="bold", fontsize=13)
+axes[1, 1].axhline(1.0, color="#2c3e50", linestyle="-", linewidth=2.0, label=r"Equilibrium Reference ($\Upsilon^* = 1.0$)")
+axes[1, 1].legend(loc="upper right", fontsize=9, frameon=True)
 
 plt.tight_layout()
 plt.show()
@@ -750,7 +775,7 @@ pd.DataFrame(master_summary)
 **Result Data**:
 ```text
 Site Archetype    Country Slope tan(beta) D50 (mm) Tide Range (m)  \
-0      USACE FRF Duck        USA           0.080     0.35            1.0   
+0                Duck        USA           0.080     0.35            1.0   
 1  Narrabeen-Collaroy  Australia           0.090     0.30            1.2   
 2  Torrey Pines Beach        USA           0.040     0.20            1.5   
 3     Truc Vert Beach     France           0.060     0.38            4.5   
@@ -848,7 +873,7 @@ Empirical Coupling Diagnostic Against Real In-Situ Field Surveys:
 **Result Data**:
 ```text
 Site Primary Transect  Intervals Evaluated Mean Delta X (m)  \
-0      USACE FRF Duck         FRF_m091                   47     +0.17 ± 5.14   
+0                Duck         FRF_m091                   47     +0.17 ± 5.14   
 1  Narrabeen-Collaroy              PF1                  174     +0.01 ± 6.00   
 2  Torrey Pines Beach         TP_NORTH                   54     +0.18 ± 6.69   
 3     Truc Vert Beach         TV_SOUTH                   46     +0.35 ± 8.39   
