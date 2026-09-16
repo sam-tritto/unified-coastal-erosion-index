@@ -44,8 +44,6 @@
 \citation{raasveldt2019duckdb}
 \citation{mcinnes2018umap}
 \@writefile{toc}{\contentsline {section}{\numberline {III}Architecture: Two-Tier Hybrid Cascade Physics-RAG}{4}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {Four-Panel 2D UMAP Projection of the 14D Invariant Latent Space ($N = 12{,}000$ Stratified Records).} \textbf  {(a)} Morphodynamic state continuum colored by Dean number $\Omega $, displaying a continuous chromatic gradient from reflective steep profiles ($\Omega < 1$) to dissipative flat states ($\Omega > 7$). \textbf  {(b)} Hydrodynamic kinetic energy continuum $\log _{10}\Upsilon $, showing baseline calm records clustering near the manifold core while extreme storm work projects into outer peripheral filaments. \textbf  {(c)} Breaker dissipation regimes classified by Iribarren number $\xi $, showing topological separation between spilling ($\xi < 0.5$, cyan) and plunging ($\xi \ge 0.5$, pink) wave dissipation. \textbf  {(d)} Universal cross-site invariance: records from all four global observatories (Duck, Narrabeen, Torrey Pines, Truc Vert) interleave across identical topological branches, confirming cross-site physical similitude.}}{4}{}\protected@file@percent }
-\newlabel{fig:umap_4panel}{{2}{4}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Tier 1: Columnar Relational Pre-Filtering (DuckDB)}{4}{}\protected@file@percent }
 \newlabel{eq:tier1_duckdb}{{9}{4}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Tier 2: 14D Invariant Latent Ranking via Directional Pareto Objectives}{4}{}\protected@file@percent }
@@ -55,27 +53,33 @@
 \newlabel{eq:antecedent_impulse}{{12}{4}}
 \newlabel{eq:parent_tensor}{{13}{4}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Topological Manifold Invariance (UMAP Analysis)}{4}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Comprehensive Grand 4-Way Information Retrieval Benchmark Across 30 Complex Evaluation Queries.} \textbf  {(a)} Mean retrieval metrics comparing Raw-Data LLM-RAG, Rule-Based SQL, Pure Physics-RAG, and the proposed Two-Tier Hybrid Cascade across Precision@5, NDCG@5, MRR, and Regime Purity@5. \textbf  {(b)} Precision across expanding retrieval radii ($k = 1$ to $k = 20$). Notice the unbroken performance advantage of the Hybrid Cascade across all cutoff depths. \textbf  {(c)} Peak Precision@5 during episodic storm hazards, demonstrating that the Hybrid Cascade is the only architecture capable of synchronizing to true storm apexes ($P_{\text  {apex}}@5 = 0.12$). \textbf  {(d)} Median temporal peak alignment error ($\Delta t_{\text  {peak}}$), illustrating the elimination of cross-decadal temporal drift.}}{5}{}\protected@file@percent }
-\newlabel{fig:grand_benchmark}{{3}{5}}
-\@writefile{toc}{\contentsline {section}{\numberline {IV}Empirical Evaluation: The Grand 30-Query Benchmark}{5}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Evaluation Methodology \& Baselines}{5}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Information Retrieval Performance}{5}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Statistical Hypothesis Testing}{5}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-D}}Decoupling the Dual Temporal Failure Modes}{5}{}\protected@file@percent }
-\citation{yates2009equilibrium}
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Empirical Evaluation: The Grand 30-Query Benchmark}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Evaluation Methodology \& Baselines}{4}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {End-to-End System Architecture and Dataflow of the Two-Tier Hybrid Cascade Physics-RAG Framework.} \textbf  {(1)} Natural language operational queries are decoupled by the Hybrid Query Parser into structured columnar SQL predicates and a 14D target physical invariant vector $\mathbf  {z}_{\text  {target}}$. \textbf  {(2)} Tier\nobreakspace  {}1 executes sub-15-millisecond zero-copy predicate pushdown over columnar Parquet storage via DuckDB, pruning the multi-site golden window archive ($N = 175{,}392$ records) into an anchored spatiotemporal candidate subset $\mathcal  {C}_{\text  {filtered}}$, eliminating cross-decadal manifold degeneracy. \textbf  {(3)} Tier\nobreakspace  {}2 projects candidates into the 14D Buckingham $\pi $ invariant latent space, evaluating them via an asymmetric Directional Pareto ranking objective (Eq.\nobreakspace  {}\ref {eq:directional_pareto}) that penalizes sub-threshold calm states and rewards kinetic disequilibrium excess, eliminating chronological blindness and synchronizing to true hydrodynamic storm apexes ($t^*$). \textbf  {(4)} Top-$k$ target event timestamps trigger zero-copy pointer retrieval to hydrate continuous antecedent parent sequences ($\mathbf  {X}_{\text  {parent}} \in \mathbb  {R}^{145 \times 14}$, $\pm 72\text  { hours}$), capturing multi-channel wave steepening, the $26.5\times $ kinetic surge in $\Upsilon $, and Total Water Level confronting berm crests ($Z_{\text  {crest}}$), eliminating Markovian memorylessness. \textbf  {(5)} Hydrated continuous tensors are ingested by downstream SciML models for autonomous storm shock rollouts and automated field survey failure anomaly audits.}}{5}{}\protected@file@percent }
+\newlabel{fig:physics_rag_architecture}{{2}{5}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Four-Panel 2D UMAP Projection of the 14D Invariant Latent Space ($N = 12{,}000$ Stratified Records).} \textbf  {(a)} Morphodynamic state continuum colored by Dean number $\Omega $, displaying a continuous chromatic gradient from reflective steep profiles ($\Omega < 1$) to dissipative flat states ($\Omega > 7$). \textbf  {(b)} Hydrodynamic kinetic energy continuum $\log _{10}\Upsilon $, showing baseline calm records clustering near the manifold core while extreme storm work projects into outer peripheral filaments. \textbf  {(c)} Breaker dissipation regimes classified by Iribarren number $\xi $, showing topological separation between spilling ($\xi < 0.5$, cyan) and plunging ($\xi \ge 0.5$, pink) wave dissipation. \textbf  {(d)} Universal cross-site invariance: records from all four global observatories (Duck, Narrabeen, Torrey Pines, Truc Vert) interleave across identical topological branches, confirming cross-site physical similitude.}}{5}{}\protected@file@percent }
+\newlabel{fig:umap_4panel}{{3}{5}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {Continuous $\pm 72$-Hour Dynamic Parent Sequence Hydration across Wave, Kinetic Energy, and Elevation Channels (October 2015 Nor'easter at USACE FRF Duck, NC).} \textbf  {(Top)} Significant wave height $H_s$ ($1.5 \to 4.24\,\text  {m}$) and barometric surge $\eta _{\text  {surge}}$, locking onto the storm apex ($t = 0$, dashed red line). \textbf  {(Middle)} Unified Kinetic Erosion Index $\Upsilon $ ($\log _{10}$ scale), showing a $26.5\times $ nonlinear amplification ($6{,}500 \to 172{,}275\,\text  {kg/s}$) driven by $H_s^{2.5}$ kinematics. \textbf  {(Bottom)} Total Water Level ($\text  {TWL} = \eta _{\text  {tide}} + \eta _{\text  {surge}} + R_{2\%}$) confronting berm crest $Z_{\text  {crest}}$, initiating sustained Sallenger Collision.}}{5}{}\protected@file@percent }
+\newlabel{fig:parent_hydration}{{4}{5}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces \textbf  {Comprehensive Grand 4-Way Information Retrieval Benchmark Across 30 Complex Evaluation Queries.} \textbf  {(a)} Macro-averaged retrieval precision across expanding cutoff radii ($k = 1$ to $k = 20$), illustrating the unbroken performance advantage maintained by the Two-Tier Hybrid Cascade across all evaluation depths. \textbf  {(b)} Macro-averaged Information Retrieval metrics comparing Raw-Data LLM-RAG, Rule-Based SQL, Pure Physics-RAG, and the proposed Hybrid Cascade across Precision@5, NDCG@5, MRR, and Regime Purity@5.}}{6}{}\protected@file@percent }
+\newlabel{fig:grand_benchmark}{{5}{6}}
 \@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces GRAND 4-WAY INFORMATION RETRIEVAL BENCHMARK ACROSS 30 COMPLEX OPERATIONAL QUERIES}}{6}{}\protected@file@percent }
 \newlabel{tab:grand_benchmark}{{I}{6}}
 \@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces PAIRED STATISTICAL HYPOTHESIS TESTING: HYBRID CASCADE VS. BASELINE ARCHITECTURES ($N = 30$ QUERIES)}}{6}{}\protected@file@percent }
 \newlabel{tab:statistical_testing}{{II}{6}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-E}}The Nearshore Dissipation vs. Offshore Over-Retrieval Paradox}{6}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {V}Diagnostic Deployment: SciML Architectural Ablations \& Failure Auditing}{6}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Observing System Simulation Experiment (OSSE) Framework}{6}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {Peak Impact and Disequilibrium Ranking Advantage.} Demonstrating how Directional Pareto ranking prioritizes high-work storm apexes and nearshore dissipated wave power over unconstrained offshore wave height spikes.}}{6}{}\protected@file@percent }
-\newlabel{fig:peak_impact}{{4}{6}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}The $2 \times 2$ SciML Architectural Matrix}{6}{}\protected@file@percent }
-\newlabel{eq:pinn_loss}{{14}{6}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Information Retrieval Performance}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Statistical Hypothesis Testing}{6}{}\protected@file@percent }
+\citation{yates2009equilibrium}
 \citation{sutherland2004evaluating}
 \citation{ludka2015beach}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-D}}Decoupling the Dual Temporal Failure Modes}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-E}}The Nearshore Dissipation vs. Offshore Over-Retrieval Paradox}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {V}Diagnostic Deployment: SciML Architectural Ablations \& Failure Auditing}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Observing System Simulation Experiment (OSSE) Framework}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}The $2 \times 2$ SciML Architectural Matrix}{7}{}\protected@file@percent }
+\newlabel{eq:pinn_loss}{{14}{7}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}The Fundamental Representation vs. Loss Trade-Off}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}Field Survey Anomaly Audits via Sequence Hydration}{7}{}\protected@file@percent }
 \citation{turner2016multidecade}
 \citation{longuethiggins1964radiation}
 \citation{birkemeier1985users}
@@ -84,13 +88,24 @@
 \citation{porteagel2020wind}
 \citation{severson2019battery}
 \citation{ramadesigan2012battery}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces \textbf  {Peak Impact and Disequilibrium Ranking Advantage Across Complex Cyclone and Hazard Queries.} \textbf  {(a)} Graded NDCG@5 under 4-tier hydrodynamic work grading, where the Hybrid Cascade achieves $0.082$ (nearly $3\times $ higher than Raw LLM). \textbf  {(b)} Median temporal peak alignment error ($|\Delta t_{\text  {peak}}|$ in hours), proving that relational pre-filtering eliminates cross-decadal temporal drift ($15{,}124\,\text  {h} \to 6{,}480\,\text  {h}$ global, down to $0\,\text  {h}$ on localized storm windows). \textbf  {(c)} Retrieved kinetic disequilibrium energy ($\Upsilon $), showing preferential ranking of extreme energetic shocks. \textbf  {(d)} Peak Precision@5 ($P_{\text  {apex}}@5$) vs. retrieved wave power: the Hybrid Cascade is the only architecture synchronizing to the true storm apex ($0.12$) while retrieving verified nearshore dissipated wave power ($58.1\,\text  {kW/m}$) rather than unconstrained offshore buoy spikes ($>380\,\text  {kW/m}$).}}{8}{}\protected@file@percent }
+\newlabel{fig:peak_impact}{{6}{8}}
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces SCIML ARCHITECTURAL MATRIX PERFORMANCE: DYNAMIC 72-HOUR STORM ROLLOUT \& MULTI-YEAR TEST SET}}{8}{}\protected@file@percent }
+\newlabel{tab:sciml_matrix}{{III}{8}}
+\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces REAL-WORLD FIELD SURVEY ANOMALY EPISODES AUDITED VIA PHYSICS-RAG SEQUENCE HYDRATION}}{8}{}\protected@file@percent }
+\newlabel{tab:anomaly_audits}{{IV}{8}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Cross-Domain Generalizability: Translating Physics-RAG to Cyber-Physical Assets}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Lithium-Ion \& EV Battery Management Systems (BMS)}{8}{}\protected@file@percent }
 \citation{porteagel2020wind}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}The Fundamental Representation vs. Loss Trade-Off}{7}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}Field Survey Anomaly Audits via Sequence Hydration}{7}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {VI}Cross-Domain Generalizability: Translating Physics-RAG to Cyber-Physical Assets}{7}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Lithium-Ion \& EV Battery Management Systems (BMS)}{7}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}Wind Energy \& Offshore Wind Turbines}{7}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces CROSS-DOMAIN MATHEMATICAL \& ARCHITECTURAL TRANSLATION OF PHYSICS-RAG}}{9}{}\protected@file@percent }
+\newlabel{tab:cross_domain}{{V}{9}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}Wind Energy \& Offshore Wind Turbines}{9}{}\protected@file@percent }
 \bibcite{lewis2020rag}{1}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces \textbf  {Dynamic 72-Hour Autonomous Storm Rollout Trajectories across Contrasting Global Archetypes (Observing System Simulation Experiment).} Continuous shoreline position evolution $\Delta X(t)$ comparing Ground Truth Nature Run $x(t)$ (black) against Model A (Data-Driven, red dashed), Model B (PINN Loss-Guided, orange dotted), Model C (Feature-Guided, teal dash-dotted), and Model D (Dual-Guided, dark slate solid) centered on peak compound hazard ($t = 0$, crimson dotted line). Notice how Model B stabilizes acute shock without hallucinating fair-weather accretion during peak storm forcing ($\text  {BSS} = +0.108$), while Model C captures dynamic recovery amplitude ($r = 0.574$, reaching $r = 0.839$ at Truc Vert).}}{10}{}\protected@file@percent }
+\newlabel{fig:sciml_rollouts}{{7}{10}}
+\@writefile{toc}{\contentsline {section}{\numberline {VII}Discussion, SciML Design Principles \& Conclusion}{10}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces \textbf  {Multi-Panel Parent Sequence Hydration Visualizations for Top Real-World Field Survey Anomaly Episodes Audited via Physics-RAG.} Continuous multi-channel hydrodynamics ($H_s$, $\text  {TWL}$, and storm surge) centered on the matched storm apex ($t = 0$) diagnosing unmodeled physical processes across institutional field surveys: \textbf  {(a)} USACE FRF Duck, NC: Antecedent berm stripping unbuffering the dune scarp. \textbf  {(b)} Narrabeen-Collaroy, AUS: 2D embayment rotation and asymmetric radiation stress ($S_{xy} > 120\,\text  {N/m}$). \textbf  {(c)} Torrey Pines, CA: Long-period infragravity swash resonance ($T_p = 16.0\,\text  {s}$). \textbf  {(d)} Truc Vert, France: Post-storm sediment sequestration in offshore sandbars.}}{10}{}\protected@file@percent }
+\newlabel{fig:anomaly_audits}{{8}{10}}
 \bibcite{karniadakis2021physics}{2}
 \bibcite{wright1984morphodynamic}{3}
 \bibcite{birkemeier1985users}{4}
@@ -100,12 +115,6 @@
 \bibcite{lu2021deeponet}{8}
 \bibcite{buckingham1914physically}{9}
 \bibcite{dietrich1982settling}{10}
-\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces SCIML ARCHITECTURAL MATRIX PERFORMANCE: DYNAMIC 72-HOUR STORM ROLLOUT \& MULTI-YEAR TEST SET}}{8}{}\protected@file@percent }
-\newlabel{tab:sciml_matrix}{{III}{8}}
-\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces REAL-WORLD FIELD SURVEY ANOMALY EPISODES AUDITED VIA PHYSICS-RAG SEQUENCE HYDRATION}}{8}{}\protected@file@percent }
-\newlabel{tab:anomaly_audits}{{IV}{8}}
-\@writefile{toc}{\contentsline {section}{\numberline {VII}Discussion, SciML Design Principles \& Conclusion}{8}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{References}{8}{}\protected@file@percent }
 \bibcite{longuethiggins1964radiation}{11}
 \bibcite{battjes1974surf}{12}
 \bibcite{williams1959comparison}{13}
@@ -119,6 +128,5 @@
 \bibcite{severson2019battery}{21}
 \bibcite{ramadesigan2012battery}{22}
 \bibcite{porteagel2020wind}{23}
-\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces CROSS-DOMAIN MATHEMATICAL \& ARCHITECTURAL TRANSLATION OF PHYSICS-RAG}}{9}{}\protected@file@percent }
-\newlabel{tab:cross_domain}{{V}{9}}
-\gdef \@abspage@last{9}
+\@writefile{toc}{\contentsline {section}{References}{11}{}\protected@file@percent }
+\gdef \@abspage@last{11}
