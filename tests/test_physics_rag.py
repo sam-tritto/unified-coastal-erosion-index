@@ -34,6 +34,10 @@ from src.physics_rag import (
     DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B,
     ARCHIVED_PHYSICS_BENCHMARK_QUERIES_MODE_B,
     ALL_PHYSICS_BENCHMARK_QUERIES_60,
+    ALL_PHYSICS_BENCHMARK_QUERIES_100,
+    NEW_PHYSICS_BENCHMARK_QUERIES_40,
+    BENCHMARK_QUERIES_DELIBERATE_AMBIGUITY,
+    BENCHMARK_QUERIES_PHYSICAL_PATHOLOGIES,
     evaluate_retrieval_query,
     evaluate_rag_benchmark_suite,
     generate_decoupled_mode_summary,
@@ -1105,6 +1109,62 @@ def test_hybrid_rag_target_synthetic_values_with_none(sample_coastal_df):
     )
     res_dict = rag.query("Narrabeen East Coast Low storm erosion exceeding 4m", spec=spec_dict)
     assert len(res_dict.matches_df) > 0
+
+
+def test_master_100_benchmark_queries_suite():
+    """Verify the expanded 100-query benchmark suite structure and execution."""
+    assert len(ALL_PHYSICS_BENCHMARK_QUERIES_100) == 100
+    assert len(NEW_PHYSICS_BENCHMARK_QUERIES_40) == 40
+    assert len(BENCHMARK_QUERIES_DELIBERATE_AMBIGUITY) == 20
+    assert len(BENCHMARK_QUERIES_PHYSICAL_PATHOLOGIES) == 20
+
+    for q in BENCHMARK_QUERIES_DELIBERATE_AMBIGUITY:
+        assert q["mode"] == "Mode C: Deliberate Ambiguity"
+        assert "8. Deliberate Ambiguity" in q["category"]
+
+    for q in BENCHMARK_QUERIES_PHYSICAL_PATHOLOGIES:
+        assert q["mode"] == "Mode D: 3D Physical Pathology"
+        assert "9. 3D Morphodynamic Pathologies" in q["category"]
+
+    # Verify synthetic execution with evaluate_rag_benchmark_suite
+    dates = pd.date_range("2012-01-01", "2016-12-31", freq="12h", tz="UTC")
+    n = len(dates)
+    df = pd.DataFrame({
+        "site_id": np.random.choice(["duck_nc", "narrabeen_aus", "torrey_pines_ca", "truc_vert_france"], size=n),
+        "timestamp": dates,
+        "hs_m": np.random.uniform(0.5, 5.0, size=n),
+        "tp_s": np.random.uniform(6.0, 17.0, size=n),
+        "total_water_level_m": np.random.uniform(0.2, 2.8, size=n),
+        "surge_m": np.random.uniform(-0.4, 1.0, size=n),
+        "wind_speed_ms": np.random.uniform(2.0, 20.0, size=n),
+        "tan_beta": np.random.choice([0.03, 0.05, 0.08], size=n),
+        "dean_number": np.random.uniform(1.0, 7.0, size=n),
+        "xi_iribarren": np.random.uniform(0.3, 1.8, size=n),
+        "p_flux_Wm": np.random.uniform(5000, 80000, size=n),
+        "wave_steepness": np.random.uniform(0.005, 0.04, size=n),
+        "runup_r2_m": np.random.uniform(0.5, 2.8, size=n),
+        "runup_r_ig_m": np.random.uniform(0.2, 1.8, size=n),
+        "upsilon": np.random.uniform(1000, 40000, size=n),
+        "rad_stress_sxy": np.random.uniform(10.0, 140.0, size=n),
+        "wave_dir_deg": np.random.uniform(0.0, 360.0, size=n),
+        "breaker_regime": np.random.choice(["Spilling", "Plunging", "Surging"], size=n),
+    })
+    rag = RuleBasedSQLRAG(df)
+
+    # Test running ambiguity queries
+    df_amb, _ = evaluate_rag_benchmark_suite(rag=rag, benchmark_mode="ambiguity", k_list=[1, 5])
+    assert len(df_amb) == 20
+    assert (df_amb["Mode"] == "Mode C: Deliberate Ambiguity").all()
+
+    # Test running 3D pathology queries
+    df_path, _ = evaluate_rag_benchmark_suite(rag=rag, benchmark_mode="pathology", k_list=[1, 5])
+    assert len(df_path) == 20
+    assert (df_path["Mode"] == "Mode D: 3D Physical Pathology").all()
+
+    # Test running all 100 queries
+    df_100, _ = evaluate_rag_benchmark_suite(rag=rag, benchmark_mode="all_100", n_queries=100, k_list=[1, 5])
+    assert len(df_100) == 100
+
 
 
 

@@ -1,9 +1,12 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  16 SEP 2026 10:56
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  16 SEP 2026 12:45
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**research_paper.tex
-(./research_paper.tex
+**"/Users/sam/Locals Only/unified-coastal-erosion-index/reports/paper/research_
+paper.tex"
+
+(/Users/sam/Locals Only/unified-coastal-erosion-index/reports/paper/research_pa
+per.tex
 LaTeX2e <2022-11-01> patch level 1
 L3 programming layer <2023-02-22>
 (/usr/local/texlive/2023/texmf-dist/tex/latex/ieeetran/IEEEtran.cls
@@ -345,7 +348,8 @@ File: l3backend-pdftex.def 2023-01-16 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count290
 \l__pdf_internal_box=\box58
 )
-(./research_paper.aux)
+(/Users/sam/Locals Only/unified-coastal-erosion-index/reports/paper/research_pa
+per.aux)
 \openout1 = `research_paper.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 19.
@@ -454,7 +458,8 @@ Package microtype Info: Loading generic protrusion settings for font family
 local/texlive/2023/texmf-dist/fonts/enc/dvips/base/8r.enc}
 
 
-] [2 <../figures//figure_morphodynamic_regimes_4panel.png>] [3]
+] [2 </Users/sam/Locals Only/unified-coastal-erosion-index/reports/paper/../fig
+ures//figure_morphodynamic_regimes_4panel.png>] [3]
 <../figures//figure_physics_rag_architecture.png, id=41, 1438.173pt x 607.068pt
 >
 File: ../figures//figure_physics_rag_architecture.png Graphic file (type png)
@@ -502,12 +507,15 @@ Underfull \hbox (badness 1701) in paragraph at lines 282--283
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [5 <../figures//figure_physics_rag_architecture.png (PNG copy)> <../figures//f
-igure_umap_4panel_final.png> <../figures//figure_hydrated_parent_sequence.png (
-PNG copy)>]
+ [5 </Users/sam/Locals Only/unified-coastal-erosion-index/reports/paper/../figu
+res//figure_physics_rag_architecture.png (PNG copy)> </Users/sam/Locals Only/un
+ified-coastal-erosion-index/reports/paper/../figures//figure_umap_4panel_final.
+png> </Users/sam/Locals Only/unified-coastal-erosion-index/reports/paper/../fig
+ures//figure_hydrated_parent_sequence.png (PNG copy)>]
 Underfull \vbox (badness 6380) has occurred while \output is active []
 
- [6 <../figures//grand_4way_benchmark_comparison.png>]
+ [6 </Users/sam/Locals Only/unified-coastal-erosion-index/reports/paper/../figu
+res//grand_4way_benchmark_comparison.png>]
 <../figures//figure_peak_impact_disequilibrium_advantage.png, id=58, 1582.713pt
  x 368.0952pt>
 File: ../figures//figure_peak_impact_disequilibrium_advantage.png Graphic file 
@@ -517,13 +525,13 @@ Package pdftex.def Info: ../figures//figure_peak_impact_disequilibrium_advantag
 e.png  used on input line 353.
 (pdftex.def)             Requested size: 505.6778pt x 117.60751pt.
 
-Underfull \hbox (badness 4072) in paragraph at lines 380--381
+Underfull \hbox (badness 4072) in paragraph at lines 382--383
 []\OT1/ptm/b/n/10 (+20) Model C (Feature-Guided): \OT1/ptm/m/n/10 (+20) Un-con-
 strained MLP
  []
 
 
-Underfull \hbox (badness 1521) in paragraph at lines 380--381
+Underfull \hbox (badness 1521) in paragraph at lines 382--383
 \OT1/ptm/m/n/10 (+20) sup-plied with our 14D in-vari-ant man-i-fold fea-tures
  []
 
@@ -532,113 +540,111 @@ t>
 File: ../figures//figure_sciml_72h_storm_rollouts.png Graphic file (type png)
 <use ../figures//figure_sciml_72h_storm_rollouts.png>
 Package pdftex.def Info: ../figures//figure_sciml_72h_storm_rollouts.png  used 
-on input line 406.
+on input line 408.
 (pdftex.def)             Requested size: 246.95892pt x 319.42004pt.
-<../figures//figure_anomaly_audits_hydration.png, id=60, 383.031pt x 431.211pt>
+[7]
+<../figures//figure_anomaly_audits_hydration.png, id=64, 383.031pt x 431.211pt>
 
 File: ../figures//figure_anomaly_audits_hydration.png Graphic file (type png)
 <use ../figures//figure_anomaly_audits_hydration.png>
 Package pdftex.def Info: ../figures//figure_anomaly_audits_hydration.png  used 
-on input line 426.
+on input line 429.
 (pdftex.def)             Requested size: 246.95892pt x 278.02698pt.
-[7]
-Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
-Underfull \hbox (badness 10000) in paragraph at lines 488--488
+Underfull \hbox (badness 10000) in paragraph at lines 491--491
 []|\OT1/ptm/b/n/9 (+20) Coastal Mor-pho-dy-nam-ics
  []
 
 
-Underfull \hbox (badness 1939) in paragraph at lines 488--488
+Underfull \hbox (badness 1939) in paragraph at lines 491--491
 []|\OT1/ptm/b/n/9 (+20) Lithium-Ion / EV Bat-tery
  []
 
 
-Underfull \hbox (badness 7667) in paragraph at lines 488--488
+Underfull \hbox (badness 7667) in paragraph at lines 491--491
 []|\OT1/ptm/m/n/9 (+20) Cell chem-istry (NMC/LFP),
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 488--488
+Underfull \hbox (badness 10000) in paragraph at lines 491--491
 []|\OT1/ptm/m/n/9 (+20) Arrhenius ther-mal fac-tor
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 488--488
+Underfull \hbox (badness 10000) in paragraph at lines 491--491
 []\OT1/cmr/m/n/9 (\OMS/cmsy/m/n/9 ^^@\OML/cmm/m/it/9 E[]=RT\OT1/cmr/m/n/9 )$\OT
 1/ptm/m/n/9 (+20) , State of
  []
 
 
-Underfull \hbox (badness 3646) in paragraph at lines 488--488
+Underfull \hbox (badness 3646) in paragraph at lines 491--491
 \OT1/ptm/m/n/9 (+20) ($\OML/cmm/m/it/9 SoH$\OT1/ptm/m/n/9 (+20) ), over-po-ten-
 tial $\OML/cmm/m/it/9 ^^Q=V[]$\OT1/ptm/m/n/9 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 488--488
+Underfull \hbox (badness 10000) in paragraph at lines 491--491
 []|\OT1/ptm/m/n/9 (+20) Lithium plat-ing bound-ary
  []
 
 
-Underfull \hbox (badness 7397) in paragraph at lines 488--488
+Underfull \hbox (badness 7397) in paragraph at lines 491--491
 \OT1/ptm/m/n/9 (+20) ther-mal run-away $\OML/cmm/m/it/9 T[]$\OT1/ptm/m/n/9 (+20
 ) , SEI
  []
 
 
-Underfull \hbox (badness 1874) in paragraph at lines 488--488
+Underfull \hbox (badness 1874) in paragraph at lines 491--491
 \OT1/ptm/m/n/9 (+20) ki-netic dis-e-qui-lib-rium ex-cess
  []
 
 
-Underfull \hbox (badness 3417) in paragraph at lines 488--488
+Underfull \hbox (badness 3417) in paragraph at lines 491--491
 []|\OT1/ptm/m/n/9 (+20) Penalize under-estimation of
  []
 
 
-Underfull \hbox (badness 2326) in paragraph at lines 488--488
+Underfull \hbox (badness 2326) in paragraph at lines 491--491
 \OT1/ptm/m/n/9 (+20) high C-rate pulse dis-charge,
  []
 
 
-Underfull \hbox (badness 3417) in paragraph at lines 488--488
+Underfull \hbox (badness 3417) in paragraph at lines 491--491
 []|\OT1/ptm/m/n/9 (+20) Penalize under-estimation of
  []
 
 
-Underfull \hbox (badness 1831) in paragraph at lines 488--488
+Underfull \hbox (badness 1831) in paragraph at lines 491--491
 \OT1/ptm/m/n/9 (+20) mal duty cy-cles, fast-charge
  []
 
 
-Underfull \hbox (badness 1478) in paragraph at lines 488--488
+Underfull \hbox (badness 1478) in paragraph at lines 491--491
 []|$\OMS/cmsy/m/n/9 ^^F\OT1/cmr/m/n/9 24[]$ \OT1/ptm/m/n/9 (+20) to $\OMS/cmsy/
 m/n/9 ^^F\OT1/cmr/m/n/9 72[]$ \OT1/ptm/m/n/9 (+20) gust-induced
  []
 
 
-Underfull \hbox (badness 2073) in paragraph at lines 488--488
+Underfull \hbox (badness 2073) in paragraph at lines 491--491
 \OT1/ptm/m/n/9 (+20) aeroe-las-tic load cy-cles, low-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 488--488
+Underfull \hbox (badness 10000) in paragraph at lines 491--491
 \OT1/ptm/m/n/9 (+20) neu-ral roll-outs, in-fra-grav-ity
  []
 
-[8 <../figures//figure_peak_impact_disequilibrium_advantage.png>]
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \vbox (badness 1062) has occurred while \output is active []
+[8 </Users/sam/Locals Only/unified-coastal-erosion-index/reports/paper/../figur
+es//figure_peak_impact_disequilibrium_advantage.png>]
+Underfull \vbox (badness 2573) has occurred while \output is active []
 
  [9]
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [10 <../figures//figure_sciml_72h_storm_rollouts.png (PNG copy)> <../figures//
-figure_anomaly_audits_hydration.png (PNG copy)>]
+ [10 </Users/sam/Locals Only/unified-coastal-erosion-index/reports/paper/../fig
+ures//figure_sciml_72h_storm_rollouts.png (PNG copy)> </Users/sam/Locals Only/u
+nified-coastal-erosion-index/reports/paper/../figures//figure_anomaly_audits_hy
+dration.png (PNG copy)>]
 
 ** Conference Paper **
 Before submitting the final camera ready copy, remember to:
@@ -650,47 +656,48 @@ Before submitting the final camera ready copy, remember to:
  uses only Type 1 fonts and that every step in the generation
  process uses the appropriate paper size.
 
-[11
-
-] (./research_paper.aux) ) 
+[11]
+(/Users/sam/Locals Only/unified-coastal-erosion-index/reports/paper/research_pa
+per.aux) ) 
 Here is how much of TeX's memory you used:
- 7602 strings out of 476025
- 120341 string characters out of 5790017
- 1881388 words of memory out of 5000000
- 27402 multiletter control sequences out of 15000+600000
+ 7604 strings out of 476025
+ 120961 string characters out of 5790017
+ 1883388 words of memory out of 5000000
+ 27403 multiletter control sequences out of 15000+600000
  589676 words of font info for 473 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 57i,15n,62p,1814b,392s stack positions out of 10000i,1000n,20000p,200000b,200000s
-</usr/local/texlive/2023/texmf-dist/fonts/type1/publi
-c/amsfonts/cm/cmbx10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public
-/amsfonts/cm/cmbx7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/a
-msfonts/cm/cmbx8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/ams
-fonts/cm/cmbx9.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfo
-nts/cm/cmex10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfon
-ts/cm/cmmi10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfont
-s/cm/cmmi5.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/
-cm/cmmi6.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm
-/cmmi7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/c
-mmi8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmm
-i9.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmib
-10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10
-.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5.pf
-b></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb><
-/usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></us
-r/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/l
-ocal/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/loca
-l/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local
-/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb></usr/local/t
-exlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/local/tex
-live/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texli
-ve/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/local/texlive
-/2023/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/local/tex
-live/2023/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/local/texlive/202
-3/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2023/texmf-di
-st/fonts/type1/urw/times/utmbi8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/
-type1/urw/times/utmr8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/urw/
-times/utmri8a.pfb>
-Output written on research_paper.pdf (11 pages, 7781605 bytes).
+ 57i,15n,62p,1883b,392s stack positions out of 10000i,1000n,20000p,200000b,200000s
+</usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cm
+bx10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmb
+x7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx8
+.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx9.p
+fb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pf
+b></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb
+></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi5.pfb><
+/usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi6.pfb></u
+sr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb></usr
+/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr/l
+ocal/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi9.pfb></usr/loc
+al/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmib10.pfb></usr/loc
+al/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/local
+/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5.pfb></usr/local/te
+xlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb></usr/local/texli
+ve/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/local/texlive/
+2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/local/texlive/202
+3/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/local/texlive/2023/t
+exmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texlive/2023/te
+xmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb></usr/local/texlive/2023/texm
+f-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/local/texlive/2023/texmf-
+dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texlive/2023/texmf-di
+st/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/local/texlive/2023/texmf-dist
+/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/local/texlive/2023/texmf-
+dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/local/texlive/2023/texmf-dist/fon
+ts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/u
+rw/times/utmbi8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/urw/times/
+utmr8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/urw/times/utmri8a.pf
+b>
+Output written on "/Users/sam/Locals Only/unified-coastal-erosion-index/reports
+/paper/research_paper.pdf" (11 pages, 7782971 bytes).
 PDF statistics:
  200 PDF objects out of 1000 (max. 8388607)
  115 compressed objects within 2 object streams

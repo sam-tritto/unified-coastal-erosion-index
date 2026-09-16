@@ -368,6 +368,8 @@ To rigorously evaluate neural architectural paradigms without contamination from
     \item The reference shoreline trajectory is a continuous nature run generated via dynamic wave-energy equilibrium formulations \cite{yates2009equilibrium} driven by real wave energy flux plus Gaussian measurement noise ($\sigma = 0.25\,\text{m}$).
 \end{itemize}
 
+\noindent\textbf{Role and Scope of the OSSE Nature Run:} We explicitly note that this 1D synthetic nature run serves strictly as an \emph{in silico} architectural stress test designed solely to evaluate neural rollout stability, multi-step error accumulation, and loss penalty dynamics under mathematically closed, continuous conditions. It is not intended as a substitute for 3D coastal morphodynamics. Because the nature run is generated via a 1D cross-shore equilibrium process, 2D alongshore features (such as Tier 3 radiation stress gradients) will naturally introduce minor discrepancies (+17\,mm error at Duck) within this idealized cross-shore framework. Rigorous authentic field-survey validation is instead provided in Section~\ref{subsec:field_audits} (Table~\ref{tab:anomaly_audits} and Fig.~\ref{fig:anomaly_audits}), where our Physics-RAG sequence hydration framework directly diagnoses the genuine 3D morphodynamic processes---including infragravity surf-beat resonance, 2D embayment rotation, and offshore sandbar sequestration---that the 1D synthetic nature run omits.
+
 \subsection{The $2 \times 2$ SciML Architectural Matrix}
 We benchmarked four distinct SciML paradigms across continuous 72-hour autonomous storm rollouts and multi-year out-of-sample test sets:
 \begin{itemize}
@@ -419,6 +421,7 @@ As reported in Table~\ref{tab:sciml_matrix} and visualized in Fig.~\ref{fig:scim
 Sweeping the loss weight $\lambda_{\text{physics}} \in \{0.01, 0.1, 1.0, 10.0\}$ reveals that moderate regularization ($\lambda = 1.0$) optimizes storm tracking, whereas heavy penalties ($\lambda = 10.0$) over-constrain the loss landscape and degrade test performance.
 
 \subsection{Field Survey Anomaly Audits via Sequence Hydration}
+\label{subsec:field_audits}
 When deployed operationally, the Physics-RAG architecture automates post-mortem failure audits of sequence models by hydrating continuous antecedent parent sequences ($\pm 72\text{h}$) across real-world field survey anomalies (Table~\ref{tab:anomaly_audits}, Fig.~\ref{fig:anomaly_audits}):
 
 \begin{figure}[htbp]
