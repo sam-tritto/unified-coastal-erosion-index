@@ -880,7 +880,8 @@ def synthesize_target_physics_vector(
             norm_key = param_map.get(k.lower(), k)
             baseline[norm_key] = float(v)
 
-    hs_exp = float(target_params.get("hs_exponent", 2.5))
+    hs_exp_val = target_params.get("hs_exponent")
+    hs_exp = float(hs_exp_val) if hs_exp_val is not None else 2.5
     try:
         try:
             from src.physics import compute_unified_coastal_vulnerability_index

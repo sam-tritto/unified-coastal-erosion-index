@@ -295,8 +295,6 @@ print(f"✓ PyTorch version: {torch.__version__} | DuckDB version: {duckdb.__ver
 
 **Execution Log / Output**:
 ```text
-The autoreload extension is already loaded. To reload it, use:
-  %reload_ext autoreload
 ✓ All Physics-RAG operational dependencies imported successfully.
 ✓ PyTorch version: 2.13.0 | DuckDB version: 1.5.5
 ```
@@ -451,7 +449,7 @@ print(f"\n✓ DuckDB ±72-hour parent hydration latency: {t_elapsed_ms:.2f} ms (
 **Execution Log / Output**:
 ```text
 Ingesting authentic 2012–2016 continuous sensor parquets and aligning with authentic field surveys:
-  • USACE FRF Duck           : 43,848 hours | 48 aligned authentic survey epochs (FRF_m091)
+  • Duck                     : 43,848 hours | 48 aligned authentic survey epochs (FRF_m091)
   • Narrabeen-Collaroy       : 43,848 hours | 175 aligned authentic survey epochs (PF2)
   • Torrey Pines Beach       : 43,848 hours | 55 aligned authentic survey epochs (TP_NORTH)
   • Truc Vert Beach          : 43,848 hours | 47 aligned authentic survey epochs (TV_SOUTH)
@@ -478,7 +476,7 @@ site_id  total_hourly_records                start_date  \
 
 **Execution Log / Output**:
 ```text
-✓ DuckDB ±72-hour parent hydration latency: 42.13 ms (145 continuous hourly steps)
+✓ DuckDB ±72-hour parent hydration latency: 40.46 ms (145 continuous hourly steps)
 ```
 
 #### Cell 4 (Code Execution): `# Plot the hydrated ±72-hour continuous parent sequence`
@@ -726,7 +724,7 @@ print("  (Note: A silhouette score of ~0.13 reflects weak cluster separation and
 **Execution Log / Output**:
 ```text
 Computing Universal UMAP projection for 12,000 multi-site observations...
-✓ UMAP 2D Manifold projection computed in 7.90 seconds.
+✓ UMAP 2D Manifold projection computed in 15.23 seconds.
 ```
 
 **Execution Log / Output**:
@@ -1080,13 +1078,13 @@ Initializing Proposed: Two-Tier Hybrid Cascade Physics-RAG...
 Architecture       P@1       P@5      P@10  \
 0          Baseline 1: Raw-Data LLM-RAG  0.466667  0.466667  0.476667   
 1            Baseline 2: Rule-Based SQL  0.566667  0.586667  0.576667   
-2          Baseline 3: Pure Physics-RAG  0.633333  0.626667  0.626667   
+2          Baseline 3: Pure Physics-RAG  0.666667  0.653333  0.650000   
 3  Proposed: Hybrid Cascade Physics-RAG  0.700000  0.700000  0.686667   
 
        P@20  Mean NDCG@5       MRR  Regime Purity@5  
 0  0.465000     0.518880  0.466667         0.466667  
 1  0.558333     0.613393  0.583333         0.593333  
-2  0.623333     0.669680  0.641667         0.660000  
+2  0.645000     0.699768  0.666667         0.686667  
 3  0.681667     0.718019  0.726111         0.726667
 ```
 
@@ -1187,12 +1185,33 @@ df_sig_hybrid.to_csv("reports/tables/statistical_significance_hybrid_vs_baseline
 
 **Result Data**:
 ```text
-Baseline       Metric Hybrid Cascade Mean Baseline Mean    Delta    Bootstrap 95% CI Paired t-test (1-tailed) Paired t-test (2-tailed) Wilcoxon W (1-tailed) Wilcoxon W (2-tailed) Significant (2-tailed, α=0.05)
-0  Baseline 1: Raw-Data LLM-RAG  Precision@5              0.7000        0.4667  +0.2333  [+0.0634, +0.4032]        t=2.808, p=0.0044        t=2.808, p=0.0087      W=71.5, p=0.0047      W=71.5, p=0.0094                           True
-1    Baseline 2: Rule-Based SQL  Precision@5              0.7000        0.5867  +0.1133  [-0.0290, +0.2556]        t=1.628, p=0.0571        t=1.628, p=0.1143      W=43.0, p=0.0557      W=43.0, p=0.1114                          False
-2  Baseline 3: Pure Physics-RAG  Precision@5              0.7000        0.6267  +0.0733  [-0.0063, +0.1529]        t=1.884, p=0.0348        t=1.884, p=0.0696      W=24.5, p=0.0364      W=24.5, p=0.0728                          False
-3    Baseline 2: Rule-Based SQL       NDCG@5              0.7180        0.6134  +0.1046  [-0.0206, +0.2298]        t=1.709, p=0.0491        t=1.709, p=0.0982      W=44.0, p=0.0462      W=44.0, p=0.0924                          False
-4    Baseline 2: Rule-Based SQL          MRR              0.7261        0.5833  +0.1428  [-0.0226, +0.3082]        t=1.766, p=0.0439        t=1.766, p=0.0879      W=38.0, p=0.0308      W=38.0, p=0.0616                          False
+Baseline       Metric Hybrid Cascade Mean  \
+0  Baseline 1: Raw-Data LLM-RAG  Precision@5              0.7000   
+1    Baseline 2: Rule-Based SQL  Precision@5              0.7000   
+2  Baseline 3: Pure Physics-RAG  Precision@5              0.7000   
+3    Baseline 2: Rule-Based SQL       NDCG@5              0.7180   
+4    Baseline 2: Rule-Based SQL          MRR              0.7261   
+
+  Baseline Mean    Delta    Bootstrap 95% CI Paired t-test (1-tailed)  \
+0        0.4667  +0.2333  [+0.0867, +0.4000]        t=2.808, p=0.0044   
+1        0.5867  +0.1133  [-0.0133, +0.2600]        t=1.628, p=0.0571   
+2        0.6533  +0.0467  [-0.0333, +0.1333]        t=1.045, p=0.1523   
+3        0.6134  +0.1046  [-0.0060, +0.2321]        t=1.709, p=0.0491   
+4        0.5833  +0.1428  [-0.0050, +0.3083]        t=1.766, p=0.0439   
+
+  Paired t-test (2-tailed) Wilcoxon W (1-tailed) Wilcoxon W (2-tailed)  \
+0        t=2.808, p=0.0088      W=71.5, p=0.0047       W=6.5, p=0.0095   
+1        t=1.628, p=0.1143      W=43.0, p=0.0557      W=12.0, p=0.1113   
+2        t=1.045, p=0.3046      W=20.0, p=0.1504       W=8.0, p=0.3008   
+3        t=1.709, p=0.0982      W=44.0, p=0.0462      W=11.0, p=0.0924   
+4        t=1.766, p=0.0879      W=38.0, p=0.0308       W=7.0, p=0.0616   
+
+   Significant (2-tailed, α=0.05)  
+0                            True  
+1                           False  
+2                           False  
+3                           False  
+4                           False
 ```
 
 ### Cell 16 (Markdown Documentation)
@@ -1262,7 +1281,7 @@ for idx, ((b_name, _), c) in enumerate(zip(benchmarks, colors)):
 axes[1].set_xticks(x)
 axes[1].set_xticklabels(["Precision@5", "NDCG@5", "MRR", "Regime Purity@5"], fontweight="bold", fontsize=11)
 axes[1].set_ylabel("Metric Score (0.0 – 1.0)", fontweight="bold", fontsize=11)
-axes[1].set_title("(b) Peer-Reviewed Information Retrieval Competency", fontweight="bold", fontsize=12)
+axes[1].set_title("(b) Information Retrieval Competency", fontweight="bold", fontsize=12)
 axes[1].set_ylim(0.0, 1.15)
 axes[1].grid(True, linestyle="--", alpha=0.5, axis="y")
 axes[1].legend(frameon=True, facecolor="white", loc="upper left", fontsize=8.5)
@@ -1461,54 +1480,49 @@ print("✓ Saved peak impact benchmark tables and figures.")
 ==========================================================================================
 ```
 
-**Execution Log / Output**:
-```text
-RawDataLLMRAG Gemini call failed for 'Infragravity wave resonance with peak wave period exceeding 14 seconds': 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'The service is currently unavailable.', 'status': 'UNAVAILABLE'}}
-```
-
 **Result Data**:
 ```text
 Architecture  Graded NDCG@5  Mean Reciprocal Rank (MRR)  \
 0  Baseline 1: Raw-Data LLM       0.028571                        0.00   
 1      Baseline 2: Flat SQL       0.000000                        0.00   
 2  Baseline 3: Pure Physics       0.000000                        0.00   
-3  Proposed: Hybrid Cascade       0.081696                        0.09   
+3  Proposed: Hybrid Cascade       0.026241                        0.04   
 
    Peak Precision@1  Peak Precision@5  TWL Collision Capture (%)  \
 0               0.0              0.00                       80.0   
 1               0.0              0.00                      100.0   
 2               0.0              0.00                       60.0   
-3               0.0              0.12                       60.0   
+3               0.0              0.04                       60.0   
 
    Excess Work Capture (%)  Median |Δt_peak| Error (hrs)  \
 0                92.182633                           2.0   
 1                71.358574                           2.0   
-2                 5.197995                       15124.0   
-3                 6.485149                        6480.0   
+2                 6.357305                       15124.0   
+3                 7.522723                        6480.0   
 
    Mean |Δt_peak| Error (hrs)  Wave Height Capture (%)  Mean Top-1 Hs (m)  \
 0                      2215.6                93.766889           6.635991   
 1                      2740.2               218.096884           7.299448   
-2                     11116.2                52.320998           2.530037   
-3                      8678.0                52.764134           2.526075   
+2                     10822.4                56.033237           2.841505   
+3                      8384.2                56.531463           2.837542   
 
    Mean Top-1 TWL (m)  Median Top-1 Upsilon  Mean Top-5 Upsilon  \
 0            3.135566          1.236796e+06       962369.004495   
 1            3.497287          1.236796e+06       742552.773654   
-2            1.801207          3.548645e+04        49290.024947   
-3            1.836687          3.548645e+04        59977.388134   
+2            1.777258          1.028750e+05        63966.399615   
+3            1.812739          1.028750e+05        73105.196989   
 
    Median Top-1 Wave Power (kW/m)  Mean Top-5 Wave Power (kW/m)  \
 0                      528.749255                    415.716112   
 1                      528.749255                    387.896310   
-2                       54.273585                     55.822211   
-3                       54.273585                     58.086617   
+2                      101.157716                     66.247650   
+3                      101.157716                     69.548949   
 
    Mean Cumulative Excess Impulse (MJ/m)  
 0                           17316.757018  
 1                           13359.122783  
-2                             881.716410  
-3                            1074.099214
+2                            1145.891154  
+3                            1310.533488
 ```
 
 **Execution Log / Output**:
@@ -1564,8 +1578,8 @@ print("\n" + failure_audit["diagnostic_summary"])
 **Result Data**:
 ```text
 Site Survey Date        Storm Peak Surveyed Δx (m) Hs (m)  \
-0      USACE FRF Duck  2014-09-30  2014-09-24 12:00           -6.62   2.70   
-1      USACE FRF Duck  2016-07-26  2016-07-26 05:00           -3.65   1.07   
+0                Duck  2014-09-30  2014-09-24 12:00           -6.62   2.70   
+1                Duck  2016-07-26  2016-07-26 05:00           -3.65   1.07   
 2  Narrabeen-Collaroy  2012-06-12  2012-06-05 16:00          -16.11   5.64   
 3  Narrabeen-Collaroy  2014-07-19  2014-07-18 21:00          -10.32   4.18   
 4  Torrey Pines Beach  2015-07-15  2015-06-04 17:00           -9.80   1.48   

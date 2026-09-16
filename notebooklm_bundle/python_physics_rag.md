@@ -125,6 +125,25 @@ class TargetSyntheticValues(BaseModel):
         return bool(self.to_dict())
 
 
+def _extract_target_synthetic_dict(target_synthetic_values: Any) -> Dict[str, float]:
+    """Extract a dictionary of non-None target synthetic parameters from a dict or model."""
+    if target_synthetic_values is None:
+        return {}
+    if hasattr(target_synthetic_values, "to_dict"):
+        try:
+            return target_synthetic_values.to_dict()
+        except Exception:
+            pass
+    if hasattr(target_synthetic_values, "model_dump"):
+        try:
+            return {k: v for k, v in target_synthetic_values.model_dump().items() if v is not None}
+        except Exception:
+            pass
+    if isinstance(target_synthetic_values, dict):
+        return {k: v for k, v in target_synthetic_values.items() if v is not None}
+    return {}
+
+
 try:
     import duckdb
 except ImportError:
@@ -2304,28 +2323,40 @@ class HybridPhysicsRAG(PhysicsRAG):
             active_scores.append((W["site_regime"], reg_match))
 
         # Continuous physical target proximity
-        synth = spec.target_synthetic_values or {}
+        synth = _extract_target_synthetic_dict(spec.target_synthetic_values)
         prox_scores = []
-        if "hs_m" in synth and "hs_m" in df.columns:
-            t_hs = float(synth["hs_m"])
-            vals = df["hs_m"].values[candidate_indices]
-            p = np.exp(-0.5 * ((vals - t_hs) / max(0.8, t_hs * 0.3)) ** 2)
-            prox_scores.append((0.25, p))
-        if "tp_s" in synth and "tp_s" in df.columns:
-            t_tp = float(synth["tp_s"])
-            vals = df["tp_s"].values[candidate_indices]
-            p = np.exp(-0.5 * ((vals - t_tp) / max(2.0, t_tp * 0.25)) ** 2)
-            prox_scores.append((0.20, p))
-        if "surge_m" in synth and "surge_m" in df.columns:
-            t_s = float(synth["surge_m"])
-            vals = df["surge_m"].values[candidate_indices]
-            p = np.exp(-0.5 * ((vals - t_s) / 0.4) ** 2)
-            prox_scores.append((0.15, p))
-        if "xi_iribarren" in synth and "xi_iribarren" in df.columns:
-            t_xi = float(synth["xi_iribarren"])
-            vals = df["xi_iribarren"].values[candidate_indices]
-            p = np.exp(-0.5 * ((vals - t_xi) / max(0.5, t_xi * 0.3)) ** 2)
-            prox_scores.append((0.15, p))
+        if synth.get("hs_m") is not None and "hs_m" in df.columns:
+            try:
+                t_hs = float(synth["hs_m"])
+                vals = df["hs_m"].values[candidate_indices]
+                p = np.exp(-0.5 * ((vals - t_hs) / max(0.8, t_hs * 0.3)) ** 2)
+                prox_scores.append((0.25, p))
+            except (TypeError, ValueError):
+                pass
+        if synth.get("tp_s") is not None and "tp_s" in df.columns:
+            try:
+                t_tp = float(synth["tp_s"])
+                vals = df["tp_s"].values[candidate_indices]
+                p = np.exp(-0.5 * ((vals - t_tp) / max(2.0, t_tp * 0.25)) ** 2)
+                prox_scores.append((0.20, p))
+            except (TypeError, ValueError):
+                pass
+        if synth.get("surge_m") is not None and "surge_m" in df.columns:
+            try:
+                t_s = float(synth["surge_m"])
+                vals = df["surge_m"].values[candidate_indices]
+                p = np.exp(-0.5 * ((vals - t_s) / 0.4) ** 2)
+                prox_scores.append((0.15, p))
+            except (TypeError, ValueError):
+                pass
+        if synth.get("xi_iribarren") is not None and "xi_iribarren" in df.columns:
+            try:
+                t_xi = float(synth["xi_iribarren"])
+                vals = df["xi_iribarren"].values[candidate_indices]
+                p = np.exp(-0.5 * ((vals - t_xi) / max(0.5, t_xi * 0.3)) ** 2)
+                prox_scores.append((0.15, p))
+            except (TypeError, ValueError):
+                pass
 
         if not active_scores and not prox_scores:
             return np.ones(n, dtype=float)
@@ -2533,9 +2564,12 @@ class HybridPhysicsRAG(PhysicsRAG):
         if target_intent == "erosion":
             effective_hs_min = spec.hs_min
             if effective_hs_min is None:
-                synth_dict = spec.target_synthetic_values.model_dump() if hasattr(spec.target_synthetic_values, "model_dump") else (spec.target_synthetic_values if isinstance(spec.target_synthetic_values, dict) else {})
-                if "hs_m" in synth_dict and (any(w in q_raw.lower() for w in ["exceeding", "over", "above", "greater than", ">", "storm"]) or target_intent == "erosion"):
-                    effective_hs_min = float(synth_dict["hs_m"])
+                synth_dict = _extract_target_synthetic_dict(spec.target_synthetic_values)
+                if synth_dict.get("hs_m") is not None and (any(w in q_raw.lower() for w in ["exceeding", "over", "above", "greater than", ">", "storm"]) or target_intent == "erosion"):
+                    try:
+                        effective_hs_min = float(synth_dict["hs_m"])
+                    except (TypeError, ValueError):
+                        pass
 
             if effective_hs_min is not None and "hs_m" in self.df.columns:
                 hs_cand = self.df["hs_m"].values[candidate_indices]
@@ -2551,11 +2585,15 @@ class HybridPhysicsRAG(PhysicsRAG):
                     pareto_boost += s_exc / s_exc.max()
                     has_directional_extreme = True
 
-            synth_vals = spec.target_synthetic_values or {}
+            synth_vals = _extract_target_synthetic_dict(spec.target_synthetic_values)
             if any(w in q_raw.lower() for w in ["power flux", "kw", "wave power"]) or "p_flux_Wm" in synth_vals or "p_flux" in synth_vals:
                 if "p_flux_Wm" in self.df.columns:
                     p_cand = self.df["p_flux_Wm"].values[candidate_indices]
-                    p_thresh = float(synth_vals.get("p_flux_Wm", synth_vals.get("p_flux", 50000.0)))
+                    val = synth_vals.get("p_flux_Wm", synth_vals.get("p_flux"))
+                    try:
+                        p_thresh = float(val) if val is not None else 50000.0
+                    except (TypeError, ValueError):
+                        p_thresh = 50000.0
                     p_exc = np.maximum(0.0, p_cand - p_thresh)
                     if p_exc.max() > 0:
                         pareto_boost += p_exc / p_exc.max()
