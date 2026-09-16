@@ -53,9 +53,9 @@ For instance, an operational engineer querying a classical vector database for \
     \centering
     \includegraphics[width=0.95\columnwidth]{figure_morphodynamic_regimes_4panel.png}
     \caption{\textbf{Four-Panel Climatological and Morphodynamic Regime Characterization across Global Archetypes ($N = 175{,}392$ hours, 2012--2016).} 
-    \textbf{(a)} Dimensionless Dean fall velocity parameter $\Omega = H_s / (w_s T_p)$ displaying Wright \& Short classification boundaries for reflective ($\Omega < 1.0$) and fully dissipative ($\Omega > 6.0$) states, showing the extreme Pacific swell tail at Torrey Pines ($\Omega > 20$).
-    \textbf{(b)} Deep-water wave steepness $s_0 = 2\pi H_s / (g T_p^2)$ evaluated against the critical threshold ($s_{0,\text{crit}} = 0.025$), separating swell-dominated accretionary regimes ($98.0\%$ at Torrey Pines) from steep erosive storm seas ($28.8\%$ at USACE FRF Duck).
-    \textbf{(c)} Sallenger storm impact regime distributions (Swash, Collision, and Overwash) parameterized via dynamic Total Water Level ($\text{TWL} = \eta_{\text{tide}} + S_{\text{surge}} + R_{2\%}$) confrontation with berm crests $z_{\text{berm}}$.
+    \textbf{(a)} Dimensionless Dean fall velocity parameter $\Omega = H_s / (w_s T_p)$ displaying Wright \& Short classification boundaries \cite{wright1984morphodynamic} for reflective ($\Omega < 1.0$) and fully dissipative ($\Omega > 6.0$) states, showing the extreme Pacific swell tail at Torrey Pines ($\Omega > 20$).
+    \textbf{(b)} Deep-water wave steepness $s_0 = 2\pi H_s / (g T_p^2)$ evaluated against the critical threshold ($s_{0,\text{crit}} = 0.025$), separating swell-dominated accretionary regimes ($98.0\%$ at Torrey Pines) from steep erosive storm seas ($28.8\%$ at USACE FRF Duck \cite{birkemeier1985users}).
+    \textbf{(c)} Sallenger storm impact regime distributions (Swash, Collision, and Overwash) \cite{sallenger2000storm} parameterized via dynamic Total Water Level ($\text{TWL} = \eta_{\text{tide}} + S_{\text{surge}} + R_{2\%}$) confrontation with berm crests $z_{\text{berm}}$ \cite{stockdon2006empirical}.
     \textbf{(d)} Scale-invariant dimensional collapse $\Upsilon^* = \Upsilon / \Upsilon_{\text{ref}}$, demonstrating that normalizing raw kinetic energy forcing by site-specific carrying capacity collapses multi-order-of-magnitude energy differences into a universal invariant distribution centered at $\Upsilon^* \approx 1.0$.}
     \label{fig:morphodynamic_regimes}
 \end{figure}
@@ -87,7 +87,7 @@ Consider a general non-autonomous continuous dynamical system:
 \end{equation}
 where $\mathbf{x}(t) \in \mathbb{R}^{d_x}$ represents the continuous internal state of the system, $\mathbf{u}(t) \in \mathbb{R}^{d_u}$ is an exogenous time-varying forcing vector, $\mathbf{p}_{\text{asset}} \in \mathbb{R}^{d_p}$ is a static physical boundary and parameter vector defining the asset, $\mathbf{y}(t) \in \mathbb{R}^{d_y}$ represents noisy sparse observations, and $\boldsymbol{\epsilon}(t)$ denotes observational uncertainty.
 
-In standard data-driven surrogate modeling, deep neural networks are trained directly on raw measurements $[\mathbf{u}(t), \mathbf{p}_{\text{asset}}]$. However, when the underlying operators exhibit strong non-linearities and multiscale spatial boundaries, unconstrained networks suffer from severe generalization failure out-of-distribution \cite{raissi2019pinns,lu2021deeponet}. To construct a robust retrieval and diagnostic space, we map $[\mathbf{u}(t), \mathbf{p}_{\text{asset}}]$ into a lower-dimensional, scale-invariant manifold $\mathcal{M}_{\text{inv}} \subset \mathbb{R}^{d_m}$ governed by Buckingham $\pi$-dimensional similitude.
+In standard data-driven surrogate modeling, deep neural networks are trained directly on raw measurements $[\mathbf{u}(t), \mathbf{p}_{\text{asset}}]$. However, when the underlying operators exhibit strong non-linearities and multiscale spatial boundaries, unconstrained networks suffer from severe generalization failure out-of-distribution \cite{raissi2019pinns,lu2021deeponet}. To construct a robust retrieval and diagnostic space, we map $[\mathbf{u}(t), \mathbf{p}_{\text{asset}}]$ into a lower-dimensional, scale-invariant manifold $\mathcal{M}_{\text{inv}} \subset \mathbb{R}^{d_m}$ governed by Buckingham $\pi$-dimensional similitude \cite{buckingham1914physically}.
 
 \subsection{Coastal Proving Ground Instantiation}
 In our coastal morphodynamic proving ground, the continuous state $\mathbf{x}(t)$ is the horizontal cross-shore subaerial shoreline position $X(t)$ relative to Mean High Water (MHW), and the exogenous forcing $\mathbf{u}(t)$ comprises multi-modal oceanographic telemetries: significant wave height $H_s$, peak wave period $T_p$, wave direction $\theta_{\text{wave}}$, barometric storm surge residual $\eta_{\text{surge}}$, astronomical tide elevation $\eta_{\text{tide}}$, and 10-meter wind velocity vector $\mathbf{U}_{10}$.
@@ -98,7 +98,7 @@ To eliminate site-specific heuristic branches, every observatory is parameterize
 \mathbf{p}_{\text{site}} = \left[\tan\beta,\; D_{50},\; \text{TR},\; \theta_{\text{shore}},\; Z_{\text{crest}},\; \sigma_{\text{shelter}}\right]^T \in \mathbb{R}^6
 \label{eq:psite}
 \end{equation}
-where $\tan\beta$ is the intertidal foreshore beach slope, $D_{50}$ is median sediment grain diameter ($\text{m}$) dictating settling velocity $w_s(D_{50}, T)$ via Dietrich formulations \cite{b2}, $\text{TR}$ is mean spring astronomical tidal range ($\text{m}$), $\theta_{\text{shore}}$ is shore-normal azimuth (degrees relative to True North), $Z_{\text{crest}}$ is subaerial berm/dune crest elevation relative to MHW ($\text{m}$), and $\sigma_{\text{shelter}} \in [0, 1]$ is a directional wave sheltering coefficient.
+where $\tan\beta$ is the intertidal foreshore beach slope, $D_{50}$ is median sediment grain diameter ($\text{m}$) dictating settling velocity $w_s(D_{50}, T)$ via Dietrich formulations \cite{dietrich1982settling}, $\text{TR}$ is mean spring astronomical tidal range ($\text{m}$), $\theta_{\text{shore}}$ is shore-normal azimuth (degrees relative to True North), $Z_{\text{crest}}$ is subaerial berm/dune crest elevation relative to MHW ($\text{m}$), and $\sigma_{\text{shelter}} \in [0, 1]$ is a directional wave sheltering coefficient.
 
 \subsubsection{The Unified Kinetic Erosion Index ($\Upsilon$)}
 Rather than feeding uncoupled sensor scalars to neural architectures, we formulate the Unified Kinetic Erosion Index ($\Upsilon$) as a closed-form dimensional mass-energy kinetic flux rate in SI units of $[\text{kg}/\text{s}]$:
@@ -122,7 +122,7 @@ Crucially, the physical modulators in (\ref{eq:upsilon_master}) are formulated a
     \Psi_{\text{wind}} = 1 + C_d \frac{\rho_a}{\rho_w} \frac{U_{10}^2 \cos(\theta_{\text{wind}} - \theta_{\text{shore}})}{g H_s}
     \label{eq:psi_wind}
     \end{equation}
-    \item \textbf{Alongshore Rotational Divergence ($\Phi_{\text{longshore}}$):} Quantifies 2D embayment rotation and alongshore sediment transport gradients driven by oblique radiation stress $S_{xy}$:
+    \item \textbf{Alongshore Rotational Divergence ($\Phi_{\text{longshore}}$):} Quantifies 2D embayment rotation and alongshore sediment transport gradients driven by oblique radiation stress $S_{xy}$ \cite{longuethiggins1964radiation}:
     \begin{equation}
     \Phi_{\text{longshore}} = 1 + \gamma_{\text{rot}} \left| \sin(2(\theta_{\text{wave}} - \theta_{\text{shore}})) \right|
     \label{eq:phi_longshore}
@@ -158,12 +158,12 @@ s_0 = H_s / L_0
 \end{bmatrix}^T
 \label{eq:14d_manifold}
 \end{equation}
-where $\Omega = H_s / (w_s T_p)$ is the dimensionless Dean number \cite{b7}, $\xi = \tan\beta / \sqrt{H_s/L_0}$ is the Iribarren surf similarity parameter, $\text{TWL} = \eta_{\text{tide}} + \eta_{\text{surge}} + R_{2\%}$ is Total Water Level incorporating wave runup \cite{b5}, and $\mathcal{I}_{\text{Sallenger}} \in [1, 4]$ parameterizes Sallenger storm impact regimes (Swash, Collision, Overwash, Inundation) \cite{b4}.
+where $\Omega = H_s / (w_s T_p)$ is the dimensionless Dean number \cite{wright1984morphodynamic}, $\xi = \tan\beta / \sqrt{H_s/L_0}$ is the Iribarren surf similarity parameter \cite{battjes1974surf}, $\text{TWL} = \eta_{\text{tide}} + \eta_{\text{surge}} + R_{2\%}$ is Total Water Level incorporating wave runup \cite{stockdon2006empirical}, and $\mathcal{I}_{\text{Sallenger}} \in [1, 4]$ parameterizes Sallenger storm impact regimes (Swash, Collision, Overwash, Inundation) \cite{sallenger2000storm}.
 
 \subsection{The Williams $t$-Test Diagnostic: Why Linear Regression Fails}
 To justify the necessity of an episodic, non-linear manifold retrieval architecture over simple scalar regression, we benchmarked the Pearson correlation of inter-survey shoreline displacement $\Delta X$ against bulk $\Upsilon$ versus raw wave height $H_s$ across all 1,228 authentic GPS surveys.
 
-Pairwise Williams $t$-tests for dependent, non-overlapping correlations yielded no statistically significant difference between $\Upsilon$ and raw $H_s$: Duck ($r = +0.004$ vs. $+0.011$, $t = -0.09, p = 0.930$); Narrabeen ($r = -0.519$ vs. $-0.521$, $t = +0.03, p = 0.973$); Torrey Pines ($r = +0.183$ vs. $+0.114$, $t = +1.34, p = 0.185$); and Truc Vert ($r = -0.473$ vs. $-0.411$, $t = -1.19, p = 0.241$). 
+Pairwise Williams $t$-tests for dependent, non-overlapping correlations \cite{williams1959comparison} yielded no statistically significant difference between $\Upsilon$ and raw $H_s$: Duck ($r = +0.004$ vs. $+0.011$, $t = -0.09, p = 0.930$) \cite{birkemeier1985users}; Narrabeen ($r = -0.519$ vs. $-0.521$, $t = +0.03, p = 0.973$) \cite{turner2016multidecade}; Torrey Pines ($r = +0.183$ vs. $+0.114$, $t = +1.34, p = 0.185$) \cite{ludka2015beach}; and Truc Vert ($r = -0.473$ vs. $-0.411$, $t = -1.19, p = 0.241$) \cite{castelle2020planshape}. 
 
 This negative linear finding demonstrates that compounding physical modulators into a 1D scalar index cannot improve linear inter-survey correlation, because 3D rip currents, nearshore bar welding, and multi-week phase lags decouple instantaneous bulk forcing from discrete field surveys. Consequently, capturing physical dynamics requires continuous sequence retrieval over multi-dimensional invariant manifolds rather than scalar regression.
 
@@ -185,7 +185,7 @@ The Physics-RAG architecture couples columnar relational predicate pushdown with
 \subsection{Tier 1: Columnar Relational Pre-Filtering (DuckDB)}
 Natural language diagnostic queries contain explicit metadata constraints (e.g., \textit{"USACE FRF Duck, NC between October 2012 and March 2014"}). Metric vector stores scan the entire multi-decadal database, retrieving energetically similar analog states from irrelevant decades or geographic hemispheres. 
 
-Tier~1 executes zero-copy predicate pushdown using DuckDB columnar Parquet scans:
+Tier~1 executes zero-copy predicate pushdown using DuckDB columnar Parquet scans \cite{raasveldt2019duckdb}:
 \begin{equation}
 \mathcal{C}_{\text{filtered}} = \sigma_{\text{site\_id} = S \,\wedge\, t_{\text{start}} \le t \le t_{\text{end}} \,\wedge\, \mathbf{C}_{\text{physics}}}(\mathcal{D}_{\text{master}})
 \label{eq:tier1_duckdb}
@@ -341,7 +341,7 @@ Evaluating retrieved wave power reveals a critical physical paradox. Baseline 1 
 To rigorously evaluate neural architectural paradigms without contamination from field survey sparsity ($N = 1,228$ discrete points across 5 years), we formulated an Observing System Simulation Experiment (OSSE):
 \begin{itemize}
     \item The hydrodynamic forcing comprises 100\% authentic multi-year institutional sensor records (2012--2016 golden window, $N = 43,848$ contiguous hours per site).
-    \item The reference shoreline trajectory is a continuous nature run generated via dynamic wave-energy equilibrium formulations \cite{b8} driven by real wave energy flux plus Gaussian measurement noise ($\sigma = 0.25\,\text{m}$).
+    \item The reference shoreline trajectory is a continuous nature run generated via dynamic wave-energy equilibrium formulations \cite{yates2009equilibrium} driven by real wave energy flux plus Gaussian measurement noise ($\sigma = 0.25\,\text{m}$).
 \end{itemize}
 
 \subsection{The $2 \times 2$ SciML Architectural Matrix}
@@ -380,7 +380,7 @@ Model A: Pure Data-Driven    & 0.368 & 0.311 & 0.236 & -0.183 & 0.503 & 0.537 & 
 \subsection{The Fundamental Representation vs. Loss Trade-Off}
 As reported in Table~\ref{tab:sciml_matrix}, the benchmark exposes a profound trade-off in Scientific Machine Learning:
 \begin{itemize}
-    \item \textbf{PINN Loss Guidance Stabilizes Acute Shock (Model B):} Model B achieves the lowest overall storm rollout RMSE ($0.342\,\text{m}$) and is the only architecture with a positive mean Brier Skill Score ($\text{BSS} = +0.108$). The asymmetric penalty successfully prevents the network from hallucinating fair-weather accretion during peak wave action.
+    \item \textbf{PINN Loss Guidance Stabilizes Acute Shock (Model B):} Model B achieves the lowest overall storm rollout RMSE ($0.342\,\text{m}$) and is the only architecture with a positive mean Brier Skill Score ($\text{BSS} = +0.108$) \cite{sutherland2004evaluating}. The asymmetric penalty successfully prevents the network from hallucinating fair-weather accretion during peak wave action.
     \item \textbf{Feature-Guided Invariants Dominate Multi-Year Correlation (Model C):} Model C achieves the highest multi-year out-of-sample correlation (Mean Test $r = 0.574$, reaching $r = 0.839$ at Truc Vert). However, during acute storm peaks, unregularized feature guidance can trigger false-accretion spikes if high antecedent energy coincides with swell recovery regimes.
     \item \textbf{Dual Synergy (Model D):} Uniting both representations in Model D yields the lowest overall multi-site test RMSE ($0.509\,\text{m}$).
 \end{itemize}
@@ -410,10 +410,10 @@ Truc Vert, France    & August 22, 2014 & -8.45 m  & +1.10 m & Multi-Year Post-St
 \end{table*}
 
 \begin{itemize}
-    \item \textbf{Case 1 (Infragravity Resonance, Torrey Pines):} In June 2015, an RTK-GPS survey recorded an unexpected cut of $\Delta X = -9.80\,\text{m}$. Models predicted accretion ($+0.42\,\text{m}$) due to modest deepwater waves ($H_s = 1.48\,\text{m}$). Physics-RAG sequence hydration revealed an ultra-long swell period ($T_p = 16.0\,\text{s}$) with deepwater steepness $s_0 = 0.0052$, which amplified infragravity surf-beat resonance and pushed Total Water Level into Sallenger Collision.
-    \item \textbf{Case 2 (Embayment Rotation, Narrabeen):} Following the June 2016 East Coast Low, Profile PF1 retreated $-16.11\,\text{m}$. Standalone models predicted $-4.25\,\text{m}$. Physics-RAG identified sustained wave obliquity ($\Delta\theta > 28^\circ$) and severe radiation stress ($S_{xy} > 120\,\text{N/m}$), diagnosing alongshore transport divergence ($\partial Q_y / \partial y$) rather than cross-shore kinematics.
-    \item \textbf{Case 3 (Antecedent Berm Stripping, Duck):} A moderate storm ($H_s = 2.70\,\text{m}$) in October 2015 induced $-6.62\,\text{m}$ retreat. Standalone models predicted $-1.15\,\text{m}$. Hydrating the 72-hour antecedent window revealed a preceding storm 96 hours prior that had stripped the subaerial berm, leaving the dune toe completely unbuffered.
-    \item \textbf{Case 4 (Offshore Sequestration, Truc Vert):} In August 2014, fair weather produced $-8.45\,\text{m}$ erosion while models predicted $+1.10\,\text{m}$ accretion. Multi-scale convolution tracking traced the deficit back to the historic 2013--2014 winter cluster, which had locked nearshore sand into deep outer bars.
+    \item \textbf{Case 1 (Infragravity Resonance, Torrey Pines):} In June 2015, an RTK-GPS survey recorded an unexpected cut of $\Delta X = -9.80\,\text{m}$ \cite{ludka2015beach}. Models predicted accretion ($+0.42\,\text{m}$) due to modest deepwater waves ($H_s = 1.48\,\text{m}$). Physics-RAG sequence hydration revealed an ultra-long swell period ($T_p = 16.0\,\text{s}$) with deepwater steepness $s_0 = 0.0052$, which amplified infragravity surf-beat resonance and pushed Total Water Level into Sallenger Collision.
+    \item \textbf{Case 2 (Embayment Rotation, Narrabeen):} Following the June 2016 East Coast Low, Profile PF1 retreated $-16.11\,\text{m}$ \cite{turner2016multidecade}. Standalone models predicted $-4.25\,\text{m}$. Physics-RAG identified sustained wave obliquity ($\Delta\theta > 28^\circ$) and severe radiation stress ($S_{xy} > 120\,\text{N/m}$ \cite{longuethiggins1964radiation}), diagnosing alongshore transport divergence ($\partial Q_y / \partial y$) rather than cross-shore kinematics.
+    \item \textbf{Case 3 (Antecedent Berm Stripping, Duck):} A moderate storm ($H_s = 2.70\,\text{m}$) in October 2015 induced $-6.62\,\text{m}$ retreat \cite{birkemeier1985users}. Standalone models predicted $-1.15\,\text{m}$. Hydrating the 72-hour antecedent window revealed a preceding storm 96 hours prior that had stripped the subaerial berm, leaving the dune toe completely unbuffered.
+    \item \textbf{Case 4 (Offshore Sequestration, Truc Vert):} In August 2014, fair weather produced $-8.45\,\text{m}$ erosion while models predicted $+1.10\,\text{m}$ accretion. Multi-scale convolution tracking traced the deficit back to the historic 2013--2014 winter cluster, which had locked nearshore sand into deep outer bars \cite{castelle2020planshape}.
 \end{itemize}
 
 \section{Cross-Domain Generalizability: Translating Physics-RAG to Cyber-Physical Assets}
@@ -481,20 +481,27 @@ By deploying this architecture using zero-copy columnar DuckDB and vectorized ne
 \begin{thebibliography}{00}
 \bibitem{lewis2020rag} P.~Lewis, E.~Perez, A.~Piktus, F.~Petroni, V.~Karpukhin, N.~Goyal, H.~K{\"u}ttler, M.~Lewis, W.-t.~Yih, T.~Rockt{\"a}schel \textit{et~al.}, ``Retrieval-augmented generation for knowledge-intensive nlp tasks,'' \textit{Adv. Neural Inf. Process. Syst. (NeurIPS)}, vol.~33, pp. 9459--9474, 2020.
 \bibitem{karniadakis2021physics} G.~E. Karniadakis, I.~G. Kevrekidis, L.~Lu, P.~Perdikaris, S.~Wang, and L.~Yang, ``Physics-informed machine learning,'' \textit{Nat. Rev. Phys.}, vol.~3, no.~6, pp. 422--440, 2021.
+\bibitem{wright1984morphodynamic} L.~D. Wright and A.~D. Short, ``Morphodynamic variability of surf zones and beaches: A synthesis,'' \textit{Mar. Geol.}, vol.~56, no. 1--4, pp. 93--118, 1984.
+\bibitem{birkemeier1985users} W.~A. Birkemeier, H.~C. Miller, S.~D. Wilhelm, A.~E. DeWall, and C.~S. Gorbics, ``A user's guide to the Coastal Engineering Research Center's (CERC's) Field Research Facility,'' Instruction Report CERC-85-1, U.S. Army Engineer Waterways Experiment Station, Vicksburg, MS, 1985.
+\bibitem{sallenger2000storm} A.~H. Sallenger, ``Storm impact scale for barrier islands,'' \textit{J. Coastal Res.}, vol.~16, no.~3, pp. 890--895, 2000.
+\bibitem{stockdon2006empirical} H.~F. Stockdon, R.~A. Holman, P.~A. Howd, and A.~H. Sallenger, ``Empirical parameterization of setup, swash, and runup on natural beaches,'' \textit{Coastal Eng.}, vol.~53, no.~7, pp. 573--588, 2006.
 \bibitem{raissi2019pinns} M.~Raissi, P.~Perdikaris, and G.~E. Karniadakis, ``Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations,'' \textit{J. Comput. Phys.}, vol. 378, pp. 686--707, 2019.
 \bibitem{lu2021deeponet} L.~Lu, P.~Jin, G.~Pang, Z.~Zhang, and G.~E. Karniadakis, ``Learning nonlinear operators via DeepONet based on the universal approximation theorem of operators,'' \textit{Nat. Mach. Intell.}, vol.~3, no.~3, pp. 218--229, 2021.
+\bibitem{buckingham1914physically} E.~Buckingham, ``On physically similar systems; illustrations of the use of dimensional equations,'' \textit{Phys. Rev.}, vol.~4, no.~4, pp. 345--376, 1914.
+\bibitem{dietrich1982settling} W.~E. Dietrich, ``Settling velocity of natural particles,'' \textit{Water Resour. Res.}, vol.~18, no.~6, pp. 1615--1626, 1982.
+\bibitem{longuethiggins1964radiation} M.~S. Longuet-Higgins and R.~W. Stewart, ``Radiation stresses in water waves; a physical discussion with applications,'' \textit{Deep Sea Res. Oceanogr. Abstr.}, vol.~11, no.~4, pp. 529--562, 1964.
+\bibitem{battjes1974surf} J.~A. Battjes, ``Surf similarity,'' in \textit{Proc. 14th Int. Conf. Coastal Eng.}, 1974, pp. 466--480.
+\bibitem{williams1959comparison} E.~J. Williams, ``The comparison of regression variables,'' \textit{J. R. Stat. Soc. Ser. B (Methodol.)}, vol.~21, no.~2, pp. 396--399, 1959.
+\bibitem{turner2016multidecade} I.~L. Turner, M.~D. Harley, A.~D. Short, J.~A. Simmons, M.~A. Bracs, M.~S. Phillips, and K.~D. Splinter, ``A multi-decade dataset of monthly to hourly beach profile surveys,'' \textit{Sci. Data}, vol.~3, p. 160024, 2016.
+\bibitem{ludka2015beach} B.~C. Ludka, T.~W. Gallien, S.~C. Crosby, and R.~T. Guza, ``Mid-latitude beach profile responses to extreme events and subsequent recovery,'' \textit{J. Geophys. Res. Earth Surf.}, vol. 120, no.~12, pp. 2512--2530, 2015.
+\bibitem{castelle2020planshape} B.~Castelle, L.~M. Bochev-van~der Burgh, S.~Bujan, and P.~Bonneton, ``Planshape and profile evolution of a high-energy macrotidal beach during an extreme winter,'' \textit{Geomorphology}, vol. 351, p. 107266, 2020.
+\bibitem{raasveldt2019duckdb} M.~Raasveldt and H.~M{\"u}hleisen, ``DuckDB: an embeddable analytical database,'' in \textit{Proc. 2019 Int. Conf. Manage. Data (SIGMOD)}, 2019, pp. 1981--1984.
 \bibitem{mcinnes2018umap} L.~McInnes, J.~Healy, and J.~Melville, ``UMAP: Uniform manifold approximation and projection for dimension reduction,'' \textit{arXiv:1802.03426}, 2018.
+\bibitem{yates2009equilibrium} M.~L. Yates, R.~T. Guza, and W.~C. O'Reilly, ``Equilibrium shoreline response: Observations and modeling,'' \textit{J. Geophys. Res. Oceans}, vol. 114, no. C9, p. C09014, 2009.
+\bibitem{sutherland2004evaluating} J.~Sutherland, A.~H. Peet, and R.~L. Soulsby, ``Evaluating the performance of morphological models,'' \textit{Coastal Eng.}, vol.~51, no. 8--9, pp. 917--939, 2004.
 \bibitem{severson2019battery} K.~A. Severson, P.~M. Attia, N.~Jin, N.~Perkins, B.~Jiang, Z.~Yang, M.~H. Chen, M.~Aykol, P.~K. Herring, D.~Fraggedakis \textit{et~al.}, ``Data-driven prediction of battery cycle life before capacity degradation,'' \textit{Nat. Energy}, vol.~4, no.~5, pp. 383--391, 2019.
 \bibitem{ramadesigan2012battery} V.~Ramadesigan, P.~W. Northrop, S.~De, S.~Santhanagopalan, R.~D. Braatz, and V.~R. Subramanian, ``Modeling and simulation of lithium-ion batteries from a systems engineering perspective,'' \textit{J. Electrochem. Soc.}, vol. 159, no.~3, p. R31, 2012.
 \bibitem{porteagel2020wind} F.~Port{\'e}-Agel, M.~Bastankhah, and S.~Shamsoddin, ``Wind-turbine and wind-farm flows: a review,'' \textit{Boundary-Layer Meteorol.}, vol. 174, no.~1, pp. 1--59, 2020.
-\bibitem{b1} B.~Castelle, L.~M. Bochev-van~der Burgh, S.~Bujan, and P.~Bonneton, ``Planshape and profile evolution of a high-energy macrotidal beach during an extreme winter,'' \textit{Geomorphology}, vol. 351, p. 107266, 2020.
-\bibitem{b2} W.~E. Dietrich, ``Settling velocity of natural particles,'' \textit{Water Resour. Res.}, vol.~18, no.~6, pp. 1615--1626, 1982.
-\bibitem{b3} B.~C. Ludka, T.~W. Gallien, S.~C. Crosby, and R.~T. Guza, ``Mid-latitude beach profile responses to extreme events and subsequent recovery,'' \textit{J. Geophys. Res. Earth Surf.}, vol. 120, no.~12, pp. 2512--2530, 2015.
-\bibitem{b4} A.~H. Sallenger, ``Storm impact scale for barrier islands,'' \textit{J. Coastal Res.}, vol.~16, no.~3, pp. 890--895, 2000.
-\bibitem{b5} H.~F. Stockdon, R.~A. Holman, P.~A. Howd, and A.~H. Sallenger, ``Empirical parameterization of setup, swash, and runup on natural beaches,'' \textit{Coastal Eng.}, vol.~53, no.~7, pp. 573--588, 2006.
-\bibitem{b6} I.~L. Turner, M.~D. Harley, A.~D. Short, J.~A. Simmons, M.~A. Bracs, M.~S. Phillips, and K.~D. Splinter, ``A multi-decade dataset of monthly to hourly beach profile surveys,'' \textit{Sci. Data}, vol.~3, p. 160024, 2016.
-\bibitem{b7} L.~D. Wright and A.~D. Short, ``Morphodynamic variability of surf zones and beaches: A synthesis,'' \textit{Mar. Geol.}, vol.~56, no. 1--4, pp. 93--118, 1984.
-\bibitem{b8} M.~L. Yates, R.~T. Guza, and W.~C. O'Reilly, ``Equilibrium shoreline response: Observations and modeling,'' \textit{J. Geophys. Res. Oceans}, vol. 114, no. C9, p. C09014, 2009.
 \end{thebibliography}
 
 \end{document}

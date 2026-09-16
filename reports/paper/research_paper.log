@@ -1,9 +1,9 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  15 SEP 2026 22:00
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  16 SEP 2026 08:12
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**reports/paper/research_paper.tex
-(./reports/paper/research_paper.tex
+**research_paper.tex
+(./research_paper.tex
 LaTeX2e <2022-11-01> patch level 1
 L3 programming layer <2023-02-22>
 (/usr/local/texlive/2023/texmf-dist/tex/latex/ieeetran/IEEEtran.cls
@@ -345,7 +345,7 @@ File: l3backend-pdftex.def 2023-01-16 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count290
 \l__pdf_internal_box=\box58
 )
-(reports/paper/research_paper.aux)
+(./research_paper.aux)
 \openout1 = `research_paper.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 19.
@@ -454,7 +454,7 @@ Package microtype Info: Loading generic protrusion settings for font family
 local/texlive/2023/texmf-dist/fonts/enc/dvips/base/8r.enc}
 
 
-] [2 <reports/paper/../figures//figure_morphodynamic_regimes_4panel.png>] [3]
+] [2 <../figures//figure_morphodynamic_regimes_4panel.png>] [3]
 <../figures//figure_umap_4panel_final.png, id=41, 1871.3112pt x 426.1521pt>
 File: ../figures//figure_umap_4panel_final.png Graphic file (type png)
 <use ../figures//figure_umap_4panel_final.png>
@@ -468,7 +468,7 @@ File: ../figures//grand_4way_benchmark_comparison.png Graphic file (type png)
 Package pdftex.def Info: ../figures//grand_4way_benchmark_comparison.png  used 
 on input line 239.
 (pdftex.def)             Requested size: 490.19843pt x 175.14186pt.
- [4 <reports/paper/../figures//figure_umap_4panel_final.png>]
+ [4 <../figures//figure_umap_4panel_final.png>]
 Underfull \hbox (badness 4120) in paragraph at lines 259--260
 []\OT1/ptm/b/n/10 (+20) Baseline 1 (Raw-Data LLM-RAG): \OT1/ptm/m/n/10 (+20) De
 nse text
@@ -485,7 +485,7 @@ Underfull \hbox (badness 1701) in paragraph at lines 262--263
 +20) Colum-nar
  []
 
-[5 <reports/paper/../figures//grand_4way_benchmark_comparison.png>]
+[5 <../figures//grand_4way_benchmark_comparison.png>]
 <../figures//figure_peak_impact_disequilibrium_advantage.png, id=52, 1582.713pt
  x 368.0952pt>
 File: ../figures//figure_peak_impact_disequilibrium_advantage.png Graphic file 
@@ -505,8 +505,7 @@ Underfull \hbox (badness 1521) in paragraph at lines 356--357
 \OT1/ptm/m/n/10 (+20) sup-plied with our 14D in-vari-ant man-i-fold fea-tures
  []
 
-[6 <reports/paper/../figures//figure_peak_impact_disequilibrium_advantage.png>]
-
+[6 <../figures//figure_peak_impact_disequilibrium_advantage.png>]
 Underfull \hbox (badness 10000) in paragraph at lines 446--446
 []|\OT1/ptm/b/n/9 (+20) Coastal Mor-pho-dy-nam-ics
  []
@@ -602,47 +601,45 @@ Before submitting the final camera ready copy, remember to:
  uses only Type 1 fonts and that every step in the generation
  process uses the appropriate paper size.
 
-[9
-
-] (reports/paper/research_paper.aux) ) 
+[9] (./research_paper.aux) ) 
 Here is how much of TeX's memory you used:
- 7496 strings out of 476025
- 117826 string characters out of 5790017
- 1885388 words of memory out of 5000000
- 27359 multiletter control sequences out of 15000+600000
- 587068 words of font info for 433 fonts, out of 8000000 for 9000
+ 7526 strings out of 476025
+ 118223 string characters out of 5790017
+ 1886388 words of memory out of 5000000
+ 27366 multiletter control sequences out of 15000+600000
+ 588266 words of font info for 449 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 57i,15n,62p,1458b,392s stack positions out of 10000i,1000n,20000p,200000b,200000s
-</usr/local/texlive/2023/texmf-dist/fonts
-/type1/public/amsfonts/cm/cmbx10.pfb></usr/local/texlive/2023/texmf-dist/fonts/
-type1/public/amsfonts/cm/cmbx7.pfb></usr/local/texlive/2023/texmf-dist/fonts/ty
-pe1/public/amsfonts/cm/cmbx8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type
-1/public/amsfonts/cm/cmbx9.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/
-public/amsfonts/cm/cmex10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/p
-ublic/amsfonts/cm/cmmi10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/pu
-blic/amsfonts/cm/cmmi5.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/publ
-ic/amsfonts/cm/cmmi6.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public
-/amsfonts/cm/cmmi7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/a
-msfonts/cm/cmmi8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/ams
-fonts/cm/cmmi9.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfo
-nts/cm/cmmib10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfo
-nts/cm/cmr10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfont
-s/cm/cmr5.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/c
-m/cmr6.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/c
-mr7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8
-.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pf
-b></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb
-></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb><
-/usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></u
-sr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr
-/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/l
-ocal/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></u
-sr/local/texlive/2023/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/local
-/texlive/2023/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2
-023/texmf-dist/fonts/type1/urw/times/utmbi8a.pfb></usr/local/texlive/2023/texmf
--dist/fonts/type1/urw/times/utmr8a.pfb></usr/local/texlive/2023/texmf-dist/font
-s/type1/urw/times/utmri8a.pfb>
-Output written on reports/paper/research_paper.pdf (9 pages, 5309117 bytes).
+ 57i,15n,62p,1565b,392s stack positions out of 10000i,1000n,20000p,200000b,200000s
+</usr/local/texlive/2023/texmf-dist/fonts/type1/pub
+lic/amsfonts/cm/cmbx10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/publ
+ic/amsfonts/cm/cmbx7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public
+/amsfonts/cm/cmbx8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/a
+msfonts/cm/cmbx9.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/ams
+fonts/cm/cmex10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsf
+onts/cm/cmmi10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfo
+nts/cm/cmmi5.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfont
+s/cm/cmmi6.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/
+cm/cmmi7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm
+/cmmi8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/c
+mmi9.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmm
+ib10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr
+10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5.
+pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb
+></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></
+usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr
+/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/lo
+cal/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/loc
+al/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb></usr/local
+/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/local/t
+exlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/tex
+live/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/local/texli
+ve/2023/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/local/t
+exlive/2023/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/local/texlive/2
+023/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2023/texmf-
+dist/fonts/type1/urw/times/utmbi8a.pfb></usr/local/texlive/2023/texmf-dist/font
+s/type1/urw/times/utmr8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/ur
+w/times/utmri8a.pfb>
+Output written on research_paper.pdf (9 pages, 5310661 bytes).
 PDF statistics:
  190 PDF objects out of 1000 (max. 8388607)
  111 compressed objects within 2 object streams

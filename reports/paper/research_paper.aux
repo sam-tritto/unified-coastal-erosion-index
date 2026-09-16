@@ -1,18 +1,34 @@
 \relax 
 \citation{lewis2020rag}
 \citation{karniadakis2021physics}
+\citation{wright1984morphodynamic}
+\citation{birkemeier1985users}
+\citation{sallenger2000storm}
+\citation{stockdon2006empirical}
+\citation{wright1984morphodynamic}
+\citation{birkemeier1985users}
+\citation{sallenger2000storm}
+\citation{stockdon2006empirical}
 \@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{}\protected@file@percent }
 \citation{raissi2019pinns,lu2021deeponet}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {Four-Panel Climatological and Morphodynamic Regime Characterization across Global Archetypes ($N = 175{,}392$ hours, 2012--2016).} \textbf  {(a)} Dimensionless Dean fall velocity parameter $\Omega = H_s / (w_s T_p)$ displaying Wright \& Short classification boundaries for reflective ($\Omega < 1.0$) and fully dissipative ($\Omega > 6.0$) states, showing the extreme Pacific swell tail at Torrey Pines ($\Omega > 20$). \textbf  {(b)} Deep-water wave steepness $s_0 = 2\pi H_s / (g T_p^2)$ evaluated against the critical threshold ($s_{0,\text  {crit}} = 0.025$), separating swell-dominated accretionary regimes ($98.0\%$ at Torrey Pines) from steep erosive storm seas ($28.8\%$ at USACE FRF Duck). \textbf  {(c)} Sallenger storm impact regime distributions (Swash, Collision, and Overwash) parameterized via dynamic Total Water Level ($\text  {TWL} = \eta _{\text  {tide}} + S_{\text  {surge}} + R_{2\%}$) confrontation with berm crests $z_{\text  {berm}}$. \textbf  {(d)} Scale-invariant dimensional collapse $\Upsilon ^* = \Upsilon / \Upsilon _{\text  {ref}}$, demonstrating that normalizing raw kinetic energy forcing by site-specific carrying capacity collapses multi-order-of-magnitude energy differences into a universal invariant distribution centered at $\Upsilon ^* \approx 1.0$.}}{2}{}\protected@file@percent }
+\citation{buckingham1914physically}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {Four-Panel Climatological and Morphodynamic Regime Characterization across Global Archetypes ($N = 175{,}392$ hours, 2012--2016).} \textbf  {(a)} Dimensionless Dean fall velocity parameter $\Omega = H_s / (w_s T_p)$ displaying Wright \& Short classification boundaries \cite  {wright1984morphodynamic} for reflective ($\Omega < 1.0$) and fully dissipative ($\Omega > 6.0$) states, showing the extreme Pacific swell tail at Torrey Pines ($\Omega > 20$). \textbf  {(b)} Deep-water wave steepness $s_0 = 2\pi H_s / (g T_p^2)$ evaluated against the critical threshold ($s_{0,\text  {crit}} = 0.025$), separating swell-dominated accretionary regimes ($98.0\%$ at Torrey Pines) from steep erosive storm seas ($28.8\%$ at USACE FRF Duck \cite  {birkemeier1985users}). \textbf  {(c)} Sallenger storm impact regime distributions (Swash, Collision, and Overwash) \cite  {sallenger2000storm} parameterized via dynamic Total Water Level ($\text  {TWL} = \eta _{\text  {tide}} + S_{\text  {surge}} + R_{2\%}$) confrontation with berm crests $z_{\text  {berm}}$ \cite  {stockdon2006empirical}. \textbf  {(d)} Scale-invariant dimensional collapse $\Upsilon ^* = \Upsilon / \Upsilon _{\text  {ref}}$, demonstrating that normalizing raw kinetic energy forcing by site-specific carrying capacity collapses multi-order-of-magnitude energy differences into a universal invariant distribution centered at $\Upsilon ^* \approx 1.0$.}}{2}{}\protected@file@percent }
 \newlabel{fig:morphodynamic_regimes}{{1}{2}}
 \@writefile{toc}{\contentsline {section}{\numberline {II}Theoretical Formulation: Dimensionless Invariant Manifolds \& The Coastal Proving Ground}{2}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-A}}Generalized Continuous Physical Dynamical Systems}{2}{}\protected@file@percent }
 \newlabel{eq:general_dynamical_system}{{1}{2}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-B}}Coastal Proving Ground Instantiation}{2}{}\protected@file@percent }
-\citation{b2}
-\citation{b7}
-\citation{b5}
-\citation{b4}
+\citation{dietrich1982settling}
+\citation{longuethiggins1964radiation}
+\citation{wright1984morphodynamic}
+\citation{battjes1974surf}
+\citation{stockdon2006empirical}
+\citation{sallenger2000storm}
+\citation{williams1959comparison}
+\citation{birkemeier1985users}
+\citation{turner2016multidecade}
+\citation{ludka2015beach}
+\citation{castelle2020planshape}
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {II-B}1}Static Morphological Boundary Vector}{3}{}\protected@file@percent }
 \newlabel{eq:psite}{{2}{3}}
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {II-B}2}The Unified Kinetic Erosion Index ($\Upsilon $)}{3}{}\protected@file@percent }
@@ -25,6 +41,7 @@
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {II-B}4}The 14-Dimensional State Manifold ($\mathbf  {z}_{\text  {physics}}$)}{3}{}\protected@file@percent }
 \newlabel{eq:14d_manifold}{{8}{3}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-C}}The Williams $t$-Test Diagnostic: Why Linear Regression Fails}{3}{}\protected@file@percent }
+\citation{raasveldt2019duckdb}
 \citation{mcinnes2018umap}
 \@writefile{toc}{\contentsline {section}{\numberline {III}Architecture: Two-Tier Hybrid Cascade Physics-RAG}{4}{}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {Four-Panel 2D UMAP Projection of the 14D Invariant Latent Space ($N = 12{,}000$ Stratified Records).} \textbf  {(a)} Morphodynamic state continuum colored by Dean number $\Omega $, displaying a continuous chromatic gradient from reflective steep profiles ($\Omega < 1$) to dissipative flat states ($\Omega > 7$). \textbf  {(b)} Hydrodynamic kinetic energy continuum $\log _{10}\Upsilon $, showing baseline calm records clustering near the manifold core while extreme storm work projects into outer peripheral filaments. \textbf  {(c)} Breaker dissipation regimes classified by Iribarren number $\xi $, showing topological separation between spilling ($\xi < 0.5$, cyan) and plunging ($\xi \ge 0.5$, pink) wave dissipation. \textbf  {(d)} Universal cross-site invariance: records from all four global observatories (Duck, Narrabeen, Torrey Pines, Truc Vert) interleave across identical topological branches, confirming cross-site physical similitude.}}{4}{}\protected@file@percent }
@@ -45,7 +62,7 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Information Retrieval Performance}{5}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Statistical Hypothesis Testing}{5}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-D}}Decoupling the Dual Temporal Failure Modes}{5}{}\protected@file@percent }
-\citation{b8}
+\citation{yates2009equilibrium}
 \@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces GRAND 4-WAY INFORMATION RETRIEVAL BENCHMARK ACROSS 30 COMPLEX OPERATIONAL QUERIES}}{6}{}\protected@file@percent }
 \newlabel{tab:grand_benchmark}{{I}{6}}
 \@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces PAIRED STATISTICAL HYPOTHESIS TESTING: HYBRID CASCADE VS. BASELINE ARCHITECTURES ($N = 30$ QUERIES)}}{6}{}\protected@file@percent }
@@ -57,6 +74,12 @@
 \newlabel{fig:peak_impact}{{4}{6}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}The $2 \times 2$ SciML Architectural Matrix}{6}{}\protected@file@percent }
 \newlabel{eq:pinn_loss}{{14}{6}}
+\citation{sutherland2004evaluating}
+\citation{ludka2015beach}
+\citation{turner2016multidecade}
+\citation{longuethiggins1964radiation}
+\citation{birkemeier1985users}
+\citation{castelle2020planshape}
 \citation{severson2019battery}
 \citation{porteagel2020wind}
 \citation{severson2019battery}
@@ -69,26 +92,33 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}Wind Energy \& Offshore Wind Turbines}{7}{}\protected@file@percent }
 \bibcite{lewis2020rag}{1}
 \bibcite{karniadakis2021physics}{2}
-\bibcite{raissi2019pinns}{3}
-\bibcite{lu2021deeponet}{4}
-\bibcite{mcinnes2018umap}{5}
-\bibcite{severson2019battery}{6}
-\bibcite{ramadesigan2012battery}{7}
-\bibcite{porteagel2020wind}{8}
+\bibcite{wright1984morphodynamic}{3}
+\bibcite{birkemeier1985users}{4}
+\bibcite{sallenger2000storm}{5}
+\bibcite{stockdon2006empirical}{6}
+\bibcite{raissi2019pinns}{7}
+\bibcite{lu2021deeponet}{8}
+\bibcite{buckingham1914physically}{9}
+\bibcite{dietrich1982settling}{10}
 \@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces SCIML ARCHITECTURAL MATRIX PERFORMANCE: DYNAMIC 72-HOUR STORM ROLLOUT \& MULTI-YEAR TEST SET}}{8}{}\protected@file@percent }
 \newlabel{tab:sciml_matrix}{{III}{8}}
 \@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces REAL-WORLD FIELD SURVEY ANOMALY EPISODES AUDITED VIA PHYSICS-RAG SEQUENCE HYDRATION}}{8}{}\protected@file@percent }
 \newlabel{tab:anomaly_audits}{{IV}{8}}
 \@writefile{toc}{\contentsline {section}{\numberline {VII}Discussion, SciML Design Principles \& Conclusion}{8}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{References}{8}{}\protected@file@percent }
-\bibcite{b1}{9}
-\bibcite{b2}{10}
-\bibcite{b3}{11}
-\bibcite{b4}{12}
-\bibcite{b5}{13}
-\bibcite{b6}{14}
-\bibcite{b7}{15}
-\bibcite{b8}{16}
+\bibcite{longuethiggins1964radiation}{11}
+\bibcite{battjes1974surf}{12}
+\bibcite{williams1959comparison}{13}
+\bibcite{turner2016multidecade}{14}
+\bibcite{ludka2015beach}{15}
+\bibcite{castelle2020planshape}{16}
+\bibcite{raasveldt2019duckdb}{17}
+\bibcite{mcinnes2018umap}{18}
+\bibcite{yates2009equilibrium}{19}
+\bibcite{sutherland2004evaluating}{20}
+\bibcite{severson2019battery}{21}
+\bibcite{ramadesigan2012battery}{22}
+\bibcite{porteagel2020wind}{23}
 \@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces CROSS-DOMAIN MATHEMATICAL \& ARCHITECTURAL TRANSLATION OF PHYSICS-RAG}}{9}{}\protected@file@percent }
 \newlabel{tab:cross_domain}{{V}{9}}
 \gdef \@abspage@last{9}
