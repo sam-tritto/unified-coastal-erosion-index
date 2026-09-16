@@ -5,144 +5,6 @@
 
 ---
 
-## Comprehensive Scientific Findings & Visual Diagnostics Synthesis (For NotebookLM & Research Paper Authoring)
-
-> [!IMPORTANT]
-> **Purpose of this Section for LLM Ingestion & Paper Authoring**:
-> This section synthesizes the empirical findings, quantitative benchmark tables, and visual diagnostics from **Notebook 01: Unified Feature Engineering Pipeline**. Because multimodal LLM ingestors (such as Google NotebookLM) cannot directly inspect matplotlib raster figures, this compendium provides an exhaustive, publication-grade transcription and interpretation of all charts, visual trajectories, hidden anomalies, statistical tests, and physical feature formulations across authentic institutional sensor and survey datasets (2012–2016).
-
----
-
-### 1. Executive Summary & Physics Foundations
-
-#### Universal Parameterization Without Site-Specific Branching:
-Notebook 01 establishes the **Unified Coastal Vulnerability Index ($\\Upsilon$)** as a continuous, closed-form semi-empirical kinetic formulation quantifying cross-shore storm erosion potential, wave-sediment kinetics, and total water level hazards across any global beach archetype without site-specific branching. Every site is mapped into a continuous 6-element parameter space:
-$$\mathbf{p}_{\text{site}} = \big[\tan\beta,\; D_{50},\; TR,\; \theta_{\text{shore}},\; Z_{\text{crest}},\; \sigma_{\text{shelter}}\big]$$
-
-The master formulation carries physical dimensions of a **kinetic sediment-forcing mass flux rate** in SI units of **$[\text{kg}/\text{s}]$**:
-$$\Upsilon = \left(\frac{\rho g^{3/2}}{16(2\pi)^{3/2}}\right) \cdot \tan\beta \cdot \frac{H_{\text{shore}}^{2.5} T_p}{w_s(D_{50}, T)} \cdot \left[ 1 + \frac{\max(S, 0)}{s_{\text{ref}}} + \frac{\max(R_{2\%}, 0)}{r_{\text{ref}}} \right] \cdot \Psi_{\text{tide}} \cdot \Psi_{\text{phase}} \cdot \Psi_{\text{dir}} \cdot \Psi_{\text{wind}}$$
-
-#### Authentic Multi-Site Golden Window (2012–2016):
-All computations execute exclusively across **100% authentic institutional sensor and survey records** spanning 5 full calendar years ($N = 43,848$ contiguous hours per site; $N = 1,228$ in-situ surveys across four contrasting archetypes):
-1. **Duck, NC, USA**: Intermediate barred dissipative Atlantic barrier island ($N=141$ surveys, primary transect $N=48$).
-2. **Narrabeen-Collaroy, NSW, Australia**: High-energy embayed Pacific pocket beach governed by East Coast Lows ($N=849$ surveys, primary transect $N=175$).
-3. **Torrey Pines State Beach, CA, USA**: Low-energy swell-dominated pocket beach in the Southern California Bight ($N=110$ surveys, primary transect $N=55$).
-4. **Truc Vert Beach, Gironde, France**: High-energy meso-macrotidal French Atlantic ridge-and-runnel coast ($N=128$ surveys, primary transect $N=47$).
-
----
-
-### 2. Deep-Dive Visual Analysis: Figure 1 (Cell 17) — Multi-Site Diagnostic Feature Distributions
-
-Figure 1 displays a $2 \times 2$ subplot panel characterizing the physical climatologies of the four archetypes across $N = 175,392$ hourly records:
-
-#### Panel (A) Morphodynamic Regime Across Global Sites (Dean Number $\Omega$):
-- Boxplots show the dimensionless Dean fall velocity parameter $\Omega = H_s / (w_s T_p)$.
-- Horizontal dashed green line: Reflective boundary ($\Omega < 1$).
-- Horizontal dashed red line: Dissipative boundary ($\Omega > 6$).
-- **Visual Observations**:
-  - **Torrey Pines Beach**: Displays an extreme cloud of outlier points extending up to **$\Omega = 21.5$**! This occurs during energetic winter swells acting on very fine sand ($D_{50} = 0.20\text{ mm}$, settling velocity $w_s \approx 0.024\text{ m/s}$).
-  - **Duck, Narrabeen, Truc Vert**: Medians cluster tightly within the intermediate barred morphodynamic regime ($\Omega \approx 2.8$ to $3.5$).
-  - Reflective conditions ($\Omega < 1.0$) occur in $< 2\%$ of hours globally.
-
-#### Panel (B) Wave Steepness Across Sites ($s_0 = H_s / L_0$):
-- Horizontal dashed orange line: Critical steepness threshold $s_{0,\text{crit}} = 0.025$ separating swell from steep erosive wind sea (*Johnson 1949*).
-- **The Torrey Pines Low-Steepness Swell Anomaly**:
-  - Torrey Pines has a mean steepness of only **$0.0052$**, with **$98.0\%$ of all records lying in the low-steepness swell regime ($s_0 < 0.025$)**!
-  - In contrast, **Duck** has the steepest sea state (mean $s_0 = 0.0173$), with **$28.8\%$ of hours in the steep sea regime ($s_0 \ge 0.025$)** driven by local Atlantic easterlies.
-  - Narrabeen and Truc Vert are intermediate ($91.4\%$ and $93.1\%$ swell regime).
-
-#### Panel (C) Tidal Dissipation & Energy Smearing ($\Psi_{\text{tide}}$):
-- **Continuous Dimensionless Scaling**: Boxplots display the continuous tidal energy smearing factor $\Psi_{\text{tide}} = \left[1 + \frac{\text{TR}}{2H_s}\right]^{-1} \in (0, 1]$, proving the core architectural claim that $\Upsilon$ adapts smoothly across global hydrodynamics without heuristic if/else branches or regime toggles.
-- **Micro-tidal Regimes (Duck, Narrabeen, Torrey Pines)**:
-  - At **Duck** ($\text{TR} = 1.0\,\text{m}$, median $\Psi_{\text{tide}} \approx 0.654$, 75th percentile zsh.726$) and **Narrabeen-Collaroy** ($\text{TR} = 1.2\,\text{m}$, median $\Psi_{\text{tide}} \approx 0.685$, 75th percentile zsh.731$), wave energy attack is vertically concentrated within a tight microtidal envelope. Near-total incident wave power is delivered directly to the subaerial berm and foreshore ($\Psi_{\text{tide}} \to 1.0$ during high waves).
-  - At **Torrey Pines Beach** ($\text{TR} = 1.5\,\text{m}$, median $\Psi_{\text{tide}} \approx 0.577$), narrow tidal excursion likewise concentrates long-period swell runup.
-- **Macro-tidal Energy Smearing (Truc Vert Beach)**:
-  - In dramatic contrast, **Truc Vert Beach** ($\text{TR} = 4.5\,\text{m}$) has its entire boxplot dragged heavily downward toward and below zsh.5$ (median $\Psi_{\text{tide}} \approx 0.409$, 25th percentile zsh.329$, dipping to minimum zsh.116$).
-  - Over a macro-tidal range (.5\,\text{m}$), breaking wave dissipation is smeared across a wide intertidal sand sweep ( = \text{TR}/\tan\beta$), naturally diluting the resident wave power delivered to the upper beach scarp. This explains why macro-tidal beaches survive high baseline waves during fair weather and standard swells, with significant dune scarping restricted exclusively to spring high tides coincident with major storm surges.
-
-#### Panel (D) Scale-Invariant Calibration Invariance ($\Upsilon^* = \Upsilon / \Upsilon_{\text{ref}}$):
-- Horizontal purple line: Dimensionless equilibrium reference $\Upsilon^* = 1.0$.
-- **The Normalization Miracle**:
-  - In raw dimensions, annual median $\Upsilon$ varies by an entire order of magnitude: from $\sim 350\text{ kg/s}$ at Duck to $\sim 3,033\text{ kg/s}$ at Truc Vert (reference flux $\Upsilon_{\text{ref}} = 1,964\text{ kg/s}$ at Duck vs. $6,874\text{ kg/s}$ at Truc Vert).
-  - When normalized as $\Upsilon^* = \Upsilon / \Upsilon_{\text{ref}}$, all four sites collapse into an identical, scale-invariant distribution centered near $\mathcal{O}(1)$ (IQR $\in [0.2, 1.2]$).
-  - Outliers extend to $\Upsilon^* = 40$–$184$ during catastrophic storms, providing a universal, site-independent threshold for storm impact detection.
-
----
-
-### 3. Deep-Dive Visual Analysis: Figure 2 (Cell 18) — High-Resolution Time Series Case Studies & Multi-Scale Antecedent Memory
-
-Figure 2 showcases high-resolution continuous hydrodynamics across three historic extreme storm sequences:
-
-#### Panel 1: Narrabeen-Collaroy, Australia — June 2016 East Coast Low (ECL):
-- Spans mid-May to mid-July 2016.
-- Solid blue line: Hourly kinetic flux $\Upsilon(t)$ spikes from calm background ($< 5,000\text{ kg/s}$) to an extraordinary apex of **$470,712\text{ kg/s}$** on June 5, 2016!
-- Dashed orange line: 7-day synoptic memory $\bar{\Upsilon}_{7d}$ peaks at $\sim 55,000\text{ kg/s}$ and decays over two weeks.
-- Solid red line: 30-day lunar envelope $\bar{\Upsilon}_{30d}$ smoothly elevates to $\sim 20,000\text{ kg/s}$.
-- **Insight**: Multi-scale exponential decay separates the instantaneous destructive wave shock from the multi-week sediment relaxation period.
-
-#### Panel 2: Duck, NC, USA — Late Winter 2014 Nor'easter Cluster:
-- Spans mid-February to mid-April 2014.
-- Solid green line: Shows a classic "double-tap" storm cluster:
-  - First storm apex: March 8, 2014, reaching $\Upsilon = 144,000\text{ kg/s}$.
-  - Second storm apex: March 18, 2014, reaching $\Upsilon = 98,000\text{ kg/s}$.
-- The 7-day memory (dashed orange) stays elevated above $15,000\text{ kg/s}$ between the two events, capturing **antecedent beach depletion**: the second storm strikes an already scarped, unrecovered profile, causing disproportionate subaerial erosion.
-
-#### Panel 3: Truc Vert, France — Winter 2013–2014 Historical Mega-Storm Sequence:
-- Spans January 1 to mid-March 2014.
-- Solid purple line: Visualizes the most energetic winter recorded in Atlantic Europe in over 60 years:
-  - Jan 6 storm: $\Upsilon = 680,000\text{ kg/s}$.
-  - Feb 6 storm: $\Upsilon = 850,000\text{ kg/s}$.
-  - Feb 9 storm: $\Upsilon = 1,230,000\text{ kg/s}$ ($1.23 \times 10^6\text{ kg/s}$!).
-  - March 3 storm: $\Upsilon = 1,260,000\text{ kg/s}$ ($1.26 \times 10^6\text{ kg/s}$!).
-- Notice the Y-axis scale: peaks exceed **$1.25\text{ million kg/s}$**!
-- Dashed orange line ($\\bar{\Upsilon}_{7d}$) remains trapped above $150,000\text{ kg/s}$ for over 60 consecutive days, explaining the chronic multi-year sandbar stripping and dune toe scarping documented by *Castelle et al. (2015)*.
-
----
-
-### 4. Comprehensive Quantitative Benchmarks Across Feature Tiers
-
-#### Constructive 4-Tier $\Upsilon$ Physical Progression (Cell 5):
-| Site Archetype | Tier 1 (Base Core) | Tier 2 (+ Infragravity / TWL) | Tier 3 (+ Radiation Stress / Alongshore) | Tier 4 (+ Wind / Steepness Focus) | Infragravity Lift | Alongshore Lift | Focus Lift |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Duck** | $3,597 \pm 8,221$ | $5,310 \pm 14,316$ | $6,954 \pm 19,126$ | $7,470 \pm 20,545$ | $+47.6\%$ | $+31.0\%$ | $+7.4\%$ |
-| **Narrabeen-Collaroy, AUS** | $8,287 \pm 14,290$ | $12,991 \pm 26,989$ | $16,188 \pm 32,494$ | $16,756 \pm 33,634$ | $+56.8\%$ | $+24.6\%$ | $+3.5\%$ |
-| **Torrey Pines Beach, CA** | $3,913 \pm 3,714$ | $6,120 \pm 6,494$ | $7,657 \pm 7,828$ | $8,561 \pm 8,752$ | $+56.4\%$ | $+25.1\%$ | $+11.8\%$ |
-| **Truc Vert Beach, France** | $13,554 \pm 25,635$ | $25,041 \pm 56,866$ | $31,591 \pm 69,856$ | $31,591 \pm 69,856$ | $+84.7\%$ | $+26.2\%$ | $+0.0\%$ |
-
-- Adding Tier 2 (Total Water Level / Infragravity Runup) provides the single largest kinetic lift across all sites ($+47.6\%$ to $+84.7\%$, peaking at Truc Vert).
-- Adding Tier 3 (Radiation Stress $S_{xx}, S_{xy}$) adds another $+24.6\%$ to $+31.0\%$ kinetic amplification.
-
-#### Climatological Summary Table (Cell 20):
-| Observatory | Slope $\tan\beta$ | $D_{50}$ (mm) | Tide Range (m) | Mean $H_s$ (m) | Max $H_s$ (m) | Mean Steepness $s_0$ | Mean $S_{xx}$ (N/m) | Collision Freq (%) | $\Upsilon_{\text{ref}}$ (kg/s) | Surveys ($N$) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Duck** | $0.080$ | $0.35$ | $1.0\text{ m}$ | $1.11\text{ m}$ | $5.79\text{ m}$ | $0.0173$ | $549.0$ | $0.1\%$ | $1,964\text{ kg/s}$ | $141$ |
-| **Narrabeen-Collaroy** | $0.090$ | $0.30$ | $1.2\text{ m}$ | $1.43\text{ m}$ | $6.23\text{ m}$ | $0.0134$ | $613.0$ | $0.1\%$ | $5,783\text{ kg/s}$ | $849$ |
-| **Torrey Pines Beach** | $0.040$ | $0.20$ | $1.5\text{ m}$ | $1.09\text{ m}$ | $4.78\text{ m}$ | $0.0052$ | $675.4$ | $0.0\%$ | $3,374\text{ kg/s}$ | $110$ |
-| **Truc Vert Beach** | $0.060$ | $0.38$ | $4.5\text{ m}$ | $1.83\text{ m}$ | $8.24\text{ m}$ | $0.0110$ | $2,358.6$ | $0.1\%$ | $6,874\text{ kg/s}$ | $128$ |
-
----
-
-### 5. Critical Reality Check: In-Situ Field Survey Coupling Diagnostic (Cell 22)
-
-Cell 22 couples cumulative and peak $\Upsilon$ forcing directly to real surveyed shoreline displacement ($\Delta X$, meters) across authentic field surveys:
-
-| Observatory | Primary Transect | Intervals Evaluated ($N$) | Mean $\Delta X$ (m) | $r(\text{Cumulative } \Upsilon, \Delta X)$ | Spearman $\rho$ | $r(\text{Peak } \Upsilon, \Delta X)$ | Empirical Significance |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Duck** | `FRF_m091` | 47 | $+0.17 \pm 5.14$ | **$-0.076$** ($p = 0.613$) | $-0.114$ | $+0.051$ ($p = 0.733$) | **Statistically Insignificant ($p > 0.60$)** |
-| **Narrabeen-Collaroy** | `PF1` | 174 | $+0.01 \pm 6.00$ | **$-0.358$** ($p < 0.001$) | $-0.050$ | **$-0.424$** ($p < 0.001$) | **Statistically Significant Erosion** |
-| **Torrey Pines Beach** | `TP_NORTH` | 54 | $+0.18 \pm 6.69$ | **$+0.276$** ($p = 0.043$) | $+0.106$ | **$+0.295$** ($p = 0.030$) | **Statistically Significant ACCRETION ($r > 0$)** |
-| **Truc Vert Beach** | `TV_SOUTH` | 46 | $+0.35 \pm 8.39$ | **$-0.438$** ($p = 0.002$) | $-0.291$ | **$-0.465$** ($p = 0.001$) | **Statistically Significant Erosion** |
-
-#### Crucial Scientific Insights for the Research Paper:
-1. **Raw $\Upsilon$ is NOT a Universal 1D Erosion Index**:
-   - At **Narrabeen** ($r = -0.36$) and **Truc Vert** ($r = -0.44$), higher $\Upsilon$ correlates with erosion ($\Delta X < 0$), matching classical intuition.
-   - At **Duck** ($r = -0.076, p = 0.613$), there is **zero statistically significant correlation**. Duck possesses persistent, dynamic sandbars that weld, migrate, and buffer offshore storm energy, decoupling deepwater wave power from dry beach scarping.
-   - At **Torrey Pines** ($r = +0.276, p = 0.043$), $\Upsilon$ displays a **statistically significant POSITIVE correlation with beach accretion**! Low-steepness Pacific swells ($s_0 \approx 0.005, T_p > 14\text{ s}$) push offshore sand onshore, building the berm rather than eroding it.
-2. **The Mandate for Baselines & SciML**:
-   This striking empirical divergence proves that attempting to use $\Upsilon$ as a monotonic, unaugmented 1D erosion formula fails on real-world coastlines. This directly motivates **Notebook 02** (where 1D baselines are shown to hit a noise floor of $R^2 \le 0.023$) and **Notebook 03** (where SciML neural ODEs and UMAP latent embeddings resolve multi-modal nonlinear morphodynamics).
-
----
-
 ## Appendix: Complete Cell-by-Cell Execution Trajectory & Technical Methodology
 
 ### Cell 0 (Markdown Documentation)
@@ -627,59 +489,6 @@ The following publication-grade diagnostic panels characterize:
 ```python
 fig, axes = plt.subplots(2, 2, figsize=(16, 12))
 
-# Panel A: Morphodynamic Regime Parameterization (Dean Number Omega)
-dean_data = [site_datasets[s]["dean_number"].values for s in sites]
-site_labels = [COASTAL_SITE_PROFILES[s]["name"].split(",")[0] for s in sites]
-sns.boxplot(data=dean_data, ax=axes[0, 0], palette="Set2")
-axes[0, 0].set_xticks(range(len(site_labels)))
-axes[0, 0].set_xticklabels(site_labels, rotation=15, fontweight="bold")
-axes[0, 0].set_ylabel(r"Dean Number $\Omega = H_s / (w_s T_p)$", fontweight="bold")
-axes[0, 0].set_title("(A) Morphodynamic Regime Across Global Sites", fontweight="bold", fontsize=13)
-axes[0, 0].axhline(1.0, color="#27ae60", linestyle="--", alpha=0.7, label=r"Reflective ($\Omega < 1$)")
-axes[0, 0].axhline(6.0, color="#e74c3c", linestyle="--", alpha=0.7, label=r"Dissipative ($\Omega > 6$)")
-axes[0, 0].legend(loc="upper right", fontsize=9)
-
-# Panel B: Deep-Water Wave Steepness Distribution (s0)
-s0_data = [site_datasets[s]["wave_steepness_s0"].values for s in sites]
-sns.boxplot(data=s0_data, ax=axes[0, 1], palette="Blues_r")
-axes[0, 1].set_xticks(range(len(site_labels)))
-axes[0, 1].set_xticklabels(site_labels, rotation=15, fontweight="bold")
-axes[0, 1].set_ylabel(r"Wave Steepness  = H_s / L_0$", fontweight="bold")
-axes[0, 1].set_title("(B) Wave Steepness Across Sites", fontweight="bold", fontsize=13)
-axes[0, 1].axhline(0.025, color="#e67e22", linestyle="--", linewidth=1.5, label=r"Crit Steepness {0,\mathrm{crit}} = 0.025$")
-axes[0, 1].legend(loc="upper right", fontsize=9)
-
-# Panel C: Tidal Dissipation & Energy Smearing Factor (Psi_tide)
-psi_tide_data = [site_datasets[s]["psi_tide"].values for s in sites]
-sns.boxplot(data=psi_tide_data, ax=axes[1, 0], palette="crest")
-axes[1, 0].set_xticks(range(len(site_labels)))
-axes[1, 0].set_xticklabels(site_labels, rotation=15, fontweight="bold")
-axes[1, 0].set_ylabel(r"Tidal Smearing Factor $\Psi_{\mathrm{tide}}$ [-]", fontweight="bold")
-axes[1, 0].set_title(r"(C) Tidal Dissipation & Energy Smearing ($\Psi_{tide}$)", fontweight="bold", fontsize=13)
-axes[1, 0].set_ylim(0.0, 1.05)
-axes[1, 0].axhline(1.0, color="#27ae60", linestyle="--", alpha=0.8, linewidth=1.5, label=r"Microtidal Limit ($\Psi_{\mathrm{tide}} \to 1.0$)")
-axes[1, 0].axhline(0.5, color="#e74c3c", linestyle=":", alpha=0.8, linewidth=1.5, label=r"Macrotidal Damping ($\Psi_{\mathrm{tide}} \leq 0.5$)")
-axes[1, 0].legend(loc="lower left", fontsize=9, frameon=True)
-
-# Panel D: Scale-Invariant Collapse (Normalized Upsilon*)
-u_star_data = [np.clip(site_datasets[s]["upsilon_star"].values, 0, 6) for s in sites]
-sns.boxplot(data=u_star_data, ax=axes[1, 1], palette="Purples_r")
-axes[1, 1].set_xticks(range(len(site_labels)))
-axes[1, 1].set_xticklabels(site_labels, rotation=15, fontweight="bold")
-axes[1, 1].set_ylabel(r"Dimensionless Relative Forcing $\Upsilon^*$", fontweight="bold")
-axes[1, 1].set_title(r"(D) Scale-Invariant Calibration Invariance ($\Upsilon^* \approx 1.0$)", fontweight="bold", fontsize=13)
-axes[1, 1].axhline(1.0, color="#8e44ad", linestyle="-", linewidth=2.0, label=r"Equilibrium Reference ($\Upsilon^* = 1.0$)")
-axes[1, 1].legend(loc="upper right", fontsize=9)
-
-plt.tight_layout()
-plt.show()
-```
-
-#### Cell 18 (Code Execution): `fig, axes = plt.subplots(2, 2, figsize=(16, 12))`
-
-```python
-fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-
 site_labels = [COASTAL_SITE_PROFILES[s]["name"].split(",")[0] for s in sites]
 
 # Harmonious, domain-aligned site color palette (consistent across all subplots)
@@ -738,13 +547,13 @@ plt.tight_layout()
 plt.show()
 ```
 
-### Cell 19 (Markdown Documentation)
+### Cell 18 (Markdown Documentation)
 
 ## 9. Task 9: Comprehensive Multi-Site Publication Metric Summary
 
 The table below compiles all key geomorphic parameters, hydrodynamic wave statistics, exact radiation stress tensors, Sallenger collision ratios, and scale-invariant carrying capacities across all four global archetypes over the 2012–2016 golden window ($N=43,848$ hours per site).
 
-#### Cell 20 (Code Execution): `master_summary = []`
+#### Cell 19 (Code Execution): `master_summary = []`
 
 ```python
 master_summary = []
@@ -793,7 +602,7 @@ Site Archetype    Country Slope tan(beta) D50 (mm) Tide Range (m)  \
 3                6873.6               128
 ```
 
-### Cell 21 (Markdown Documentation)
+### Cell 20 (Markdown Documentation)
 
 ## 10. Task 10: Preliminary Coupling Diagnostic with Authentic In-Situ Field Surveys
 
@@ -803,7 +612,7 @@ Site Archetype    Country Slope tan(beta) D50 (mm) Tide Range (m)  \
 > 
 > For each survey epoch, we compute the antecedent cumulative storm work ($W_{\text{storm}} = \int \Upsilon dt$) and peak storm forcing ($\Upsilon_{\max}$) between successive survey dates. This assesses where raw linear forcing correlates directly with erosion ($\Delta X < 0$) versus where complex morphodynamic processes (swell accretion, 3D sandbar rhythms) necessitate nonlinear modeling in `02_Diagnostic_Baselines.ipynb`.
 
-#### Cell 22 (Code Execution): `from scipy.stats import pearsonr, spearmanr`
+#### Cell 21 (Code Execution): `from scipy.stats import pearsonr, spearmanr`
 
 ```python
 from scipy.stats import pearsonr, spearmanr
@@ -884,4 +693,142 @@ Site Primary Transect  Intervals Evaluated Mean Delta X (m)  \
 2        +0.276 (p=0.043)       +0.106         +0.295 (p=0.030)  
 3        -0.438 (p=0.002)       -0.291         -0.465 (p=0.001)
 ```
+
+### Cell 22 (Markdown Documentation)
+
+## Comprehensive Scientific Findings & Visual Diagnostics Synthesis (For NotebookLM & Research Paper Authoring)
+
+> [!IMPORTANT]
+> **Purpose of this Section for LLM Ingestion & Paper Authoring**:
+> This section synthesizes the empirical findings, quantitative benchmark tables, and visual diagnostics from **Notebook 01: Unified Feature Engineering Pipeline**. Because multimodal LLM ingestors (such as Google NotebookLM) cannot directly inspect matplotlib raster figures, this compendium provides an exhaustive, publication-grade transcription and interpretation of all charts, visual trajectories, hidden anomalies, statistical tests, and physical feature formulations across authentic institutional sensor and survey datasets (2012–2016).
+
+---
+
+### 1. Executive Summary & Physics Foundations
+
+#### Universal Parameterization Without Site-Specific Branching:
+Notebook 01 establishes the **Unified Coastal Vulnerability Index ($\\Upsilon$)** as a continuous, closed-form semi-empirical kinetic formulation quantifying cross-shore storm erosion potential, wave-sediment kinetics, and total water level hazards across any global beach archetype without site-specific branching. Every site is mapped into a continuous 6-element parameter space:
+$$\mathbf{p}_{\text{site}} = \big[\tan\beta,\; D_{50},\; TR,\; \theta_{\text{shore}},\; Z_{\text{crest}},\; \sigma_{\text{shelter}}\big]$$
+
+The master formulation carries physical dimensions of a **kinetic sediment-forcing mass flux rate** in SI units of **$[\text{kg}/\text{s}]$**:
+$$\Upsilon = \left(\frac{\rho g^{3/2}}{16(2\pi)^{3/2}}\right) \cdot \tan\beta \cdot \frac{H_{\text{shore}}^{2.5} T_p}{w_s(D_{50}, T)} \cdot \left[ 1 + \frac{\max(S, 0)}{s_{\text{ref}}} + \frac{\max(R_{2\%}, 0)}{r_{\text{ref}}} \right] \cdot \Psi_{\text{tide}} \cdot \Psi_{\text{phase}} \cdot \Psi_{\text{dir}} \cdot \Psi_{\text{wind}}$$
+
+#### Authentic Multi-Site Golden Window (2012–2016):
+All computations execute exclusively across **100% authentic institutional sensor and survey records** spanning 5 full calendar years ($N = 43,848$ contiguous hours per site; $N = 1,228$ in-situ surveys across four contrasting archetypes):
+1. **Duck, NC, USA**: Intermediate barred dissipative Atlantic barrier island ($N=141$ surveys, primary transect $N=48$).
+2. **Narrabeen-Collaroy, NSW, Australia**: High-energy embayed Pacific pocket beach governed by East Coast Lows ($N=849$ surveys, primary transect $N=175$).
+3. **Torrey Pines State Beach, CA, USA**: Low-energy swell-dominated pocket beach in the Southern California Bight ($N=110$ surveys, primary transect $N=55$).
+4. **Truc Vert Beach, Gironde, France**: High-energy meso-macrotidal French Atlantic ridge-and-runnel coast ($N=128$ surveys, primary transect $N=47$).
+
+---
+
+### 2. Deep-Dive Visual Analysis: Figure 1 (Cell 17) — Multi-Site Diagnostic Feature Distributions
+
+Figure 1 displays a $2 \times 2$ subplot panel characterizing the physical climatologies of the four archetypes across $N = 175,392$ hourly records:
+
+#### Panel (A) Morphodynamic Regime Across Global Sites (Dean Number $\Omega$):
+- Boxplots show the dimensionless Dean fall velocity parameter $\Omega = H_s / (w_s T_p)$.
+- Horizontal dashed green line: Reflective boundary ($\Omega < 1$).
+- Horizontal dashed red line: Dissipative boundary ($\Omega > 6$).
+- **Visual Observations**:
+  - **Torrey Pines Beach**: Displays an extreme cloud of outlier points extending up to **$\Omega = 21.5$**! This occurs during energetic winter swells acting on very fine sand ($D_{50} = 0.20\text{ mm}$, settling velocity $w_s \approx 0.024\text{ m/s}$).
+  - **Duck, Narrabeen, Truc Vert**: Medians cluster tightly within the intermediate barred morphodynamic regime ($\Omega \approx 2.8$ to $3.5$).
+  - Reflective conditions ($\Omega < 1.0$) occur in $< 2\%$ of hours globally.
+
+#### Panel (B) Wave Steepness Across Sites ($s_0 = H_s / L_0$):
+- Horizontal dashed orange line: Critical steepness threshold $s_{0,\text{crit}} = 0.025$ separating swell from steep erosive wind sea (*Johnson 1949*).
+- **The Torrey Pines Low-Steepness Swell Anomaly**:
+  - Torrey Pines has a mean steepness of only **$0.0052$**, with **$98.0\%$ of all records lying in the low-steepness swell regime ($s_0 < 0.025$)**!
+  - In contrast, **Duck** has the steepest sea state (mean $s_0 = 0.0173$), with **$28.8\%$ of hours in the steep sea regime ($s_0 \ge 0.025$)** driven by local Atlantic easterlies.
+  - Narrabeen and Truc Vert are intermediate ($91.4\%$ and $93.1\%$ swell regime).
+
+#### Panel (C) Tidal Dissipation & Energy Smearing ($\Psi_{\text{tide}}$):
+- **Continuous Dimensionless Scaling**: Boxplots display the continuous tidal energy smearing factor $\Psi_{\text{tide}} = \left[1 + \frac{\text{TR}}{2H_s}\right]^{-1} \in (0, 1]$, proving the core architectural claim that $\Upsilon$ adapts smoothly across global hydrodynamics without heuristic if/else branches or regime toggles.
+- **Micro-tidal Regimes (Duck, Narrabeen, Torrey Pines)**:
+  - At **Duck** ($\text{TR} = 1.0\,\text{m}$, median $\Psi_{\text{tide}} \approx 0.654$, 75th percentile zsh.726$) and **Narrabeen-Collaroy** ($\text{TR} = 1.2\,\text{m}$, median $\Psi_{\text{tide}} \approx 0.685$, 75th percentile zsh.731$), wave energy attack is vertically concentrated within a tight microtidal envelope. Near-total incident wave power is delivered directly to the subaerial berm and foreshore ($\Psi_{\text{tide}} \to 1.0$ during high waves).
+  - At **Torrey Pines Beach** ($\text{TR} = 1.5\,\text{m}$, median $\Psi_{\text{tide}} \approx 0.577$), narrow tidal excursion likewise concentrates long-period swell runup.
+- **Macro-tidal Energy Smearing (Truc Vert Beach)**:
+  - In dramatic contrast, **Truc Vert Beach** ($\text{TR} = 4.5\,\text{m}$) has its entire boxplot dragged heavily downward toward and below zsh.5$ (median $\Psi_{\text{tide}} \approx 0.409$, 25th percentile zsh.329$, dipping to minimum zsh.116$).
+  - Over a macro-tidal range (.5\,\text{m}$), breaking wave dissipation is smeared across a wide intertidal sand sweep ( = \text{TR}/\tan\beta$), naturally diluting the resident wave power delivered to the upper beach scarp. This explains why macro-tidal beaches survive high baseline waves during fair weather and standard swells, with significant dune scarping restricted exclusively to spring high tides coincident with major storm surges.
+
+#### Panel (D) Scale-Invariant Calibration Invariance ($\Upsilon^* = \Upsilon / \Upsilon_{\text{ref}}$):
+- Horizontal purple line: Dimensionless equilibrium reference $\Upsilon^* = 1.0$.
+- **The Normalization Miracle**:
+  - In raw dimensions, annual median $\Upsilon$ varies by an entire order of magnitude: from $\sim 350\text{ kg/s}$ at Duck to $\sim 3,033\text{ kg/s}$ at Truc Vert (reference flux $\Upsilon_{\text{ref}} = 1,964\text{ kg/s}$ at Duck vs. $6,874\text{ kg/s}$ at Truc Vert).
+  - When normalized as $\Upsilon^* = \Upsilon / \Upsilon_{\text{ref}}$, all four sites collapse into an identical, scale-invariant distribution centered near $\mathcal{O}(1)$ (IQR $\in [0.2, 1.2]$).
+  - Outliers extend to $\Upsilon^* = 40$–$184$ during catastrophic storms, providing a universal, site-independent threshold for storm impact detection.
+
+---
+
+### 3. Deep-Dive Visual Analysis: Figure 2 (Cell 18) — High-Resolution Time Series Case Studies & Multi-Scale Antecedent Memory
+
+Figure 2 showcases high-resolution continuous hydrodynamics across three historic extreme storm sequences:
+
+#### Panel 1: Narrabeen-Collaroy, Australia — June 2016 East Coast Low (ECL):
+- Spans mid-May to mid-July 2016.
+- Solid blue line: Hourly kinetic flux $\Upsilon(t)$ spikes from calm background ($< 5,000\text{ kg/s}$) to an extraordinary apex of **$470,712\text{ kg/s}$** on June 5, 2016!
+- Dashed orange line: 7-day synoptic memory $\bar{\Upsilon}_{7d}$ peaks at $\sim 55,000\text{ kg/s}$ and decays over two weeks.
+- Solid red line: 30-day lunar envelope $\bar{\Upsilon}_{30d}$ smoothly elevates to $\sim 20,000\text{ kg/s}$.
+- **Insight**: Multi-scale exponential decay separates the instantaneous destructive wave shock from the multi-week sediment relaxation period.
+
+#### Panel 2: Duck, NC, USA — Late Winter 2014 Nor'easter Cluster:
+- Spans mid-February to mid-April 2014.
+- Solid green line: Shows a classic "double-tap" storm cluster:
+  - First storm apex: March 8, 2014, reaching $\Upsilon = 144,000\text{ kg/s}$.
+  - Second storm apex: March 18, 2014, reaching $\Upsilon = 98,000\text{ kg/s}$.
+- The 7-day memory (dashed orange) stays elevated above $15,000\text{ kg/s}$ between the two events, capturing **antecedent beach depletion**: the second storm strikes an already scarped, unrecovered profile, causing disproportionate subaerial erosion.
+
+#### Panel 3: Truc Vert, France — Winter 2013–2014 Historical Mega-Storm Sequence:
+- Spans January 1 to mid-March 2014.
+- Solid purple line: Visualizes the most energetic winter recorded in Atlantic Europe in over 60 years:
+  - Jan 6 storm: $\Upsilon = 680,000\text{ kg/s}$.
+  - Feb 6 storm: $\Upsilon = 850,000\text{ kg/s}$.
+  - Feb 9 storm: $\Upsilon = 1,230,000\text{ kg/s}$ ($1.23 \times 10^6\text{ kg/s}$!).
+  - March 3 storm: $\Upsilon = 1,260,000\text{ kg/s}$ ($1.26 \times 10^6\text{ kg/s}$!).
+- Notice the Y-axis scale: peaks exceed **$1.25\text{ million kg/s}$**!
+- Dashed orange line ($\\bar{\Upsilon}_{7d}$) remains trapped above $150,000\text{ kg/s}$ for over 60 consecutive days, explaining the chronic multi-year sandbar stripping and dune toe scarping documented by *Castelle et al. (2015)*.
+
+---
+
+### 4. Comprehensive Quantitative Benchmarks Across Feature Tiers
+
+#### Constructive 4-Tier $\Upsilon$ Physical Progression (Cell 5):
+| Site Archetype | Tier 1 (Base Core) | Tier 2 (+ Infragravity / TWL) | Tier 3 (+ Radiation Stress / Alongshore) | Tier 4 (+ Wind / Steepness Focus) | Infragravity Lift | Alongshore Lift | Focus Lift |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Duck** | $3,597 \pm 8,221$ | $5,310 \pm 14,316$ | $6,954 \pm 19,126$ | $7,470 \pm 20,545$ | $+47.6\%$ | $+31.0\%$ | $+7.4\%$ |
+| **Narrabeen-Collaroy, AUS** | $8,287 \pm 14,290$ | $12,991 \pm 26,989$ | $16,188 \pm 32,494$ | $16,756 \pm 33,634$ | $+56.8\%$ | $+24.6\%$ | $+3.5\%$ |
+| **Torrey Pines Beach, CA** | $3,913 \pm 3,714$ | $6,120 \pm 6,494$ | $7,657 \pm 7,828$ | $8,561 \pm 8,752$ | $+56.4\%$ | $+25.1\%$ | $+11.8\%$ |
+| **Truc Vert Beach, France** | $13,554 \pm 25,635$ | $25,041 \pm 56,866$ | $31,591 \pm 69,856$ | $31,591 \pm 69,856$ | $+84.7\%$ | $+26.2\%$ | $+0.0\%$ |
+
+- Adding Tier 2 (Total Water Level / Infragravity Runup) provides the single largest kinetic lift across all sites ($+47.6\%$ to $+84.7\%$, peaking at Truc Vert).
+- Adding Tier 3 (Radiation Stress $S_{xx}, S_{xy}$) adds another $+24.6\%$ to $+31.0\%$ kinetic amplification.
+
+#### Climatological Summary Table (Cell 20):
+| Observatory | Slope $\tan\beta$ | $D_{50}$ (mm) | Tide Range (m) | Mean $H_s$ (m) | Max $H_s$ (m) | Mean Steepness $s_0$ | Mean $S_{xx}$ (N/m) | Collision Freq (%) | $\Upsilon_{\text{ref}}$ (kg/s) | Surveys ($N$) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Duck** | $0.080$ | $0.35$ | $1.0\text{ m}$ | $1.11\text{ m}$ | $5.79\text{ m}$ | $0.0173$ | $549.0$ | $0.1\%$ | $1,964\text{ kg/s}$ | $141$ |
+| **Narrabeen-Collaroy** | $0.090$ | $0.30$ | $1.2\text{ m}$ | $1.43\text{ m}$ | $6.23\text{ m}$ | $0.0134$ | $613.0$ | $0.1\%$ | $5,783\text{ kg/s}$ | $849$ |
+| **Torrey Pines Beach** | $0.040$ | $0.20$ | $1.5\text{ m}$ | $1.09\text{ m}$ | $4.78\text{ m}$ | $0.0052$ | $675.4$ | $0.0\%$ | $3,374\text{ kg/s}$ | $110$ |
+| **Truc Vert Beach** | $0.060$ | $0.38$ | $4.5\text{ m}$ | $1.83\text{ m}$ | $8.24\text{ m}$ | $0.0110$ | $2,358.6$ | $0.1\%$ | $6,874\text{ kg/s}$ | $128$ |
+
+---
+
+### 5. Critical Reality Check: In-Situ Field Survey Coupling Diagnostic (Cell 22)
+
+Cell 22 couples cumulative and peak $\Upsilon$ forcing directly to real surveyed shoreline displacement ($\Delta X$, meters) across authentic field surveys:
+
+| Observatory | Primary Transect | Intervals Evaluated ($N$) | Mean $\Delta X$ (m) | $r(\text{Cumulative } \Upsilon, \Delta X)$ | Spearman $\rho$ | $r(\text{Peak } \Upsilon, \Delta X)$ | Empirical Significance |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Duck** | `FRF_m091` | 47 | $+0.17 \pm 5.14$ | **$-0.076$** ($p = 0.613$) | $-0.114$ | $+0.051$ ($p = 0.733$) | **Statistically Insignificant ($p > 0.60$)** |
+| **Narrabeen-Collaroy** | `PF1` | 174 | $+0.01 \pm 6.00$ | **$-0.358$** ($p < 0.001$) | $-0.050$ | **$-0.424$** ($p < 0.001$) | **Statistically Significant Erosion** |
+| **Torrey Pines Beach** | `TP_NORTH` | 54 | $+0.18 \pm 6.69$ | **$+0.276$** ($p = 0.043$) | $+0.106$ | **$+0.295$** ($p = 0.030$) | **Statistically Significant ACCRETION ($r > 0$)** |
+| **Truc Vert Beach** | `TV_SOUTH` | 46 | $+0.35 \pm 8.39$ | **$-0.438$** ($p = 0.002$) | $-0.291$ | **$-0.465$** ($p = 0.001$) | **Statistically Significant Erosion** |
+
+#### Crucial Scientific Insights for the Research Paper:
+1. **Raw $\Upsilon$ is NOT a Universal 1D Erosion Index**:
+   - At **Narrabeen** ($r = -0.36$) and **Truc Vert** ($r = -0.44$), higher $\Upsilon$ correlates with erosion ($\Delta X < 0$), matching classical intuition.
+   - At **Duck** ($r = -0.076, p = 0.613$), there is **zero statistically significant correlation**. Duck possesses persistent, dynamic sandbars that weld, migrate, and buffer offshore storm energy, decoupling deepwater wave power from dry beach scarping.
+   - At **Torrey Pines** ($r = +0.276, p = 0.043$), $\Upsilon$ displays a **statistically significant POSITIVE correlation with beach accretion**! Low-steepness Pacific swells ($s_0 \approx 0.005, T_p > 14\text{ s}$) push offshore sand onshore, building the berm rather than eroding it.
+2. **The Mandate for Baselines & SciML**:
+   This striking empirical divergence proves that attempting to use $\Upsilon$ as a monotonic, unaugmented 1D erosion formula fails on real-world coastlines. This directly motivates **Notebook 02** (where 1D baselines are shown to hit a noise floor of $R^2 \le 0.023$) and **Notebook 03** (where SciML neural ODEs and UMAP latent embeddings resolve multi-modal nonlinear morphodynamics).
 

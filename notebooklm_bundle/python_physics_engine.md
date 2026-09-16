@@ -87,7 +87,7 @@ DUCK_SHORE_NORMAL_DEG: float = 70.0 # USACE FRF Duck, NC shore-normal azimuth (d
 # Global Coastal Site Geomorphology Profiles Database
 COASTAL_SITE_PROFILES: Dict[str, Dict[str, Any]] = {
     "duck_nc": {
-        "name": "USACE FRF Duck, NC, USA",
+        "name": "Duck, NC, USA",
         "latitude": 36.183,
         "longitude": -75.750,
         "shore_normal_deg": 70.0,
