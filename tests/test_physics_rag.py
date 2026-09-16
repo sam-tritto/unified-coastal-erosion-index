@@ -39,6 +39,7 @@ from src.physics_rag import (
     generate_decoupled_mode_summary,
     RawDataLLMRAG,
     RuleBasedSQLRAG,
+    HybridPhysicsRAG,
 )
 
 
@@ -1081,6 +1082,29 @@ def test_peak_hydrodynamic_work_graded_ndcg(sample_coastal_df: pd.DataFrame) -> 
     eval_res = evaluate_retrieval_query(rag, q_spec, k=5)
     assert "graded_ndcg_at_k" in eval_res
     assert 0.0 <= eval_res["graded_ndcg_at_k"] <= 1.0
+
+
+def test_hybrid_rag_target_synthetic_values_with_none(sample_coastal_df):
+    """Ensure HybridPhysicsRAG handles target_synthetic_values containing NoneType without TypeError."""
+    rag = HybridPhysicsRAG(sample_coastal_df)
+
+    # 1. Test with default TargetSyntheticValues instance (all fields None)
+    spec_model = PhysicsQuerySpec(
+        raw_query="Narrabeen East Coast Low storm erosion exceeding 4m",
+        intent_summary="Extreme storm erosion",
+        target_synthetic_values=TargetSyntheticValues(),
+    )
+    res_model = rag.query("Narrabeen East Coast Low storm erosion exceeding 4m", spec=spec_model)
+    assert len(res_model.matches_df) > 0
+
+    # 2. Test with dict containing explicit None fields
+    spec_dict = PhysicsQuerySpec(
+        raw_query="Narrabeen East Coast Low storm erosion exceeding 4m",
+        intent_summary="Extreme storm erosion",
+        target_synthetic_values={"hs_m": None, "tp_s": None, "surge_m": None, "p_flux_Wm": None},
+    )
+    res_dict = rag.query("Narrabeen East Coast Low storm erosion exceeding 4m", spec=spec_dict)
+    assert len(res_dict.matches_df) > 0
 
 
 
