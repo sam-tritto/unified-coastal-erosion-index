@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import os
 import re
+import json
 import logging
 from typing import Dict, Any, List, Optional, Tuple, Union, Literal
 import numpy as np
@@ -896,6 +897,79 @@ class PhysicsQueryParser:
         return parsed
 
 
+_GEMINI_PARSE_CACHE_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "cache", "gemini_query_cache.json"
+)
+_GEMINI_PARSE_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _load_query_cache() -> None:
+    global _GEMINI_PARSE_CACHE
+    if not _GEMINI_PARSE_CACHE and os.path.exists(_GEMINI_PARSE_CACHE_FILE):
+        try:
+            with open(_GEMINI_PARSE_CACHE_FILE, "r") as f:
+                loaded = json.load(f)
+                _GEMINI_PARSE_CACHE.clear()
+                _GEMINI_PARSE_CACHE.update(loaded)
+        except Exception:
+            pass
+
+
+def _save_query_cache() -> None:
+    try:
+        os.makedirs(os.path.dirname(_GEMINI_PARSE_CACHE_FILE), exist_ok=True)
+        tmp_file = _GEMINI_PARSE_CACHE_FILE + ".tmp"
+        with open(tmp_file, "w") as f:
+            json.dump(_GEMINI_PARSE_CACHE, f, indent=2)
+        os.replace(tmp_file, _GEMINI_PARSE_CACHE_FILE)
+    except Exception as e:
+        logger.warning(f"Failed to save Gemini query cache: {e}")
+
+
+def _call_gemini_with_retry(
+    client: Any,
+    model: str,
+    contents: Any,
+    config: Dict[str, Any],
+    max_retries: int = 3,
+    backoff: float = 2.0,
+) -> Any:
+    """Execute a Gemini API call with exponential backoff on transient errors (504, 503, 429, timeouts)."""
+    import time
+    last_err = None
+    for attempt in range(max_retries + 1):
+        try:
+            return client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=config,
+            )
+        except Exception as e:
+            last_err = e
+            err_str = str(e).lower()
+            is_transient = (
+                "504" in err_str
+                or "deadline_exceeded" in err_str
+                or "503" in err_str
+                or "unavailable" in err_str
+                or "429" in err_str
+                or "resource_exhausted" in err_str
+                or "timeout" in err_str
+                or "timed out" in err_str
+                or "connection" in err_str
+            )
+            if is_transient and attempt < max_retries:
+                sleep_sec = backoff * (2 ** attempt)
+                logger.warning(
+                    f"Gemini call hit transient error ({type(e).__name__}: {e}). "
+                    f"Retrying in {sleep_sec:.1f}s (attempt {attempt + 1}/{max_retries})..."
+                )
+                time.sleep(sleep_sec)
+                continue
+            raise
+    raise last_err
+
+
 class GeminiPhysicsQueryParser:
     """Uses Gemini Flash (or configured model) with structured output to parse natural language queries into PhysicsQuerySpec."""
 
@@ -988,6 +1062,17 @@ Guidelines:
         if mode_clean in ["pure_regex", "regex", "deterministic", "fallback"]:
             return cls._fallback_parse(query_text)
 
+        # 1. Check persistent disk cache first (0 tokens, <1ms response)
+        cache_key = f"{model_name}:{mode_clean}:{query_text.strip()}"
+        _load_query_cache()
+        if cache_key in _GEMINI_PARSE_CACHE:
+            try:
+                cached_dict = dict(_GEMINI_PARSE_CACHE[cache_key])
+                cached_dict["raw_query"] = query_text
+                return PhysicsQuerySpec(**cached_dict)
+            except Exception:
+                pass
+
         nl_spec = cls._fallback_parse(query_text)
         try:
             from google import genai
@@ -995,16 +1080,17 @@ Guidelines:
             if client is None:
                 k = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
                 if k:
-                    client = genai.Client(api_key=k)
+                    client = genai.Client(api_key=k, http_options={"timeout": 45000})
                 else:
                     try:
-                        client = genai.Client()
+                        client = genai.Client(http_options={"timeout": 45000})
                     except Exception:
                         client = None
 
             if client is not None:
                 schema = sanitize_gemini_schema(PhysicsQuerySpec.model_json_schema())
-                response = client.models.generate_content(
+                response = _call_gemini_with_retry(
+                    client=client,
                     model=model_name,
                     contents=f"Parse the following coastal oceanography query into the PhysicsQuerySpec schema:\nQuery: {query_text}",
                     config={
@@ -1012,7 +1098,10 @@ Guidelines:
                         "response_mime_type": "application/json",
                         "response_schema": schema,
                         "temperature": 0.0,
+                        "http_options": {"timeout": 45000},
                     },
+                    max_retries=3,
+                    backoff=2.0,
                 )
                 if response and response.text:
                     import json
@@ -1020,8 +1109,10 @@ Guidelines:
                     parsed_json["raw_query"] = query_text
                     spec = PhysicsQuerySpec(**parsed_json)
 
-                    # In Pure Gemini mode, return directly without regex backfilling
+                    # In Pure Gemini mode, cache and return directly without regex backfilling
                     if mode_clean in ["pure_gemini", "gemini_only", "zero_shot"]:
+                        _GEMINI_PARSE_CACHE[cache_key] = spec.model_dump()
+                        _save_query_cache()
                         return spec
 
                     # In Hybrid mode, backfill zero-shot synthetic values & omitted fields from deterministic fallback
@@ -1030,6 +1121,9 @@ Guidelines:
                     for attr in ["breaker_regime", "site_id", "geomorphic_regime", "hs_min", "tp_min", "surge_min", "wind_normal_min", "focus", "is_failure_mode"]:
                         if getattr(spec, attr, None) is None and getattr(nl_spec, attr, None) is not None:
                             setattr(spec, attr, getattr(nl_spec, attr))
+
+                    _GEMINI_PARSE_CACHE[cache_key] = spec.model_dump()
+                    _save_query_cache()
                     return spec
         except Exception as e:
             logger.error(f"Gemini physics query parsing failed for '{query_text}': {e}")
@@ -3774,6 +3868,82 @@ def _get_breaker(row: Any) -> str:
     return ""
 
 
+def _get_steepness_series(df: pd.DataFrame) -> pd.Series:
+    """Extract or dynamically compute deepwater wave steepness H0/L0 series."""
+    if "wave_steepness" in df.columns:
+        return df["wave_steepness"]
+    elif "steepness" in df.columns:
+        return df["steepness"]
+    elif "s0" in df.columns:
+        return df["s0"]
+    elif "hs_m" in df.columns and "l_0_m" in df.columns:
+        l0 = df["l_0_m"].replace(0, np.nan)
+        return (df["hs_m"] / l0).fillna(0.0)
+    elif "hs_m" in df.columns and "tp_s" in df.columns:
+        l0 = 1.5613 * (df["tp_s"] ** 2)
+        l0 = l0.replace(0, np.nan)
+        return (df["hs_m"] / l0).fillna(0.0)
+    return pd.Series(0.0, index=df.index)
+
+
+def _get_row_steepness(row: Any) -> float:
+    """Extract or compute deepwater wave steepness H0/L0 for a single row."""
+    if hasattr(row, "get"):
+        for k in ["wave_steepness", "steepness", "s0"]:
+            val = row.get(k)
+            if val is not None:
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    pass
+        hs = float(row.get("hs_m", 0.0))
+        l0 = float(row.get("l_0_m", 0.0))
+        if l0 > 0:
+            return hs / l0
+        tp = float(row.get("tp_s", 0.0))
+        if tp > 0:
+            return hs / (1.5613 * (tp ** 2))
+    return 0.0
+
+
+def _get_runup_ig_series(df: pd.DataFrame) -> pd.Series:
+    """Extract or dynamically compute infragravity swash runup excursion R_ig series."""
+    if "runup_r_ig_m" in df.columns:
+        return df["runup_r_ig_m"]
+    elif "r_ig_m" in df.columns:
+        return df["r_ig_m"]
+    elif "r_ig" in df.columns:
+        return df["r_ig"]
+    elif "hs_m" in df.columns and "tp_s" in df.columns:
+        # Stockdon et al. (2006): R_ig = 0.06 * sqrt(H0 * L0) = 0.075 * Tp * sqrt(Hs)
+        hs = df["hs_m"].clip(lower=0.0)
+        tp = df["tp_s"].clip(lower=0.0)
+        return 0.075 * tp * np.sqrt(hs)
+    elif "runup_r2_m" in df.columns:
+        return df["runup_r2_m"] * 0.40
+    return pd.Series(0.0, index=df.index)
+
+
+def _get_row_runup_ig(row: Any) -> float:
+    """Extract or compute infragravity swash runup excursion R_ig for a single row."""
+    if hasattr(row, "get"):
+        for k in ["runup_r_ig_m", "r_ig_m", "r_ig"]:
+            val = row.get(k)
+            if val is not None:
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    pass
+        hs = max(0.0, float(row.get("hs_m", 0.0)))
+        tp = max(0.0, float(row.get("tp_s", 0.0)))
+        if hs > 0 and tp > 0:
+            return 0.075 * tp * np.sqrt(hs)
+        r2 = float(row.get("runup_r2_m", 0.0))
+        if r2 > 0:
+            return r2 * 0.40
+    return 0.0
+
+
 ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
     # === CATEGORY 1: HISTORICAL STORM EVENTS (6 QUERIES - ARCHIVED MODE B) ===
     {
@@ -4244,11 +4414,11 @@ ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
         "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"tp_s": 15.0, "runup_r_ig_m": 1.2},
-        "mask_fn": lambda df: (df["runup_r_ig_m"] >= 1.0) & (df["tp_s"] >= 14.0),
-        "condition_fn": lambda row, df: float(row.get("runup_r_ig_m", 0.0)) >= 1.0 and float(row.get("tp_s", 0.0)) >= 14.0,
+        "mask_fn": lambda df: (_get_runup_ig_series(df) >= 1.0) & (df["tp_s"] >= 14.0),
+        "condition_fn": lambda row, df: _get_row_runup_ig(row) >= 1.0 and float(row.get("tp_s", 0.0)) >= 14.0,
         "graded_relevance_fn": _make_graded_fn(
-            lambda row, df: float(row.get("runup_r_ig_m", 0.0)) >= 1.0 and float(row.get("tp_s", 0.0)) >= 14.0,
-            lambda row, df: float(row.get("runup_r_ig_m", 0.0)) >= 0.7 and float(row.get("tp_s", 0.0)) >= 12.0,
+            lambda row, df: _get_row_runup_ig(row) >= 1.0 and float(row.get("tp_s", 0.0)) >= 14.0,
+            lambda row, df: _get_row_runup_ig(row) >= 0.7 and float(row.get("tp_s", 0.0)) >= 12.0,
         ),
         "description": "Infragravity wave resonance and surf beat excursion R_ig >= 1.0m under long swell Tp >= 14s",
     },
@@ -4258,7 +4428,7 @@ ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
         "mode": "Mode A: Pure Phenomenological",
         "target_regime": "Surging",
         "target_synthetic_values": {"tan_beta": 0.08, "xi_iribarren": 1.3, "breaker_regime": "Surging"},
-        "mask_fn": lambda df: (df["breaker_regime"] == "Surging") | (df["xi_iribarren"] >= 1.2),
+        "mask_fn": lambda df: (_get_breaker_series(df) == "Surging") | (df["xi_iribarren"] >= 1.2),
         "condition_fn": lambda row, df: _get_breaker(row) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 1.2,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_breaker(row) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 1.2,
@@ -4356,11 +4526,11 @@ ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
         "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 2.2, "tp_s": 6.5, "wave_steepness": 0.04},
-        "mask_fn": lambda df: (df["wave_steepness"] >= 0.030) & (df["hs_m"] >= 2.0) & (df["tp_s"] <= 8.0),
-        "condition_fn": lambda row, df: float(row.get("wave_steepness", 0.0)) >= 0.030 and float(row.get("hs_m", 0.0)) >= 2.0 and float(row.get("tp_s", 0.0)) <= 8.0,
+        "mask_fn": lambda df: (_get_steepness_series(df) >= 0.030) & (df["hs_m"] >= 2.0) & (df["tp_s"] <= 8.0),
+        "condition_fn": lambda row, df: _get_row_steepness(row) >= 0.030 and float(row.get("hs_m", 0.0)) >= 2.0 and float(row.get("tp_s", 0.0)) <= 8.0,
         "graded_relevance_fn": _make_graded_fn(
-            lambda row, df: float(row.get("wave_steepness", 0.0)) >= 0.030 and float(row.get("hs_m", 0.0)) >= 2.0 and float(row.get("tp_s", 0.0)) <= 8.0,
-            lambda row, df: float(row.get("wave_steepness", 0.0)) >= 0.022 and float(row.get("hs_m", 0.0)) >= 1.5,
+            lambda row, df: _get_row_steepness(row) >= 0.030 and float(row.get("hs_m", 0.0)) >= 2.0 and float(row.get("tp_s", 0.0)) <= 8.0,
+            lambda row, df: _get_row_steepness(row) >= 0.022 and float(row.get("hs_m", 0.0)) >= 1.5,
         ),
         "description": "High-steepness erosive sea chop: H0/L0 >= 0.030 with short wave periods Tp <= 8s driving surface grain shearing",
     },
@@ -4426,11 +4596,11 @@ ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
         "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 3.8, "wave_steepness": 0.03},
-        "mask_fn": lambda df: (df["hs_m"] >= 3.5) & (df["wave_steepness"] >= 0.025),
-        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 3.5 and float(row.get("wave_steepness", 0.0)) >= 0.025,
+        "mask_fn": lambda df: (df["hs_m"] >= 3.5) & (_get_steepness_series(df) >= 0.025),
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 3.5 and _get_row_steepness(row) >= 0.025,
         "graded_relevance_fn": _make_graded_fn(
-            lambda row, df: float(row.get("hs_m", 0.0)) >= 3.5 and float(row.get("wave_steepness", 0.0)) >= 0.025,
-            lambda row, df: float(row.get("hs_m", 0.0)) >= 2.8 and float(row.get("wave_steepness", 0.0)) >= 0.018,
+            lambda row, df: float(row.get("hs_m", 0.0)) >= 3.5 and _get_row_steepness(row) >= 0.025,
+            lambda row, df: float(row.get("hs_m", 0.0)) >= 2.8 and _get_row_steepness(row) >= 0.018,
         ),
         "description": "Severe erosive wave attack: concurrent extreme wave height Hs >= 3.5m and steep wave slope H0/L0 >= 0.025",
     },
@@ -4699,6 +4869,648 @@ DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_B = ARCHIVED_PHYSICS_BENCHMARK_QUERIES_MO
 DEFAULT_PHYSICS_BENCHMARK_QUERIES: List[Dict[str, Any]] = DEFAULT_PHYSICS_BENCHMARK_QUERIES_MODE_A
 
 
+NEW_PHYSICS_BENCHMARK_QUERIES_40: List[Dict[str, Any]] = [
+    # =========================================================================
+    # === CATEGORY 8: DELIBERATE AMBIGUITY & INTENT STRESS TESTS (20 QUERIES) ===
+    # =========================================================================
+    # These queries deliberately blend conflicting temporal and physical bounds,
+    # antagonistic hydrodynamic regimes, or counter-intuitive phase descriptors
+    # to rigorously stress-test the Hybrid Query Parser's zero-shot intent mapping.
+    {
+        "query": "Calm summer low-steepness swell welding the subaerial berm during the October 2012 Hurricane Sandy window at Duck",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 1.1, "tp_s": 11.0, "wave_steepness": 0.008},
+        "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2012-10-25") & (df["timestamp"] <= "2012-11-05") & (df["hs_m"] <= 1.5) & (df["tp_s"] >= 9.0),
+        "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-25", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-11-05", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.5 and float(row.get("tp_s", 0.0)) >= 9.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-25", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-11-05", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.2 and float(row.get("tp_s", 0.0)) >= 10.0,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-25", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-11-05", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.5 and float(row.get("tp_s", 0.0)) >= 9.0,
+            lambda row, df: _get_row_site(row) == "duck_nc" and (float(row.get("hs_m", 0.0)) <= 1.8 and float(row.get("tp_s", 0.0)) >= 8.0),
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2012-10-25", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2012-11-05", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.2 and float(row.get("tp_s", 0.0)) >= 10.0,
+        ),
+        "description": "Temporal-physical conflict: Bounded within Hurricane Sandy window (Oct-Nov 2012) but filtering for quiescent post-storm recovery swell (Hs <= 1.5m, Tp >= 9s)",
+    },
+    {
+        "query": "Severe subaerial dune scarping with negative delta X under low wave heights Hs < 1.2m and dissipative Dean number Omega > 5.5",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": "Spilling",
+        "target_synthetic_values": {"hs_m": 1.1, "dean_number": 6.0, "breaker_regime": "Spilling"},
+        "mask_fn": lambda df: (df["hs_m"] <= 1.3) & (df["dean_number"] >= 5.0) & (_get_breaker_series(df) == "Spilling"),
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) <= 1.3 and float(row.get("dean_number", 0.0)) >= 5.0 and _get_breaker(row) == "Spilling",
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: float(row.get("hs_m", 0.0)) <= 1.3 and float(row.get("dean_number", 0.0)) >= 5.0 and _get_breaker(row) == "Spilling",
+            lambda row, df: float(row.get("hs_m", 0.0)) <= 1.6 and float(row.get("dean_number", 0.0)) >= 4.0,
+        ),
+        "description": "Phase conflict: Explicit erosive scarping intent paired with calm wave height (Hs < 1.2m) and high Dean dissipative regime",
+    },
+    {
+        "query": "Negative storm surge depression below -0.3m during peak extratropical cyclone swell Hs > 4.2m at Duck",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 4.5, "surge_m": -0.35},
+        "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["hs_m"] >= 4.0) & (df["surge_m"] <= -0.20),
+        "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and float(row.get("hs_m", 0.0)) >= 4.0 and float(row.get("surge_m", 0.0)) <= -0.20,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and float(row.get("hs_m", 0.0)) >= 4.5 and float(row.get("surge_m", 0.0)) <= -0.30,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "duck_nc" and float(row.get("hs_m", 0.0)) >= 4.0 and float(row.get("surge_m", 0.0)) <= -0.20,
+            lambda row, df: _get_row_site(row) == "duck_nc" and float(row.get("hs_m", 0.0)) >= 3.5 and float(row.get("surge_m", 0.0)) <= -0.10,
+            lambda row, df: _get_row_site(row) == "duck_nc" and float(row.get("hs_m", 0.0)) >= 4.5 and float(row.get("surge_m", 0.0)) <= -0.30,
+        ),
+        "description": "Meteorological conflict: Extreme storm wave height (Hs > 4.2m) combined with negative storm surge residual (surge <= -0.20m)",
+    },
+    {
+        "query": "Winter storm Jonas epoch with accretionary Dean number Omega < 2.0 and low wave energy",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 1.2, "dean_number": 1.8},
+        "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2016-01-20") & (df["timestamp"] <= "2016-01-28") & (df["hs_m"] <= 1.6) & (df["dean_number"] <= 2.5),
+        "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-01-20", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-28", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.6 and float(row.get("dean_number", 0.0)) <= 2.5,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-01-20", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-01-28", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.6 and float(row.get("dean_number", 0.0)) <= 2.5,
+            lambda row, df: _get_row_site(row) == "duck_nc" and (float(row.get("hs_m", 0.0)) <= 1.8 and float(row.get("dean_number", 0.0)) <= 3.0),
+        ),
+        "description": "Temporal-dynamic mismatch: Named winter storm window (Jonas, Jan 2016) filtering for uncharacteristic low-energy accretionary conditions",
+    },
+    {
+        "query": "High storm surge residual exceeding 0.7m during calm micro-energy waves Hs < 1.0m",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"surge_m": 0.75, "hs_m": 0.8},
+        "mask_fn": lambda df: (df["surge_m"] >= 0.50) & (df["hs_m"] <= 1.2),
+        "condition_fn": lambda row, df: float(row.get("surge_m", 0.0)) >= 0.50 and float(row.get("hs_m", 0.0)) <= 1.2,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: float(row.get("surge_m", 0.0)) >= 0.50 and float(row.get("hs_m", 0.0)) <= 1.2,
+            lambda row, df: float(row.get("surge_m", 0.0)) >= 0.35 and float(row.get("hs_m", 0.0)) <= 1.5,
+        ),
+        "description": "Hydrodynamic decoupling: Large atmospheric surge residual (>= 0.5m) occurring under calm wave action (Hs <= 1.2m)",
+    },
+    {
+        "query": "Reflective surging breakers with surf similarity xi > 1.2 in macrotidal Truc Vert during astronomical high water",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": "Surging",
+        "target_synthetic_values": {"xi_iribarren": 1.3, "total_water_level_m": 2.2, "breaker_regime": "Surging"},
+        "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["xi_iribarren"] >= 1.0) & (df["total_water_level_m"] >= 1.8),
+        "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and float(row.get("xi_iribarren", 0.0)) >= 1.0 and float(row.get("total_water_level_m", 0.0)) >= 1.8,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and float(row.get("xi_iribarren", 0.0)) >= 1.0 and float(row.get("total_water_level_m", 0.0)) >= 1.8,
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and (float(row.get("xi_iribarren", 0.0)) >= 0.8 and float(row.get("total_water_level_m", 0.0)) >= 1.4),
+        ),
+        "description": "Site archetype inversion: Reflective surging breaker regime forced onto an otherwise dissipative/intermediate macrotidal coast",
+    },
+    {
+        "query": "Prolonged high wave power flux over 40 kW/m without significant storm surge residual under 0.1m",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"p_flux_Wm": 45000.0, "surge_m": 0.05},
+        "mask_fn": lambda df: (df["p_flux_Wm"] >= 35000.0) & (df["surge_m"].abs() <= 0.15),
+        "condition_fn": lambda row, df: float(row.get("p_flux_Wm", 0.0)) >= 35000.0 and abs(float(row.get("surge_m", 0.0))) <= 0.15,
+        "peak_work_cond": lambda row, df: float(row.get("p_flux_Wm", 0.0)) >= 45000.0 and abs(float(row.get("surge_m", 0.0))) <= 0.10,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: float(row.get("p_flux_Wm", 0.0)) >= 35000.0 and abs(float(row.get("surge_m", 0.0))) <= 0.15,
+            lambda row, df: float(row.get("p_flux_Wm", 0.0)) >= 25000.0 and abs(float(row.get("surge_m", 0.0))) <= 0.25,
+            lambda row, df: float(row.get("p_flux_Wm", 0.0)) >= 45000.0 and abs(float(row.get("surge_m", 0.0))) <= 0.10,
+        ),
+        "description": "Cross-channel decoupling: Severe deepwater wave energy flux (P >= 35 kW/m) completely unaccompanied by barometric surge",
+    },
+    {
+        "query": "Mild constructive swash welding during active East Coast Low storm window at Narrabeen",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 1.2, "tp_s": 11.0},
+        "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2016-06-01") & (df["timestamp"] <= "2016-06-15") & (df["hs_m"] <= 1.6) & (df["tp_s"] >= 9.5),
+        "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-15", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.6 and float(row.get("tp_s", 0.0)) >= 9.5,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-15", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.6 and float(row.get("tp_s", 0.0)) >= 9.5,
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and (float(row.get("hs_m", 0.0)) <= 2.0 and float(row.get("tp_s", 0.0)) >= 8.5),
+        ),
+        "description": "Event-reversal stress: Named ECL window at Narrabeen but filtering for post-storm constructive relaxation hours",
+    },
+    {
+        "query": "Hurricane Matthew landfall sequence with short-period wind sea chop Tp < 7.0s at Duck",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 6.5},
+        "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2016-10-07") & (df["timestamp"] <= "2016-10-12") & (df["tp_s"] <= 7.5) & (df["hs_m"] >= 2.0),
+        "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-10-07", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-12", tz="UTC") and float(row.get("tp_s", 0.0)) <= 7.5 and float(row.get("hs_m", 0.0)) >= 2.0,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-10-07", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-12", tz="UTC") and float(row.get("tp_s", 0.0)) <= 7.5 and float(row.get("hs_m", 0.0)) >= 2.0,
+            lambda row, df: _get_row_site(row) == "duck_nc" and (float(row.get("tp_s", 0.0)) <= 8.5 and float(row.get("hs_m", 0.0)) >= 1.5),
+        ),
+        "description": "Spectral dispersion stress: Tropical storm landfall targeting short-period steep chop rather than peak ocean swell",
+    },
+    {
+        "query": "Extreme wave runup R2 > 2.0m occurring during microtidal low water level TWL < 0.6m",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"runup_r2_m": 2.2, "total_water_level_m": 0.5},
+        "mask_fn": lambda df: (df["runup_r2_m"] >= 1.8) & (df["total_water_level_m"] <= 0.8),
+        "condition_fn": lambda row, df: float(row.get("runup_r2_m", 0.0)) >= 1.8 and float(row.get("total_water_level_m", 0.0)) <= 0.8,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: float(row.get("runup_r2_m", 0.0)) >= 1.8 and float(row.get("total_water_level_m", 0.0)) <= 0.8,
+            lambda row, df: float(row.get("runup_r2_m", 0.0)) >= 1.4 and float(row.get("total_water_level_m", 0.0)) <= 1.2,
+        ),
+        "description": "Boundary elevation conflict: High swash dynamic excursion (R2 >= 1.8m) decoupled from low absolute total water level (TWL <= 0.8m)",
+    },
+    {
+        "query": "High Iribarren reflective collision regime during El Niño winter window at Torrey Pines",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": "Surging",
+        "target_synthetic_values": {"xi_iribarren": 0.9, "hs_m": 1.8, "tan_beta": 0.055},
+        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2015-12-01") & (df["timestamp"] <= "2016-03-01") & (df["xi_iribarren"] >= 0.75),
+        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-03-01", tz="UTC") and float(row.get("xi_iribarren", 0.0)) >= 0.75,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-03-01", tz="UTC") and float(row.get("xi_iribarren", 0.0)) >= 0.75,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("xi_iribarren", 0.0)) >= 0.60,
+        ),
+        "description": "Macro-climate anomaly stress: El Niño winter targeting steep reflective swash regimes at Torrey Pines",
+    },
+    {
+        "query": "Dissipative spilling wave conditions with Dean number Omega > 6.0 during calm summer months",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": "Spilling",
+        "target_synthetic_values": {"dean_number": 6.5, "hs_m": 1.5},
+        "mask_fn": lambda df: (df["timestamp"].dt.month.isin([6, 7, 8])) & (df["dean_number"] >= 5.5) & (_get_breaker_series(df) == "Spilling"),
+        "condition_fn": lambda row, df: _get_row_ts(row).month in [6, 7, 8] and float(row.get("dean_number", 0.0)) >= 5.5 and _get_breaker(row) == "Spilling",
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_ts(row).month in [6, 7, 8] and float(row.get("dean_number", 0.0)) >= 5.5 and _get_breaker(row) == "Spilling",
+            lambda row, df: _get_row_ts(row).month in [6, 7, 8] and float(row.get("dean_number", 0.0)) >= 4.0,
+        ),
+        "description": "Seasonal inversion: Highly dissipative conditions (Omega >= 5.5) occurring during typically accretive summer months",
+    },
+    {
+        "query": "Rapid shoreline retreat under moderate wave height Hs < 2.0m with steep wave slope exceeding 0.03",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 1.8, "wave_steepness": 0.032},
+        "mask_fn": lambda df: (df["hs_m"] <= 2.2) & (_get_steepness_series(df) >= 0.028),
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) <= 2.2 and _get_row_steepness(row) >= 0.028,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: float(row.get("hs_m", 0.0)) <= 2.2 and _get_row_steepness(row) >= 0.028,
+            lambda row, df: float(row.get("hs_m", 0.0)) <= 2.5 and _get_row_steepness(row) >= 0.022,
+        ),
+        "description": "Steepness-driven erosive attack: Moderate wave amplitude coupled with destructive steepness (s0 >= 0.028)",
+    },
+    {
+        "query": "Peak astronomical spring tide high water TWL > 2.2m under micro-energy waves Hs < 0.8m at Truc Vert",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"total_water_level_m": 2.4, "hs_m": 0.7},
+        "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["total_water_level_m"] >= 2.0) & (df["hs_m"] <= 0.9),
+        "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and float(row.get("total_water_level_m", 0.0)) >= 2.0 and float(row.get("hs_m", 0.0)) <= 0.9,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and float(row.get("total_water_level_m", 0.0)) >= 2.0 and float(row.get("hs_m", 0.0)) <= 0.9,
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and (float(row.get("total_water_level_m", 0.0)) >= 1.6 and float(row.get("hs_m", 0.0)) <= 1.2),
+        ),
+        "description": "Tide-wave imbalance: Macro-tidal inundation elevation (TWL >= 2.0m) paired with glassy wave calm (Hs <= 0.9m)",
+    },
+    {
+        "query": "Subaerial berm recovery and swell welding during February 2014 Megastorm Ulla window at Truc Vert",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 1.5, "tp_s": 12.0},
+        "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2014-02-10") & (df["timestamp"] <= "2014-02-25") & (df["hs_m"] <= 2.2) & (df["tp_s"] >= 10.0),
+        "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-02-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-02-25", tz="UTC") and float(row.get("hs_m", 0.0)) <= 2.2 and float(row.get("tp_s", 0.0)) >= 10.0,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-02-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-02-25", tz="UTC") and float(row.get("hs_m", 0.0)) <= 2.2 and float(row.get("tp_s", 0.0)) >= 10.0,
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and (float(row.get("hs_m", 0.0)) <= 2.8 and float(row.get("tp_s", 0.0)) >= 9.0),
+        ),
+        "description": "Megastorm inter-pulse lull: Filtering for quiescent swell recovery during the historic February 2014 winter window",
+    },
+    {
+        "query": "Sustained high wave period Tp > 15s with negative disequilibrium accretion potential",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"tp_s": 16.0, "hs_m": 1.2, "upsilon": 5000.0},
+        "mask_fn": lambda df: (df["tp_s"] >= 14.5) & (df["hs_m"] <= 1.4),
+        "condition_fn": lambda row, df: float(row.get("tp_s", 0.0)) >= 14.5 and float(row.get("hs_m", 0.0)) <= 1.4,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: float(row.get("tp_s", 0.0)) >= 14.5 and float(row.get("hs_m", 0.0)) <= 1.4,
+            lambda row, df: float(row.get("tp_s", 0.0)) >= 12.5 and float(row.get("hs_m", 0.0)) <= 1.7,
+        ),
+        "description": "Disequilibrium state: Long period constructive swell producing negative erosion disequilibrium",
+    },
+    {
+        "query": "Strong onshore gale winds > 15 m/s with gentle wave heights Hs < 1.5m at Duck",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"wind_speed_ms": 16.0, "hs_m": 1.2},
+        "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["wind_speed_ms"] >= 13.0) & (df["hs_m"] <= 1.6),
+        "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and float(row.get("wind_speed_ms", 0.0)) >= 13.0 and float(row.get("hs_m", 0.0)) <= 1.6,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "duck_nc" and float(row.get("wind_speed_ms", 0.0)) >= 13.0 and float(row.get("hs_m", 0.0)) <= 1.6,
+            lambda row, df: _get_row_site(row) == "duck_nc" and (float(row.get("wind_speed_ms", 0.0)) >= 10.0 and float(row.get("hs_m", 0.0)) <= 2.0),
+        ),
+        "description": "Atmospheric-wave decoupling: Gale force winds (>= 13 m/s) with limited fetch producing modest wave height (Hs <= 1.6m)",
+    },
+    {
+        "query": "Plunging breaker collision during calm astronomical neap tide at Narrabeen",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": "Plunging",
+        "target_synthetic_values": {"hs_m": 2.2, "total_water_level_m": 0.8, "breaker_regime": "Plunging"},
+        "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (_get_breaker_series(df) == "Plunging") & (df["total_water_level_m"] <= 0.9),
+        "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and _get_breaker(row) == "Plunging" and float(row.get("total_water_level_m", 0.0)) <= 0.9,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and _get_breaker(row) == "Plunging" and float(row.get("total_water_level_m", 0.0)) <= 0.9,
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and (_get_breaker(row) == "Plunging" or float(row.get("total_water_level_m", 0.0)) <= 1.2),
+        ),
+        "description": "Hydrodynamic phase stress: Plunging breaker dynamics during suppressed neap tidal water levels",
+    },
+    {
+        "query": "Low wave steepness swell s0 < 0.010 with dune collision regime at Torrey Pines",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"wave_steepness": 0.007, "runup_r2_m": 2.0},
+        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (_get_steepness_series(df) <= 0.009) & (df["runup_r2_m"] >= 1.6),
+        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and _get_row_steepness(row) <= 0.009 and float(row.get("runup_r2_m", 0.0)) >= 1.6,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and _get_row_steepness(row) <= 0.009 and float(row.get("runup_r2_m", 0.0)) >= 1.6,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and (_get_row_steepness(row) <= 0.012 and float(row.get("runup_r2_m", 0.0)) >= 1.3),
+        ),
+        "description": "Parametric contradiction: Very flat swell (s0 <= 0.009) yet penetrating the subaerial dune via infragravity runup",
+    },
+    {
+        "query": "High-energy wave power flux > 50 kW/m during late summer baseline survey epoch at Duck",
+        "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+        "mode": "Mode C: Deliberate Ambiguity",
+        "target_regime": None,
+        "target_synthetic_values": {"p_flux_Wm": 55000.0, "hs_m": 3.8},
+        "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"].dt.month == 9) & (df["p_flux_Wm"] >= 40000.0),
+        "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and _get_row_ts(row).month == 9 and float(row.get("p_flux_Wm", 0.0)) >= 40000.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and _get_row_ts(row).month == 9 and float(row.get("p_flux_Wm", 0.0)) >= 50000.0,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "duck_nc" and _get_row_ts(row).month == 9 and float(row.get("p_flux_Wm", 0.0)) >= 40000.0,
+            lambda row, df: _get_row_site(row) == "duck_nc" and (_get_row_ts(row).month == 9 and float(row.get("p_flux_Wm", 0.0)) >= 25000.0),
+            lambda row, df: _get_row_site(row) == "duck_nc" and _get_row_ts(row).month == 9 and float(row.get("p_flux_Wm", 0.0)) >= 50000.0,
+        ),
+        "description": "Baseline epoch anomaly: September post-summer baseline survey window experiencing an extreme early-season cyclone wave power spike",
+    },
+
+    # =========================================================================
+    # === CATEGORY 9: 3D MORPHODYNAMIC PATHOLOGIES & 1D FAILURE MODES (20 QUERIES) ===
+    # =========================================================================
+    # These queries heavily target authentic field survey failure modes where
+    # 1D equilibrium indices falsely predict erosion or accretion due to decoupled
+    # 3D processes: 2D embayed rotation, infragravity resonance, antecedent scarp
+    # unbuffering, and multi-year offshore sandbar sequestration.
+    {
+        "query": "Narrabeen June 2016 East Coast Low extreme wave obliquity and alongshore radiation stress Sxy divergence",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 4.5, "rad_stress_sxy": 130.0, "wave_dir_deg": 105.0},
+        "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2016-06-03") & (df["timestamp"] <= "2016-06-08") & (df["hs_m"] >= 3.5),
+        "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-03", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-08", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-04", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-07", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-03", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-08", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.5,
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and ((pd.Timestamp("2016-05-28", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-15", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.5),
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2016-06-04", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-06-07", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.0,
+        ),
+        "description": "3D Pathology: 2D embayment rotation at Narrabeen (PF1 -16.11m retreat) driven by oblique wave radiation stress Sxy > 120 N/m where 1D models fail",
+    },
+    {
+        "query": "Torrey Pines June 2015 ultra-long period swell infragravity surf-beat resonance stripping subaerial sand",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 1.48, "tp_s": 16.0, "wave_steepness": 0.0052},
+        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2015-06-12") & (df["timestamp"] <= "2015-06-20") & (df["tp_s"] >= 14.5),
+        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-06-12", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-06-20", tz="UTC") and float(row.get("tp_s", 0.0)) >= 14.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-06-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-06-18", tz="UTC") and float(row.get("tp_s", 0.0)) >= 15.5,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-06-12", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-06-20", tz="UTC") and float(row.get("tp_s", 0.0)) >= 14.5,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("tp_s", 0.0)) >= 13.0,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-06-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-06-18", tz="UTC") and float(row.get("tp_s", 0.0)) >= 15.5,
+        ),
+        "description": "3D Pathology: Infragravity resonance cut at Torrey Pines (-9.8m survey loss) under modest wave height (Hs=1.48m) where 1D ODE predicted +0.42m accretion",
+    },
+    {
+        "query": "Duck October 2015 antecedent storm sequence unbuffering subaerial berm prior to Joaquin impact",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 2.7, "tp_s": 10.5, "p_flux_Wm": 35000.0},
+        "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2015-09-28") & (df["timestamp"] <= "2015-10-06") & (df["hs_m"] >= 2.5),
+        "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2015-09-28", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-10-06", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.5,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2015-10-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-10-04", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2015-09-28", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-10-06", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.5,
+            lambda row, df: _get_row_site(row) == "duck_nc" and ((pd.Timestamp("2015-09-24", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-10-10", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.0),
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2015-10-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-10-04", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
+        ),
+        "description": "3D Pathology: Clustered storm impulse at Duck (-6.62m erosion) where prior berm stripping left dune toe unbuffered (1D model predicted only -1.15m)",
+    },
+    {
+        "query": "Truc Vert August 2014 persistent profile deficit from offshore sandbar sediment sequestration",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 1.2, "tp_s": 10.5, "dean_number": 2.2},
+        "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2014-08-15") & (df["timestamp"] <= "2014-08-25") & (df["hs_m"] <= 1.6),
+        "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-08-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-08-25", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.6,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-08-18", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-08-23", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.3,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-08-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-08-25", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.6,
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and float(row.get("hs_m", 0.0)) <= 1.8,
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-08-18", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-08-23", tz="UTC") and float(row.get("hs_m", 0.0)) <= 1.3,
+        ),
+        "description": "3D Pathology: Offshore bar sand sequestration at Truc Vert (-8.45m deficit in Aug 2014) where 1D ODE predicted +1.10m fair-weather accretion",
+    },
+    {
+        "query": "Truc Vert macrotidal spring low-tide surf zone shoaling where intertidal bars dissipate storm energy",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.8, "total_water_level_m": 0.5},
+        "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["hs_m"] >= 3.2) & (df["total_water_level_m"] <= 0.8),
+        "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and float(row.get("hs_m", 0.0)) >= 3.2 and float(row.get("total_water_level_m", 0.0)) <= 0.8,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and float(row.get("hs_m", 0.0)) >= 3.2 and float(row.get("total_water_level_m", 0.0)) <= 0.8,
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and float(row.get("hs_m", 0.0)) >= 2.5 and float(row.get("total_water_level_m", 0.0)) <= 1.2,
+        ),
+        "description": "3D Pathology: Dissipative sandflat buffering where extreme wave energy breaking at low tide produces zero dune face erosion",
+    },
+    {
+        "query": "Narrabeen April 2015 cyclonic swell with sustained south-southeast wave obliquity driving northward drift",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.8, "tp_s": 12.0, "rad_stress_sxy": 90.0},
+        "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2015-04-18") & (df["timestamp"] <= "2015-04-26") & (df["hs_m"] >= 2.8),
+        "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2015-04-18", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-04-26", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2015-04-20", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-04-24", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.2,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2015-04-18", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-04-26", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and float(row.get("hs_m", 0.0)) >= 2.2,
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2015-04-20", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-04-24", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.2,
+        ),
+        "description": "3D Pathology: Oblique storm waves generating sustained alongshore sediment transport divergence in an embayed boundary",
+    },
+    {
+        "query": "Torrey Pines winter El Niño long-period swell swash resonance with runup R2 exceeding dune toe",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 2.2, "tp_s": 15.5, "runup_r2_m": 2.4},
+        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2015-12-15") & (df["timestamp"] <= "2016-02-15") & (df["tp_s"] >= 14.0) & (df["runup_r2_m"] >= 1.8),
+        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-02-15", tz="UTC") and float(row.get("tp_s", 0.0)) >= 14.0 and float(row.get("runup_r2_m", 0.0)) >= 1.8,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-02-15", tz="UTC") and float(row.get("tp_s", 0.0)) >= 14.0 and float(row.get("runup_r2_m", 0.0)) >= 1.8,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("tp_s", 0.0)) >= 12.0 and float(row.get("runup_r2_m", 0.0)) >= 1.4,
+        ),
+        "description": "3D Pathology: Infragravity swash resonance penetrating the subaerial cliff toe during El Niño winter",
+    },
+    {
+        "query": "Duck March 2014 bimodal sea state where antecedent scarping leaves dune face vulnerable to overwash",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.2, "tp_s": 10.0, "surge_m": 0.4},
+        "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2014-03-24") & (df["timestamp"] <= "2014-03-31") & (df["hs_m"] >= 2.5),
+        "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-03-24", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-31", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.5,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-03-24", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-31", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.5,
+            lambda row, df: _get_row_site(row) == "duck_nc" and float(row.get("hs_m", 0.0)) >= 2.0,
+        ),
+        "description": "3D Pathology: Late winter nor'easter scarping where antecedent beach lowered profile accelerates overwash",
+    },
+    {
+        "query": "Truc Vert Megastorm Hercules outer bar rip current excavation and seaward sediment jet",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 6.5, "tp_s": 15.0, "p_flux_Wm": 90000.0},
+        "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2014-01-04") & (df["timestamp"] <= "2014-01-09") & (df["hs_m"] >= 5.0),
+        "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-01-04", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-01-09", tz="UTC") and float(row.get("hs_m", 0.0)) >= 5.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-01-05", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-01-08", tz="UTC") and float(row.get("hs_m", 0.0)) >= 6.0,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-01-04", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-01-09", tz="UTC") and float(row.get("hs_m", 0.0)) >= 5.0,
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and float(row.get("hs_m", 0.0)) >= 3.8,
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2014-01-05", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-01-08", tz="UTC") and float(row.get("hs_m", 0.0)) >= 6.0,
+        ),
+        "description": "3D Pathology: Megastorm Hercules ripping deep crescentic bar channels and jetting sediment beyond cross-shore closure depth",
+    },
+    {
+        "query": "Narrabeen August 2014 embayment rotation with severe alongshore gradient in wave breaking height",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.8, "tp_s": 12.5},
+        "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2014-08-16") & (df["timestamp"] <= "2014-08-22") & (df["hs_m"] >= 2.8),
+        "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2014-08-16", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-08-22", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2014-08-16", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-08-22", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and float(row.get("hs_m", 0.0)) >= 2.2,
+        ),
+        "description": "3D Pathology: August 2014 winter East Coast Low driving embayment rotation across Narrabeen-Collaroy",
+    },
+    {
+        "query": "Torrey Pines southern swell long-period infragravity swash collision during astronomical high tide",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"tp_s": 15.0, "total_water_level_m": 2.0, "hs_m": 1.4},
+        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["tp_s"] >= 13.5) & (df["total_water_level_m"] >= 1.8),
+        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("tp_s", 0.0)) >= 13.5 and float(row.get("total_water_level_m", 0.0)) >= 1.8,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("tp_s", 0.0)) >= 13.5 and float(row.get("total_water_level_m", 0.0)) >= 1.8,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("tp_s", 0.0)) >= 11.5 and float(row.get("total_water_level_m", 0.0)) >= 1.5,
+        ),
+        "description": "3D Pathology: Southern hemisphere long swell colliding with cliff base under combined astronomical high tide and infragravity runup",
+    },
+    {
+        "query": "Duck September 2014 post-storm berm deficit failing to recover under short-period swell",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 1.1, "tp_s": 7.5},
+        "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2014-09-01") & (df["timestamp"] <= "2014-09-25") & (df["tp_s"] <= 8.5) & (df["hs_m"] <= 1.4),
+        "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-09-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-09-25", tz="UTC") and float(row.get("tp_s", 0.0)) <= 8.5 and float(row.get("hs_m", 0.0)) <= 1.4,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2014-09-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-09-25", tz="UTC") and float(row.get("tp_s", 0.0)) <= 8.5 and float(row.get("hs_m", 0.0)) <= 1.4,
+            lambda row, df: _get_row_site(row) == "duck_nc" and (float(row.get("tp_s", 0.0)) <= 9.5 and float(row.get("hs_m", 0.0)) <= 1.8),
+        ),
+        "description": "3D Pathology: Post-summer profile recovery failure where short wave periods lack the onshore mass transport required to weld berm sand",
+    },
+    {
+        "query": "Truc Vert winter 2013-2014 extreme cumulative wave power flux exhausting intertidal sediment supply",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"p_flux_Wm": 70000.0, "hs_m": 5.2},
+        "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2013-12-15") & (df["timestamp"] <= "2014-03-01") & (df["p_flux_Wm"] >= 50000.0),
+        "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2013-12-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-01", tz="UTC") and float(row.get("p_flux_Wm", 0.0)) >= 50000.0,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2013-12-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-01", tz="UTC") and float(row.get("p_flux_Wm", 0.0)) >= 70000.0,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2013-12-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-01", tz="UTC") and float(row.get("p_flux_Wm", 0.0)) >= 50000.0,
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and float(row.get("p_flux_Wm", 0.0)) >= 35000.0,
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2013-12-15", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2014-03-01", tz="UTC") and float(row.get("p_flux_Wm", 0.0)) >= 70000.0,
+        ),
+        "description": "3D Pathology: Sustained mega-cyclone clustering that permanently strips the subaerial reservoir beyond 1D recovery thresholds",
+    },
+    {
+        "query": "Narrabeen Collaroy embayed headland wave refraction shadow with asymmetric alongshore transport",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"wave_dir_deg": 140.0, "hs_m": 2.5, "rad_stress_sxy": 80.0},
+        "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["wave_dir_deg"] >= 130.0) & (df["hs_m"] >= 2.0),
+        "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and float(row.get("wave_dir_deg", 0.0)) >= 130.0 and float(row.get("hs_m", 0.0)) >= 2.0,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and float(row.get("wave_dir_deg", 0.0)) >= 130.0 and float(row.get("hs_m", 0.0)) >= 2.0,
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and float(row.get("wave_dir_deg", 0.0)) >= 115.0 and float(row.get("hs_m", 0.0)) >= 1.6,
+        ),
+        "description": "3D Pathology: Southern wave refraction behind headland shelter setting up strong alongshore energy gradients",
+    },
+    {
+        "query": "Torrey Pines low-steepness infragravity swash overtopping cobblestone berm during El Niño",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"runup_r2_m": 2.2, "wave_steepness": 0.007},
+        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["runup_r2_m"] >= 1.9) & (_get_steepness_series(df) <= 0.008),
+        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("runup_r2_m", 0.0)) >= 1.9 and _get_row_steepness(row) <= 0.008,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("runup_r2_m", 0.0)) >= 1.9 and _get_row_steepness(row) <= 0.008,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("runup_r2_m", 0.0)) >= 1.5 and _get_row_steepness(row) <= 0.011,
+        ),
+        "description": "3D Pathology: Swash resonance overtopping coarse sediment berms without offshore wave breaking dissipation",
+    },
+    {
+        "query": "Duck November 2015 nor'easter antecedent clustering where second storm peak drives accelerated dune toe scarping",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.4, "tp_s": 11.0, "surge_m": 0.35},
+        "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2015-11-05") & (df["timestamp"] <= "2015-11-15") & (df["hs_m"] >= 2.8),
+        "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2015-11-05", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-11-15", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2015-11-05", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-11-15", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.8,
+            lambda row, df: _get_row_site(row) == "duck_nc" and float(row.get("hs_m", 0.0)) >= 2.2,
+        ),
+        "description": "3D Pathology: Clustered storm sequence where antecedent storm memory induces accelerated non-linear dune retreat",
+    },
+    {
+        "query": "Truc Vert January 2015 outer bar channel rip drainage during falling macrotidal ebb tide",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 3.5, "total_water_level_m": 1.0},
+        "mask_fn": lambda df: (_get_site_series(df) == "truc_vert_france") & (df["timestamp"] >= "2015-01-12") & (df["timestamp"] <= "2015-01-18") & (df["hs_m"] >= 3.0),
+        "condition_fn": lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2015-01-12", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-01-18", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and pd.Timestamp("2015-01-12", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-01-18", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.0,
+            lambda row, df: _get_row_site(row) == "truc_vert_france" and float(row.get("hs_m", 0.0)) >= 2.2,
+        ),
+        "description": "3D Pathology: Storm rip drainage across crescentic bar neck during falling macrotidal stage",
+    },
+    {
+        "query": "Narrabeen November 2013 spring East Coast Low oblique swell inducing profile rotational skew",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 2.8, "tp_s": 10.5},
+        "mask_fn": lambda df: (_get_site_series(df) == "narrabeen_aus") & (df["timestamp"] >= "2013-11-10") & (df["timestamp"] <= "2013-11-18") & (df["hs_m"] >= 2.4),
+        "condition_fn": lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2013-11-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2013-11-18", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.4,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and pd.Timestamp("2013-11-10", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2013-11-18", tz="UTC") and float(row.get("hs_m", 0.0)) >= 2.4,
+            lambda row, df: _get_row_site(row) == "narrabeen_aus" and float(row.get("hs_m", 0.0)) >= 1.8,
+        ),
+        "description": "3D Pathology: Rotational profile response under moderately oblique spring storm forcing",
+    },
+    {
+        "query": "Torrey Pines December 2015 El Niño infragravity surf-beat resonance under deepwater swell steepness under 0.006",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"tp_s": 16.5, "wave_steepness": 0.0055, "hs_m": 1.8},
+        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2015-12-01") & (df["timestamp"] <= "2015-12-31") & (df["tp_s"] >= 15.0) & (_get_steepness_series(df) <= 0.007),
+        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-12-31", tz="UTC") and float(row.get("tp_s", 0.0)) >= 15.0 and _get_row_steepness(row) <= 0.007,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-12-31", tz="UTC") and float(row.get("tp_s", 0.0)) >= 15.0 and _get_row_steepness(row) <= 0.007,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and (float(row.get("tp_s", 0.0)) >= 13.0 and _get_row_steepness(row) <= 0.010),
+        ),
+        "description": "3D Pathology: Extreme low steepness Pacific swell driving infragravity wave amplification against the cliffs",
+    },
+    {
+        "query": "Duck October 2016 Hurricane Matthew compound surge-wave overwash stripping subaerial profile beyond 1D equilibrium recovery",
+        "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+        "mode": "Mode D: 3D Physical Pathology",
+        "target_regime": None,
+        "target_synthetic_values": {"hs_m": 4.8, "surge_m": 0.85, "tp_s": 13.0},
+        "mask_fn": lambda df: (_get_site_series(df) == "duck_nc") & (df["timestamp"] >= "2016-10-07") & (df["timestamp"] <= "2016-10-11") & (df["hs_m"] >= 3.8),
+        "condition_fn": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-10-07", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-11", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.8,
+        "peak_work_cond": lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-10-08", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.2,
+        "graded_relevance_fn": _make_graded_fn(
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-10-07", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-11", tz="UTC") and float(row.get("hs_m", 0.0)) >= 3.8,
+            lambda row, df: _get_row_site(row) == "duck_nc" and ((pd.Timestamp("2016-10-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-18", tz="UTC")) or float(row.get("hs_m", 0.0)) >= 2.8),
+            lambda row, df: _get_row_site(row) == "duck_nc" and pd.Timestamp("2016-10-08", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2016-10-10", tz="UTC") and float(row.get("hs_m", 0.0)) >= 4.2,
+        ),
+        "description": "3D Pathology: Catastrophic 3D barrier island overwash stripping subaerial dunes past morphological tipping point",
+    },
+]
+
+ALL_PHYSICS_BENCHMARK_QUERIES_100: List[Dict[str, Any]] = (
+    ALL_PHYSICS_BENCHMARK_QUERIES_60 + NEW_PHYSICS_BENCHMARK_QUERIES_40
+)
+
+BENCHMARK_QUERIES_DELIBERATE_AMBIGUITY: List[Dict[str, Any]] = [
+    q for q in NEW_PHYSICS_BENCHMARK_QUERIES_40 if "Ambiguity" in q.get("category", "")
+]
+BENCHMARK_QUERIES_PHYSICAL_PATHOLOGIES: List[Dict[str, Any]] = [
+    q for q in NEW_PHYSICS_BENCHMARK_QUERIES_40 if "Patholog" in q.get("category", "")
+]
+
+
+_RAW_DATA_LLM_CACHE_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "cache", "raw_llm_query_cache.json"
+)
+_RAW_DATA_LLM_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _load_raw_llm_cache() -> None:
+    global _RAW_DATA_LLM_CACHE
+    if not _RAW_DATA_LLM_CACHE and os.path.exists(_RAW_DATA_LLM_CACHE_FILE):
+        try:
+            with open(_RAW_DATA_LLM_CACHE_FILE, "r") as f:
+                loaded = json.load(f)
+                _RAW_DATA_LLM_CACHE.clear()
+                _RAW_DATA_LLM_CACHE.update(loaded)
+        except Exception:
+            pass
+
+
+def _save_raw_llm_cache() -> None:
+    try:
+        os.makedirs(os.path.dirname(_RAW_DATA_LLM_CACHE_FILE), exist_ok=True)
+        tmp_file = _RAW_DATA_LLM_CACHE_FILE + ".tmp"
+        with open(tmp_file, "w") as f:
+            json.dump(_RAW_DATA_LLM_CACHE, f, indent=2)
+        os.replace(tmp_file, _RAW_DATA_LLM_CACHE_FILE)
+    except Exception as e:
+        logger.warning(f"Failed to save RawDataLLM cache: {e}")
+
+
 class RawDataLLMRAG:
     """Baseline 1: LLM reasoning agent operating directly on raw telemetry columns and schema.
 
@@ -4763,34 +5575,45 @@ Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested 
         is_mode_a = disable_spatiotemporal_filters or (mode is not None and ("mode a" in str(mode).lower() or "phenomenological" in str(mode).lower()))
         criteria: Dict[str, Any] = {}
         if self.use_live_api:
-            try:
-                from google import genai
-                client = genai.Client(api_key=self.api_key) if self.api_key else genai.Client()
-                sample_df = self.df[self.raw_cols].dropna().head(5).copy()
-                if "timestamp" in sample_df.columns:
-                    sample_df["timestamp"] = sample_df["timestamp"].astype(str)
-                sample_rows = sample_df.to_dict(orient="records")
-                prompt = (
-                    f"Available raw telemetry columns: {self.raw_cols}\n"
-                    f"Sample rows from telemetry dataset: {sample_rows}\n"
-                    f"User natural language query: '{query_text}'\n"
-                    f"Extract JSON filtering criteria over these raw variables and metadata."
-                )
-                response = client.models.generate_content(
-                    model=self.model_name,
-                    contents=prompt,
-                    config={
-                        "system_instruction": self.SYSTEM_PROMPT,
-                        "response_mime_type": "application/json",
-                        "temperature": 0.0,
-                    },
-                )
-                if response and response.text:
-                    import json
-                    criteria = json.loads(response.text)
-            except Exception as e:
-                logger.error(f"RawDataLLMRAG Gemini call failed for '{query_text}': {e}")
-                criteria = self._offline_raw_reasoning(query_text)
+            raw_cache_key = f"{self.model_name}:{query_text.strip()}"
+            _load_raw_llm_cache()
+            if raw_cache_key in _RAW_DATA_LLM_CACHE:
+                criteria = _RAW_DATA_LLM_CACHE[raw_cache_key]
+            else:
+                try:
+                    from google import genai
+                    client = genai.Client(api_key=self.api_key, http_options={"timeout": 45000}) if self.api_key else genai.Client(http_options={"timeout": 45000})
+                    sample_df = self.df[self.raw_cols].dropna().head(5).copy()
+                    if "timestamp" in sample_df.columns:
+                        sample_df["timestamp"] = sample_df["timestamp"].astype(str)
+                    sample_rows = sample_df.to_dict(orient="records")
+                    prompt = (
+                        f"Available raw telemetry columns: {self.raw_cols}\n"
+                        f"Sample rows from telemetry dataset: {sample_rows}\n"
+                        f"User natural language query: '{query_text}'\n"
+                        f"Extract JSON filtering criteria over these raw variables and metadata."
+                    )
+                    response = _call_gemini_with_retry(
+                        client=client,
+                        model=self.model_name,
+                        contents=prompt,
+                        config={
+                            "system_instruction": self.SYSTEM_PROMPT,
+                            "response_mime_type": "application/json",
+                            "temperature": 0.0,
+                            "http_options": {"timeout": 45000},
+                        },
+                        max_retries=3,
+                        backoff=2.0,
+                    )
+                    if response and response.text:
+                        import json
+                        criteria = json.loads(response.text)
+                        _RAW_DATA_LLM_CACHE[raw_cache_key] = criteria
+                        _save_raw_llm_cache()
+                except Exception as e:
+                    logger.error(f"RawDataLLMRAG Gemini call failed for '{query_text}': {e}")
+                    criteria = self._offline_raw_reasoning(query_text)
         else:
             criteria = self._offline_raw_reasoning(query_text)
 
@@ -5540,26 +6363,41 @@ def evaluate_rag_benchmark_suite(
     if benchmark_queries is not None:
         raw_queries = benchmark_queries
     elif benchmark_mode is not None and "all" in str(benchmark_mode).lower():
-        raw_queries = ALL_PHYSICS_BENCHMARK_QUERIES_60
+        if "100" in str(benchmark_mode).lower() or (n_queries is not None and n_queries > 60) or (max_queries is not None and max_queries > 60):
+            raw_queries = ALL_PHYSICS_BENCHMARK_QUERIES_100
+        else:
+            raw_queries = ALL_PHYSICS_BENCHMARK_QUERIES_60
+    elif benchmark_mode is not None and ("100" in str(benchmark_mode).lower()):
+        raw_queries = ALL_PHYSICS_BENCHMARK_QUERIES_100
+    elif benchmark_mode is not None and ("ambiguity" in str(benchmark_mode).lower()):
+        raw_queries = BENCHMARK_QUERIES_DELIBERATE_AMBIGUITY
+    elif benchmark_mode is not None and ("patholog" in str(benchmark_mode).lower()):
+        raw_queries = BENCHMARK_QUERIES_PHYSICAL_PATHOLOGIES
     elif benchmark_mode is not None and ("mode_b" in str(benchmark_mode).lower() or "operational" in str(benchmark_mode).lower()):
         raw_queries = ARCHIVED_PHYSICS_BENCHMARK_QUERIES_MODE_B
     else:
         # Default: Mode A (Pure Phenomenological Search across all 175k global records)
         raw_queries = DEFAULT_PHYSICS_BENCHMARK_QUERIES
 
-    # Filter queries if benchmark_mode specified (defaulting to Mode A)
-    if benchmark_mode is not None:
+    # Filter queries if benchmark_mode specified (defaulting to Mode A when unspecified and no explicit benchmark_queries)
+    if benchmark_queries is not None:
+        queries = list(raw_queries)
+    elif benchmark_mode is not None:
         bm = str(benchmark_mode).lower()
         if "mode_a" in bm or "mode a" in bm or "phenomenological" in bm:
             queries = [q for q in raw_queries if "mode a" in str(q.get("mode", "")).lower() or "phenomenological" in str(q.get("mode", "")).lower()]
         elif "mode_b" in bm or "mode b" in bm or "operational" in bm:
             queries = [q for q in raw_queries if "mode b" in str(q.get("mode", "")).lower() or "operational" in str(q.get("mode", "")).lower()]
-        elif "all" in bm:
-            queries = raw_queries
+        elif "ambiguity" in bm or "mode_c" in bm or "mode c" in bm:
+            queries = [q for q in raw_queries if "mode c" in str(q.get("mode", "")).lower() or "ambiguity" in str(q.get("mode", "")).lower()]
+        elif "patholog" in bm or "mode_d" in bm or "mode d" in bm:
+            queries = [q for q in raw_queries if "mode d" in str(q.get("mode", "")).lower() or "patholog" in str(q.get("mode", "")).lower()]
+        elif "all" in bm or "100" in bm:
+            queries = list(raw_queries)
         else:
             queries = [q for q in raw_queries if "mode a" in str(q.get("mode", "")).lower() or "phenomenological" in str(q.get("mode", "")).lower()]
     else:
-        queries = raw_queries
+        queries = list(raw_queries)
 
     # Configurable sample size limit N (supports 1 <= N <= len(DEFAULT_PHYSICS_BENCHMARK_QUERIES))
     limit_n = max_queries if max_queries is not None else n_queries
@@ -5567,10 +6405,10 @@ def evaluate_rag_benchmark_suite(
         if benchmark_mode is not None and "all" not in str(benchmark_mode).lower():
             queries = queries[:limit_n]
         else:
-            # Balanced sampling across Mode A and Mode B
+            # Balanced sampling across Mode A and Mode B when N <= 60
             q_mode_a = [q for q in queries if "mode a" in str(q.get("mode", "")).lower() or "phenomenological" in str(q.get("mode", "")).lower()]
             q_mode_b = [q for q in queries if "mode b" in str(q.get("mode", "")).lower() or "operational" in str(q.get("mode", "")).lower()]
-            if q_mode_a and q_mode_b:
+            if limit_n <= 60 and q_mode_a and q_mode_b:
                 n_a = (limit_n + 1) // 2
                 n_b = limit_n // 2
                 queries = q_mode_a[:n_a] + q_mode_b[:n_b]
