@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import re
+import json
 import logging
 from typing import Dict, Any, List, Optional, Tuple, Union, Literal
 import numpy as np
@@ -857,6 +858,79 @@ class PhysicsQueryParser:
         return parsed
 
 
+_GEMINI_PARSE_CACHE_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "cache", "gemini_query_cache.json"
+)
+_GEMINI_PARSE_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _load_query_cache() -> None:
+    global _GEMINI_PARSE_CACHE
+    if not _GEMINI_PARSE_CACHE and os.path.exists(_GEMINI_PARSE_CACHE_FILE):
+        try:
+            with open(_GEMINI_PARSE_CACHE_FILE, "r") as f:
+                loaded = json.load(f)
+                _GEMINI_PARSE_CACHE.clear()
+                _GEMINI_PARSE_CACHE.update(loaded)
+        except Exception:
+            pass
+
+
+def _save_query_cache() -> None:
+    try:
+        os.makedirs(os.path.dirname(_GEMINI_PARSE_CACHE_FILE), exist_ok=True)
+        tmp_file = _GEMINI_PARSE_CACHE_FILE + ".tmp"
+        with open(tmp_file, "w") as f:
+            json.dump(_GEMINI_PARSE_CACHE, f, indent=2)
+        os.replace(tmp_file, _GEMINI_PARSE_CACHE_FILE)
+    except Exception as e:
+        logger.warning(f"Failed to save Gemini query cache: {e}")
+
+
+def _call_gemini_with_retry(
+    client: Any,
+    model: str,
+    contents: Any,
+    config: Dict[str, Any],
+    max_retries: int = 3,
+    backoff: float = 2.0,
+) -> Any:
+    """Execute a Gemini API call with exponential backoff on transient errors (504, 503, 429, timeouts)."""
+    import time
+    last_err = None
+    for attempt in range(max_retries + 1):
+        try:
+            return client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=config,
+            )
+        except Exception as e:
+            last_err = e
+            err_str = str(e).lower()
+            is_transient = (
+                "504" in err_str
+                or "deadline_exceeded" in err_str
+                or "503" in err_str
+                or "unavailable" in err_str
+                or "429" in err_str
+                or "resource_exhausted" in err_str
+                or "timeout" in err_str
+                or "timed out" in err_str
+                or "connection" in err_str
+            )
+            if is_transient and attempt < max_retries:
+                sleep_sec = backoff * (2 ** attempt)
+                logger.warning(
+                    f"Gemini call hit transient error ({type(e).__name__}: {e}). "
+                    f"Retrying in {sleep_sec:.1f}s (attempt {attempt + 1}/{max_retries})..."
+                )
+                time.sleep(sleep_sec)
+                continue
+            raise
+    raise last_err
+
+
 class GeminiPhysicsQueryParser:
     """Uses Gemini Flash (or configured model) with structured output to parse natural language queries into PhysicsQuerySpec."""
 
@@ -949,6 +1023,17 @@ Guidelines:
         if mode_clean in ["pure_regex", "regex", "deterministic", "fallback"]:
             return cls._fallback_parse(query_text)
 
+        # 1. Check persistent disk cache first (0 tokens, <1ms response)
+        cache_key = f"{model_name}:{mode_clean}:{query_text.strip()}"
+        _load_query_cache()
+        if cache_key in _GEMINI_PARSE_CACHE:
+            try:
+                cached_dict = dict(_GEMINI_PARSE_CACHE[cache_key])
+                cached_dict["raw_query"] = query_text
+                return PhysicsQuerySpec(**cached_dict)
+            except Exception:
+                pass
+
         nl_spec = cls._fallback_parse(query_text)
         try:
             from google import genai
@@ -956,16 +1041,17 @@ Guidelines:
             if client is None:
                 k = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
                 if k:
-                    client = genai.Client(api_key=k)
+                    client = genai.Client(api_key=k, http_options={"timeout": 45000})
                 else:
                     try:
-                        client = genai.Client()
+                        client = genai.Client(http_options={"timeout": 45000})
                     except Exception:
                         client = None
 
             if client is not None:
                 schema = sanitize_gemini_schema(PhysicsQuerySpec.model_json_schema())
-                response = client.models.generate_content(
+                response = _call_gemini_with_retry(
+                    client=client,
                     model=model_name,
                     contents=f"Parse the following coastal oceanography query into the PhysicsQuerySpec schema:\nQuery: {query_text}",
                     config={
@@ -973,7 +1059,10 @@ Guidelines:
                         "response_mime_type": "application/json",
                         "response_schema": schema,
                         "temperature": 0.0,
+                        "http_options": {"timeout": 45000},
                     },
+                    max_retries=3,
+                    backoff=2.0,
                 )
                 if response and response.text:
                     import json
@@ -981,8 +1070,10 @@ Guidelines:
                     parsed_json["raw_query"] = query_text
                     spec = PhysicsQuerySpec(**parsed_json)
 
-                    # In Pure Gemini mode, return directly without regex backfilling
+                    # In Pure Gemini mode, cache and return directly without regex backfilling
                     if mode_clean in ["pure_gemini", "gemini_only", "zero_shot"]:
+                        _GEMINI_PARSE_CACHE[cache_key] = spec.model_dump()
+                        _save_query_cache()
                         return spec
 
                     # In Hybrid mode, backfill zero-shot synthetic values & omitted fields from deterministic fallback
@@ -991,6 +1082,9 @@ Guidelines:
                     for attr in ["breaker_regime", "site_id", "geomorphic_regime", "hs_min", "tp_min", "surge_min", "wind_normal_min", "focus", "is_failure_mode"]:
                         if getattr(spec, attr, None) is None and getattr(nl_spec, attr, None) is not None:
                             setattr(spec, attr, getattr(nl_spec, attr))
+
+                    _GEMINI_PARSE_CACHE[cache_key] = spec.model_dump()
+                    _save_query_cache()
                     return spec
         except Exception as e:
             logger.error(f"Gemini physics query parsing failed for '{query_text}': {e}")
@@ -3735,6 +3829,82 @@ def _get_breaker(row: Any) -> str:
     return ""
 
 
+def _get_steepness_series(df: pd.DataFrame) -> pd.Series:
+    """Extract or dynamically compute deepwater wave steepness H0/L0 series."""
+    if "wave_steepness" in df.columns:
+        return df["wave_steepness"]
+    elif "steepness" in df.columns:
+        return df["steepness"]
+    elif "s0" in df.columns:
+        return df["s0"]
+    elif "hs_m" in df.columns and "l_0_m" in df.columns:
+        l0 = df["l_0_m"].replace(0, np.nan)
+        return (df["hs_m"] / l0).fillna(0.0)
+    elif "hs_m" in df.columns and "tp_s" in df.columns:
+        l0 = 1.5613 * (df["tp_s"] ** 2)
+        l0 = l0.replace(0, np.nan)
+        return (df["hs_m"] / l0).fillna(0.0)
+    return pd.Series(0.0, index=df.index)
+
+
+def _get_row_steepness(row: Any) -> float:
+    """Extract or compute deepwater wave steepness H0/L0 for a single row."""
+    if hasattr(row, "get"):
+        for k in ["wave_steepness", "steepness", "s0"]:
+            val = row.get(k)
+            if val is not None:
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    pass
+        hs = float(row.get("hs_m", 0.0))
+        l0 = float(row.get("l_0_m", 0.0))
+        if l0 > 0:
+            return hs / l0
+        tp = float(row.get("tp_s", 0.0))
+        if tp > 0:
+            return hs / (1.5613 * (tp ** 2))
+    return 0.0
+
+
+def _get_runup_ig_series(df: pd.DataFrame) -> pd.Series:
+    """Extract or dynamically compute infragravity swash runup excursion R_ig series."""
+    if "runup_r_ig_m" in df.columns:
+        return df["runup_r_ig_m"]
+    elif "r_ig_m" in df.columns:
+        return df["r_ig_m"]
+    elif "r_ig" in df.columns:
+        return df["r_ig"]
+    elif "hs_m" in df.columns and "tp_s" in df.columns:
+        # Stockdon et al. (2006): R_ig = 0.06 * sqrt(H0 * L0) = 0.075 * Tp * sqrt(Hs)
+        hs = df["hs_m"].clip(lower=0.0)
+        tp = df["tp_s"].clip(lower=0.0)
+        return 0.075 * tp * np.sqrt(hs)
+    elif "runup_r2_m" in df.columns:
+        return df["runup_r2_m"] * 0.40
+    return pd.Series(0.0, index=df.index)
+
+
+def _get_row_runup_ig(row: Any) -> float:
+    """Extract or compute infragravity swash runup excursion R_ig for a single row."""
+    if hasattr(row, "get"):
+        for k in ["runup_r_ig_m", "r_ig_m", "r_ig"]:
+            val = row.get(k)
+            if val is not None:
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    pass
+        hs = max(0.0, float(row.get("hs_m", 0.0)))
+        tp = max(0.0, float(row.get("tp_s", 0.0)))
+        if hs > 0 and tp > 0:
+            return 0.075 * tp * np.sqrt(hs)
+        r2 = float(row.get("runup_r2_m", 0.0))
+        if r2 > 0:
+            return r2 * 0.40
+    return 0.0
+
+
 ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
     # === CATEGORY 1: HISTORICAL STORM EVENTS (6 QUERIES - ARCHIVED MODE B) ===
     {
@@ -4205,11 +4375,11 @@ ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
         "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"tp_s": 15.0, "runup_r_ig_m": 1.2},
-        "mask_fn": lambda df: (df["runup_r_ig_m"] >= 1.0) & (df["tp_s"] >= 14.0),
-        "condition_fn": lambda row, df: float(row.get("runup_r_ig_m", 0.0)) >= 1.0 and float(row.get("tp_s", 0.0)) >= 14.0,
+        "mask_fn": lambda df: (_get_runup_ig_series(df) >= 1.0) & (df["tp_s"] >= 14.0),
+        "condition_fn": lambda row, df: _get_row_runup_ig(row) >= 1.0 and float(row.get("tp_s", 0.0)) >= 14.0,
         "graded_relevance_fn": _make_graded_fn(
-            lambda row, df: float(row.get("runup_r_ig_m", 0.0)) >= 1.0 and float(row.get("tp_s", 0.0)) >= 14.0,
-            lambda row, df: float(row.get("runup_r_ig_m", 0.0)) >= 0.7 and float(row.get("tp_s", 0.0)) >= 12.0,
+            lambda row, df: _get_row_runup_ig(row) >= 1.0 and float(row.get("tp_s", 0.0)) >= 14.0,
+            lambda row, df: _get_row_runup_ig(row) >= 0.7 and float(row.get("tp_s", 0.0)) >= 12.0,
         ),
         "description": "Infragravity wave resonance and surf beat excursion R_ig >= 1.0m under long swell Tp >= 14s",
     },
@@ -4219,7 +4389,7 @@ ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
         "mode": "Mode A: Pure Phenomenological",
         "target_regime": "Surging",
         "target_synthetic_values": {"tan_beta": 0.08, "xi_iribarren": 1.3, "breaker_regime": "Surging"},
-        "mask_fn": lambda df: (df["breaker_regime"] == "Surging") | (df["xi_iribarren"] >= 1.2),
+        "mask_fn": lambda df: (_get_breaker_series(df) == "Surging") | (df["xi_iribarren"] >= 1.2),
         "condition_fn": lambda row, df: _get_breaker(row) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 1.2,
         "graded_relevance_fn": _make_graded_fn(
             lambda row, df: _get_breaker(row) == "Surging" or float(row.get("xi_iribarren", 0.0)) >= 1.2,
@@ -4317,11 +4487,11 @@ ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
         "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 2.2, "tp_s": 6.5, "wave_steepness": 0.04},
-        "mask_fn": lambda df: (df["wave_steepness"] >= 0.030) & (df["hs_m"] >= 2.0) & (df["tp_s"] <= 8.0),
-        "condition_fn": lambda row, df: float(row.get("wave_steepness", 0.0)) >= 0.030 and float(row.get("hs_m", 0.0)) >= 2.0 and float(row.get("tp_s", 0.0)) <= 8.0,
+        "mask_fn": lambda df: (_get_steepness_series(df) >= 0.030) & (df["hs_m"] >= 2.0) & (df["tp_s"] <= 8.0),
+        "condition_fn": lambda row, df: _get_row_steepness(row) >= 0.030 and float(row.get("hs_m", 0.0)) >= 2.0 and float(row.get("tp_s", 0.0)) <= 8.0,
         "graded_relevance_fn": _make_graded_fn(
-            lambda row, df: float(row.get("wave_steepness", 0.0)) >= 0.030 and float(row.get("hs_m", 0.0)) >= 2.0 and float(row.get("tp_s", 0.0)) <= 8.0,
-            lambda row, df: float(row.get("wave_steepness", 0.0)) >= 0.022 and float(row.get("hs_m", 0.0)) >= 1.5,
+            lambda row, df: _get_row_steepness(row) >= 0.030 and float(row.get("hs_m", 0.0)) >= 2.0 and float(row.get("tp_s", 0.0)) <= 8.0,
+            lambda row, df: _get_row_steepness(row) >= 0.022 and float(row.get("hs_m", 0.0)) >= 1.5,
         ),
         "description": "High-steepness erosive sea chop: H0/L0 >= 0.030 with short wave periods Tp <= 8s driving surface grain shearing",
     },
@@ -4387,11 +4557,11 @@ ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
         "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 3.8, "wave_steepness": 0.03},
-        "mask_fn": lambda df: (df["hs_m"] >= 3.5) & (df["wave_steepness"] >= 0.025),
-        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 3.5 and float(row.get("wave_steepness", 0.0)) >= 0.025,
+        "mask_fn": lambda df: (df["hs_m"] >= 3.5) & (_get_steepness_series(df) >= 0.025),
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) >= 3.5 and _get_row_steepness(row) >= 0.025,
         "graded_relevance_fn": _make_graded_fn(
-            lambda row, df: float(row.get("hs_m", 0.0)) >= 3.5 and float(row.get("wave_steepness", 0.0)) >= 0.025,
-            lambda row, df: float(row.get("hs_m", 0.0)) >= 2.8 and float(row.get("wave_steepness", 0.0)) >= 0.018,
+            lambda row, df: float(row.get("hs_m", 0.0)) >= 3.5 and _get_row_steepness(row) >= 0.025,
+            lambda row, df: float(row.get("hs_m", 0.0)) >= 2.8 and _get_row_steepness(row) >= 0.018,
         ),
         "description": "Severe erosive wave attack: concurrent extreme wave height Hs >= 3.5m and steep wave slope H0/L0 >= 0.025",
     },
@@ -4847,11 +5017,11 @@ NEW_PHYSICS_BENCHMARK_QUERIES_40: List[Dict[str, Any]] = [
         "mode": "Mode C: Deliberate Ambiguity",
         "target_regime": None,
         "target_synthetic_values": {"hs_m": 1.8, "wave_steepness": 0.032},
-        "mask_fn": lambda df: (df["hs_m"] <= 2.2) & (df["wave_steepness"] >= 0.028),
-        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) <= 2.2 and float(row.get("wave_steepness", 0.0)) >= 0.028,
+        "mask_fn": lambda df: (df["hs_m"] <= 2.2) & (_get_steepness_series(df) >= 0.028),
+        "condition_fn": lambda row, df: float(row.get("hs_m", 0.0)) <= 2.2 and _get_row_steepness(row) >= 0.028,
         "graded_relevance_fn": _make_graded_fn(
-            lambda row, df: float(row.get("hs_m", 0.0)) <= 2.2 and float(row.get("wave_steepness", 0.0)) >= 0.028,
-            lambda row, df: float(row.get("hs_m", 0.0)) <= 2.5 and float(row.get("wave_steepness", 0.0)) >= 0.022,
+            lambda row, df: float(row.get("hs_m", 0.0)) <= 2.2 and _get_row_steepness(row) >= 0.028,
+            lambda row, df: float(row.get("hs_m", 0.0)) <= 2.5 and _get_row_steepness(row) >= 0.022,
         ),
         "description": "Steepness-driven erosive attack: Moderate wave amplitude coupled with destructive steepness (s0 >= 0.028)",
     },
@@ -4931,11 +5101,11 @@ NEW_PHYSICS_BENCHMARK_QUERIES_40: List[Dict[str, Any]] = [
         "mode": "Mode C: Deliberate Ambiguity",
         "target_regime": None,
         "target_synthetic_values": {"wave_steepness": 0.007, "runup_r2_m": 2.0},
-        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["wave_steepness"] <= 0.009) & (df["runup_r2_m"] >= 1.6),
-        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("wave_steepness", 1.0)) <= 0.009 and float(row.get("runup_r2_m", 0.0)) >= 1.6,
+        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (_get_steepness_series(df) <= 0.009) & (df["runup_r2_m"] >= 1.6),
+        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and _get_row_steepness(row) <= 0.009 and float(row.get("runup_r2_m", 0.0)) >= 1.6,
         "graded_relevance_fn": _make_graded_fn(
-            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("wave_steepness", 1.0)) <= 0.009 and float(row.get("runup_r2_m", 0.0)) >= 1.6,
-            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and (float(row.get("wave_steepness", 1.0)) <= 0.012 and float(row.get("runup_r2_m", 0.0)) >= 1.3),
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and _get_row_steepness(row) <= 0.009 and float(row.get("runup_r2_m", 0.0)) >= 1.6,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and (_get_row_steepness(row) <= 0.012 and float(row.get("runup_r2_m", 0.0)) >= 1.3),
         ),
         "description": "Parametric contradiction: Very flat swell (s0 <= 0.009) yet penetrating the subaerial dune via infragravity runup",
     },
@@ -5179,11 +5349,11 @@ NEW_PHYSICS_BENCHMARK_QUERIES_40: List[Dict[str, Any]] = [
         "mode": "Mode D: 3D Physical Pathology",
         "target_regime": None,
         "target_synthetic_values": {"runup_r2_m": 2.2, "wave_steepness": 0.007},
-        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["runup_r2_m"] >= 1.9) & (df["wave_steepness"] <= 0.008),
-        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("runup_r2_m", 0.0)) >= 1.9 and float(row.get("wave_steepness", 1.0)) <= 0.008,
+        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["runup_r2_m"] >= 1.9) & (_get_steepness_series(df) <= 0.008),
+        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("runup_r2_m", 0.0)) >= 1.9 and _get_row_steepness(row) <= 0.008,
         "graded_relevance_fn": _make_graded_fn(
-            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("runup_r2_m", 0.0)) >= 1.9 and float(row.get("wave_steepness", 1.0)) <= 0.008,
-            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("runup_r2_m", 0.0)) >= 1.5 and float(row.get("wave_steepness", 1.0)) <= 0.011,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("runup_r2_m", 0.0)) >= 1.9 and _get_row_steepness(row) <= 0.008,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and float(row.get("runup_r2_m", 0.0)) >= 1.5 and _get_row_steepness(row) <= 0.011,
         ),
         "description": "3D Pathology: Swash resonance overtopping coarse sediment berms without offshore wave breaking dissipation",
     },
@@ -5235,11 +5405,11 @@ NEW_PHYSICS_BENCHMARK_QUERIES_40: List[Dict[str, Any]] = [
         "mode": "Mode D: 3D Physical Pathology",
         "target_regime": None,
         "target_synthetic_values": {"tp_s": 16.5, "wave_steepness": 0.0055, "hs_m": 1.8},
-        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2015-12-01") & (df["timestamp"] <= "2015-12-31") & (df["tp_s"] >= 15.0) & (df["wave_steepness"] <= 0.007),
-        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-12-31", tz="UTC") and float(row.get("tp_s", 0.0)) >= 15.0 and float(row.get("wave_steepness", 1.0)) <= 0.007,
+        "mask_fn": lambda df: (_get_site_series(df) == "torrey_pines_ca") & (df["timestamp"] >= "2015-12-01") & (df["timestamp"] <= "2015-12-31") & (df["tp_s"] >= 15.0) & (_get_steepness_series(df) <= 0.007),
+        "condition_fn": lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-12-31", tz="UTC") and float(row.get("tp_s", 0.0)) >= 15.0 and _get_row_steepness(row) <= 0.007,
         "graded_relevance_fn": _make_graded_fn(
-            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-12-31", tz="UTC") and float(row.get("tp_s", 0.0)) >= 15.0 and float(row.get("wave_steepness", 1.0)) <= 0.007,
-            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and (float(row.get("tp_s", 0.0)) >= 13.0 and float(row.get("wave_steepness", 1.0)) <= 0.010),
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and pd.Timestamp("2015-12-01", tz="UTC") <= _get_row_ts(row) <= pd.Timestamp("2015-12-31", tz="UTC") and float(row.get("tp_s", 0.0)) >= 15.0 and _get_row_steepness(row) <= 0.007,
+            lambda row, df: _get_row_site(row) == "torrey_pines_ca" and (float(row.get("tp_s", 0.0)) >= 13.0 and _get_row_steepness(row) <= 0.010),
         ),
         "description": "3D Pathology: Extreme low steepness Pacific swell driving infragravity wave amplification against the cliffs",
     },
@@ -5271,6 +5441,35 @@ BENCHMARK_QUERIES_DELIBERATE_AMBIGUITY: List[Dict[str, Any]] = [
 BENCHMARK_QUERIES_PHYSICAL_PATHOLOGIES: List[Dict[str, Any]] = [
     q for q in NEW_PHYSICS_BENCHMARK_QUERIES_40 if "Patholog" in q.get("category", "")
 ]
+
+
+_RAW_DATA_LLM_CACHE_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "cache", "raw_llm_query_cache.json"
+)
+_RAW_DATA_LLM_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _load_raw_llm_cache() -> None:
+    global _RAW_DATA_LLM_CACHE
+    if not _RAW_DATA_LLM_CACHE and os.path.exists(_RAW_DATA_LLM_CACHE_FILE):
+        try:
+            with open(_RAW_DATA_LLM_CACHE_FILE, "r") as f:
+                loaded = json.load(f)
+                _RAW_DATA_LLM_CACHE.clear()
+                _RAW_DATA_LLM_CACHE.update(loaded)
+        except Exception:
+            pass
+
+
+def _save_raw_llm_cache() -> None:
+    try:
+        os.makedirs(os.path.dirname(_RAW_DATA_LLM_CACHE_FILE), exist_ok=True)
+        tmp_file = _RAW_DATA_LLM_CACHE_FILE + ".tmp"
+        with open(tmp_file, "w") as f:
+            json.dump(_RAW_DATA_LLM_CACHE, f, indent=2)
+        os.replace(tmp_file, _RAW_DATA_LLM_CACHE_FILE)
+    except Exception as e:
+        logger.warning(f"Failed to save RawDataLLM cache: {e}")
 
 
 class RawDataLLMRAG:
@@ -5337,34 +5536,45 @@ Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested 
         is_mode_a = disable_spatiotemporal_filters or (mode is not None and ("mode a" in str(mode).lower() or "phenomenological" in str(mode).lower()))
         criteria: Dict[str, Any] = {}
         if self.use_live_api:
-            try:
-                from google import genai
-                client = genai.Client(api_key=self.api_key) if self.api_key else genai.Client()
-                sample_df = self.df[self.raw_cols].dropna().head(5).copy()
-                if "timestamp" in sample_df.columns:
-                    sample_df["timestamp"] = sample_df["timestamp"].astype(str)
-                sample_rows = sample_df.to_dict(orient="records")
-                prompt = (
-                    f"Available raw telemetry columns: {self.raw_cols}\n"
-                    f"Sample rows from telemetry dataset: {sample_rows}\n"
-                    f"User natural language query: '{query_text}'\n"
-                    f"Extract JSON filtering criteria over these raw variables and metadata."
-                )
-                response = client.models.generate_content(
-                    model=self.model_name,
-                    contents=prompt,
-                    config={
-                        "system_instruction": self.SYSTEM_PROMPT,
-                        "response_mime_type": "application/json",
-                        "temperature": 0.0,
-                    },
-                )
-                if response and response.text:
-                    import json
-                    criteria = json.loads(response.text)
-            except Exception as e:
-                logger.error(f"RawDataLLMRAG Gemini call failed for '{query_text}': {e}")
-                criteria = self._offline_raw_reasoning(query_text)
+            raw_cache_key = f"{self.model_name}:{query_text.strip()}"
+            _load_raw_llm_cache()
+            if raw_cache_key in _RAW_DATA_LLM_CACHE:
+                criteria = _RAW_DATA_LLM_CACHE[raw_cache_key]
+            else:
+                try:
+                    from google import genai
+                    client = genai.Client(api_key=self.api_key, http_options={"timeout": 45000}) if self.api_key else genai.Client(http_options={"timeout": 45000})
+                    sample_df = self.df[self.raw_cols].dropna().head(5).copy()
+                    if "timestamp" in sample_df.columns:
+                        sample_df["timestamp"] = sample_df["timestamp"].astype(str)
+                    sample_rows = sample_df.to_dict(orient="records")
+                    prompt = (
+                        f"Available raw telemetry columns: {self.raw_cols}\n"
+                        f"Sample rows from telemetry dataset: {sample_rows}\n"
+                        f"User natural language query: '{query_text}'\n"
+                        f"Extract JSON filtering criteria over these raw variables and metadata."
+                    )
+                    response = _call_gemini_with_retry(
+                        client=client,
+                        model=self.model_name,
+                        contents=prompt,
+                        config={
+                            "system_instruction": self.SYSTEM_PROMPT,
+                            "response_mime_type": "application/json",
+                            "temperature": 0.0,
+                            "http_options": {"timeout": 45000},
+                        },
+                        max_retries=3,
+                        backoff=2.0,
+                    )
+                    if response and response.text:
+                        import json
+                        criteria = json.loads(response.text)
+                        _RAW_DATA_LLM_CACHE[raw_cache_key] = criteria
+                        _save_raw_llm_cache()
+                except Exception as e:
+                    logger.error(f"RawDataLLMRAG Gemini call failed for '{query_text}': {e}")
+                    criteria = self._offline_raw_reasoning(query_text)
         else:
             criteria = self._offline_raw_reasoning(query_text)
 
@@ -6130,19 +6340,25 @@ def evaluate_rag_benchmark_suite(
         # Default: Mode A (Pure Phenomenological Search across all 175k global records)
         raw_queries = DEFAULT_PHYSICS_BENCHMARK_QUERIES
 
-    # Filter queries if benchmark_mode specified (defaulting to Mode A)
-    if benchmark_mode is not None:
+    # Filter queries if benchmark_mode specified (defaulting to Mode A when unspecified and no explicit benchmark_queries)
+    if benchmark_queries is not None:
+        queries = list(raw_queries)
+    elif benchmark_mode is not None:
         bm = str(benchmark_mode).lower()
         if "mode_a" in bm or "mode a" in bm or "phenomenological" in bm:
             queries = [q for q in raw_queries if "mode a" in str(q.get("mode", "")).lower() or "phenomenological" in str(q.get("mode", "")).lower()]
         elif "mode_b" in bm or "mode b" in bm or "operational" in bm:
             queries = [q for q in raw_queries if "mode b" in str(q.get("mode", "")).lower() or "operational" in str(q.get("mode", "")).lower()]
-        elif "all" in bm:
-            queries = raw_queries
+        elif "ambiguity" in bm or "mode_c" in bm or "mode c" in bm:
+            queries = [q for q in raw_queries if "mode c" in str(q.get("mode", "")).lower() or "ambiguity" in str(q.get("mode", "")).lower()]
+        elif "patholog" in bm or "mode_d" in bm or "mode d" in bm:
+            queries = [q for q in raw_queries if "mode d" in str(q.get("mode", "")).lower() or "patholog" in str(q.get("mode", "")).lower()]
+        elif "all" in bm or "100" in bm:
+            queries = list(raw_queries)
         else:
             queries = [q for q in raw_queries if "mode a" in str(q.get("mode", "")).lower() or "phenomenological" in str(q.get("mode", "")).lower()]
     else:
-        queries = raw_queries
+        queries = list(raw_queries)
 
     # Configurable sample size limit N (supports 1 <= N <= len(DEFAULT_PHYSICS_BENCHMARK_QUERIES))
     limit_n = max_queries if max_queries is not None else n_queries
