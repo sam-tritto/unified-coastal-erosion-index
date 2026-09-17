@@ -62,6 +62,24 @@ from sklearn.decomposition import TruncatedSVD
 
 logger = logging.getLogger(__name__)
 
+try:
+    from src.conformal_uq import (
+        ConformalizedQuantileRegressor,
+        PinballLoss,
+        format_conformal_prompt_section,
+    )
+except ImportError:
+    try:
+        from conformal_uq import (  # type: ignore
+            ConformalizedQuantileRegressor,
+            PinballLoss,
+            format_conformal_prompt_section,
+        )
+    except ImportError:
+        ConformalizedQuantileRegressor = None  # type: ignore
+        PinballLoss = None  # type: ignore
+        format_conformal_prompt_section = None  # type: ignore
+
 
 def sanitize_gemini_schema(schema: Any) -> Any:
     """Recursively prune unsupported schema fields (such as 'additionalProperties') for Google GenAI SDK."""
@@ -926,6 +944,41 @@ def _save_query_cache() -> None:
         logger.warning(f"Failed to save Gemini query cache: {e}")
 
 
+def _apply_thinking_budget(
+    config: Dict[str, Any],
+    thinking_budget: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Attach thinking_config to Gemini config dictionary based on parameter or GEMINI_THINKING_BUDGET env var.
+
+    Parameters
+    ----------
+    config : dict
+        Generate content config dictionary.
+    thinking_budget : int, optional
+        - 0: Disable thinking completely (fast low-latency inference).
+        - >0: Cap thinking token budget (e.g. 1024 or 2048).
+        - None: Defer to GEMINI_THINKING_BUDGET env var if set, else omit (API default).
+    """
+    budget = thinking_budget
+    if budget is None:
+        env_val = os.environ.get("GEMINI_THINKING_BUDGET")
+        if env_val is not None and env_val.strip():
+            try:
+                budget = int(env_val.strip())
+            except ValueError:
+                budget = None
+
+    if budget is not None:
+        cfg = dict(config)
+        try:
+            from google.genai import types
+            cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=budget)
+        except Exception:
+            cfg["thinking_config"] = {"thinking_budget": budget}
+        return cfg
+    return config
+
+
 def _call_gemini_with_retry(
     client: Any,
     model: str,
@@ -933,9 +986,12 @@ def _call_gemini_with_retry(
     config: Dict[str, Any],
     max_retries: int = 3,
     backoff: float = 2.0,
+    thinking_budget: Optional[int] = None,
 ) -> Any:
     """Execute a Gemini API call with exponential backoff on transient errors (504, 503, 429, timeouts)."""
     import time
+    if "thinking_config" not in config:
+        config = _apply_thinking_budget(config, thinking_budget)
     last_err = None
     for attempt in range(max_retries + 1):
         try:
@@ -1033,6 +1089,8 @@ Guidelines:
         client: Optional[Any] = None,
         parser_mode: str = "pure_gemini",
         allow_regex_backfill: Optional[bool] = None,
+        thinking_budget: Optional[int] = None,
+        bypass_cache: bool = False,
     ) -> PhysicsQuerySpec:
         """Parse natural language query with explicit mode control.
 
@@ -1053,6 +1111,10 @@ Guidelines:
             - 'hybrid': Live Gemini Flash with deterministic regex backfill for omitted/null fields.
         allow_regex_backfill : bool, optional
             Legacy boolean toggle. If provided, True maps to 'hybrid', False maps to 'pure_gemini'.
+        thinking_budget : int, optional
+            Thinking budget for Gemini reasoning models.
+        bypass_cache : bool, default False
+            If True, skips the persistent disk cache and executes a fresh live parse.
         """
         # Resolve legacy parameter if supplied
         if allow_regex_backfill is not None:
@@ -1065,7 +1127,7 @@ Guidelines:
         # 1. Check persistent disk cache first (0 tokens, <1ms response)
         cache_key = f"{model_name}:{mode_clean}:{query_text.strip()}"
         _load_query_cache()
-        if cache_key in _GEMINI_PARSE_CACHE:
+        if not bypass_cache and cache_key in _GEMINI_PARSE_CACHE:
             try:
                 cached_dict = dict(_GEMINI_PARSE_CACHE[cache_key])
                 cached_dict["raw_query"] = query_text
@@ -1180,6 +1242,7 @@ def explain_with_gemini(
     model_name: str = "gemini-2.5-flash",
     api_key: Optional[str] = None,
     client: Optional[Any] = None,
+    conformal_uq: Optional[Dict[str, Any]] = None,
 ) -> Optional[str]:
     """Generate rich, expert-level oceanographic diagnosis from retrieved data using Gemini Flash."""
     if top_df.empty:
@@ -1209,6 +1272,14 @@ def explain_with_gemini(
         ]
         table_str = top_df[display_cols].to_string(index=False)
 
+        uq_section = ""
+        if conformal_uq:
+            try:
+                from src.conformal_uq import format_conformal_prompt_section
+                uq_section = "\n" + format_conformal_prompt_section(conformal_uq) + "\n"
+            except Exception:
+                pass
+
         prompt = f"""You are an authoritative senior coastal oceanographer reviewing hydrodynamic search results from the USACE FRF Duck dataset.
 Synthesize a concise, 2-to-3 paragraph physical diagnostic narrative for the query: "{query_text}" based strictly on the retrieved observations below.
 
@@ -1226,12 +1297,13 @@ Summary Statistics:
 - Mean Unified Index (Υ): {top_df['upsilon'].mean() if 'upsilon' in top_df.columns else 0:.1e}
 - Mean Signed Disequilibrium (Υ_diseq): {top_df['upsilon_diseq'].mean() if 'upsilon_diseq' in top_df.columns else 0:.1e}
 - Mean Shoreline Displacement (ΔX): {top_df['delta_x_m'].mean() if 'delta_x_m' in top_df.columns else 0:.2f} m
-
+{uq_section}
 Instructions:
 1. Explain the wave dissipation kinetics and surf similarity / breaker regime (Iribarren number ξ).
 2. Connect wave power flux and total water level (surge + runup) to morphodynamic response (beach cut vs. constructive berm accretion).
 3. If this query concerns recovery phases or recovery timeframes, analyze the Signed Disequilibrium (Υ_diseq < 0) driving constructive swash accretion and estimate recovery timeframes.
 4. Cite the quantitative numbers directly from the data. Do NOT speculate or hallucinate outside the retrieved records. Keep tone rigorous, objective, and professional.
+5. If Conformal Prediction (CQR) bounds are provided, explicitly ground your physical risk assessment within the statistically guaranteed prediction interval and explain how hydrograph volatility drove the dynamic interval width.
 """
         response = client.models.generate_content(
             model=model_name,
@@ -1255,6 +1327,7 @@ def explain_hierarchical_with_gemini(
     model_name: str = "gemini-2.5-flash",
     api_key: Optional[str] = None,
     client: Optional[Any] = None,
+    conformal_uq: Optional[Dict[str, Any]] = None,
 ) -> Optional[str]:
     """Generate rich multi-scale diagnostic narrative synthesizing child matches and hydrated parent time-series."""
     if child_df.empty:
@@ -1297,6 +1370,14 @@ def explain_hierarchical_with_gemini(
             )
         parent_str = "\n".join(parent_summaries)
 
+        uq_section = ""
+        if conformal_uq:
+            try:
+                from src.conformal_uq import format_conformal_prompt_section
+                uq_section = "\n" + format_conformal_prompt_section(conformal_uq) + "\n"
+            except Exception:
+                pass
+
         prompt = f"""You are an authoritative senior coastal oceanographer reviewing Hierarchical Parent-Child Physics-RAG search results.
 The search engine matched instantaneous child hydrodynamic states and hydrated continuous multi-channel parent time-series sequences (±72h context windows via DuckDB) for the query: "{query_text}".
 
@@ -1308,12 +1389,13 @@ Top Child Vector Matches:
 
 Hydrated Parent Time-Series Context Windows (Temporal Multi-Channel Evolution):
 {parent_str}
-
+{uq_section}
 Instructions:
 1. Multi-Scale Synthesis: Connect the instantaneous child physical state (peak scour, breaker type, surge elevation) with its antecedent wave energy buildup (pre-storm rise rate) and post-event relaxation trajectory.
 2. Hydrodynamic & Morphodynamic Root Cause: Analyze how wave power flux impulse, storm surge duration, and Iribarren breaker dynamics drove the observed shoreline displacement (ΔX) and Unified Index (Υ).
 3. Disequilibrium & Recovery: If post-storm recovery or berm accretion is present, explain how the Signed Disequilibrium (Υ_diseq < 0) governed constructive swash welding.
 4. Quantitative Grounding: Directly reference the quantitative values from both the child records and parent window summary statistics. Maintain a rigorous, objective, and professional scientific tone.
+5. If Conformal Prediction (CQR) bounds are provided, explicitly ground your physical risk assessment within the statistically guaranteed prediction interval and explain how hydrograph volatility drove the dynamic interval width.
 """
         response = client.models.generate_content(
             model=model_name,
@@ -1358,6 +1440,7 @@ class HierarchicalRAGResult:
         llm_explanation: Optional[str] = None,
         query_vector: Optional[np.ndarray] = None,
         metrics: Optional[Dict[str, Any]] = None,
+        conformal_uq: Optional[Dict[str, Any]] = None,
     ):
         self.query = query
         self.child_matches_df = child_matches_df
@@ -1369,6 +1452,7 @@ class HierarchicalRAGResult:
         self.llm_explanation = llm_explanation
         self.query_vector = query_vector
         self.metrics = metrics or {}
+        self.conformal_uq = conformal_uq
 
     @property
     def spec(self) -> Any:
@@ -1410,6 +1494,14 @@ class HierarchicalRAGResult:
 
         table_str = self.child_matches_df[display_cols].to_string(index=False)
         lines.append(table_str)
+
+        if self.conformal_uq:
+            lines.append("")
+            try:
+                from src.conformal_uq import format_conformal_prompt_section
+                lines.append(format_conformal_prompt_section(self.conformal_uq))
+            except Exception:
+                lines.append(f"Conformal UQ: {self.conformal_uq}")
 
         if self.parent_windows:
             lines.append("")
@@ -1453,6 +1545,7 @@ class PhysicsRAGResult:
         query_vector: Optional[np.ndarray] = None,
         metrics: Optional[Dict[str, Any]] = None,
         recovery_episodes: Optional[List[Dict[str, Any]]] = None,
+        conformal_uq: Optional[Dict[str, Any]] = None,
     ):
         self.query = query
         self.matches_df = matches_df
@@ -1463,6 +1556,7 @@ class PhysicsRAGResult:
         self.query_vector = query_vector
         self.metrics = metrics or {}
         self.recovery_episodes = recovery_episodes or []
+        self.conformal_uq = conformal_uq
 
     def __repr__(self) -> str:
         return f"<PhysicsRAGResult for query='{self.query}', n_matches={len(self.matches_df)}>"
@@ -1490,6 +1584,15 @@ class PhysicsRAGResult:
 
         table_str = self.matches_df[display_cols].to_string(index=False)
         lines.append(table_str)
+
+        if self.conformal_uq:
+            lines.append("")
+            try:
+                from src.conformal_uq import format_conformal_prompt_section
+                lines.append(format_conformal_prompt_section(self.conformal_uq))
+            except Exception:
+                lines.append(f"Conformal UQ: {self.conformal_uq}")
+
         return "\n".join(lines)
 
 
@@ -1562,6 +1665,7 @@ class PhysicsRAG:
         self.scaler_meta = scaler_meta or {}
         self.model_name = model_name
         self.api_key = api_key
+        self.thinking_budget = kwargs.get("thinking_budget")
         self.top_k = top_k
         self.similarity_metric = similarity_metric
         self.use_weighted_similarity = use_weighted_similarity
@@ -1615,6 +1719,7 @@ class PhysicsRAG:
                 pass
         self.centroids = compute_regime_centroids(self.embeddings, self.df)
         self.site_equilibrium_stats = compute_site_equilibrium_thresholds(self.df)
+        self.conformal_regressor = kwargs.get("conformal_regressor", None)
 
     def _compute_similarity(self, query_vec: np.ndarray) -> np.ndarray:
         """Compute (optionally Upsilon-weighted) cosine similarity across the latent embedding space (Item 5)."""
@@ -1994,11 +2099,15 @@ class PhysicsRAG:
                 )
             elif use_llm_parser:
                 parser_m = kwargs.get("parser_mode", "hybrid")
+                tb = kwargs.get("thinking_budget", getattr(self, "thinking_budget", None))
+                bypass = kwargs.get("bypass_cache", False)
                 spec = GeminiPhysicsQueryParser.parse(
                     query_text=query_text,
                     model_name=self.model_name,
                     api_key=self.api_key,
                     parser_mode=parser_m,
+                    thinking_budget=tb,
+                    bypass_cache=bypass,
                 )
             else:
                 spec = GeminiPhysicsQueryParser._fallback_parse(query_text)
@@ -2043,6 +2152,15 @@ class PhysicsRAG:
             except Exception:
                 pass
 
+        # 7.5 Conformal Prediction & Uncertainty Quantification (CQR)
+        uq_payload = kwargs.get("conformal_uq", None)
+        regressor = kwargs.get("conformal_regressor", getattr(self, "conformal_regressor", None))
+        if uq_payload is None and regressor is not None:
+            try:
+                uq_payload = regressor.extract_cqr_summary_for_rag(top_df)
+            except Exception as e:
+                logger.warning(f"Failed to extract CQR summary for query: {e}")
+
         # 8. Generate physical explanations
         deterministic_expl = self._generate_explanation(spec, top_df)
         llm_expl = None
@@ -2053,6 +2171,7 @@ class PhysicsRAG:
                 top_df=top_df,
                 model_name=self.model_name,
                 api_key=self.api_key,
+                conformal_uq=uq_payload,
             )
 
         return PhysicsRAGResult(
@@ -2064,6 +2183,7 @@ class PhysicsRAG:
             llm_explanation=llm_expl,
             query_vector=query_vec,
             recovery_episodes=recov_episodes,
+            conformal_uq=uq_payload,
         )
 
     def evaluate_query(
@@ -3460,6 +3580,15 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
             selected_sims = candidate_sims[:top_k]
             selected_windows = parent_windows[:top_k]
 
+        # 3.5 Conformal Prediction & Uncertainty Quantification (CQR)
+        uq_payload = kwargs.get("conformal_uq", None)
+        regressor = kwargs.get("conformal_regressor", getattr(self, "conformal_regressor", None))
+        if uq_payload is None and regressor is not None:
+            try:
+                uq_payload = regressor.extract_cqr_summary_for_rag(child_df)
+            except Exception as e:
+                logger.warning(f"Failed to extract CQR summary for hierarchical query: {e}")
+
         # 4. Generate Multi-Scale Explanations
         deterministic_expl = self._generate_hierarchical_explanation(active_spec, child_df, selected_windows)
         llm_expl = None
@@ -3471,6 +3600,7 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
                 parent_windows=selected_windows,
                 model_name=self.model_name,
                 api_key=self.api_key,
+                conformal_uq=uq_payload,
             )
 
         return HierarchicalRAGResult(
@@ -3482,6 +3612,7 @@ class HierarchicalPhysicsRAG(PhysicsRAG):
             parsed_criteria=active_spec,
             llm_explanation=llm_expl,
             query_vector=base_res.query_vector,
+            conformal_uq=uq_payload,
         )
 
     def _generate_hierarchical_explanation(
@@ -5511,6 +5642,42 @@ def _save_raw_llm_cache() -> None:
         logger.warning(f"Failed to save RawDataLLM cache: {e}")
 
 
+def clear_query_cache(clear_disk: bool = True) -> Dict[str, int]:
+    """Reset both Gemini query parser and RawDataLLM caches (in-memory and on disk).
+
+    Parameters
+    ----------
+    clear_disk : bool, default True
+        If True, deletes persistent cache files on disk (gemini_query_cache.json, raw_llm_query_cache.json).
+        If False, only flushes the in-memory cache dictionaries.
+
+    Returns
+    -------
+    dict
+        Count of evicted entries for each cache.
+    """
+    global _GEMINI_PARSE_CACHE, _RAW_DATA_LLM_CACHE
+    _load_query_cache()
+    _load_raw_llm_cache()
+    n_gemini = len(_GEMINI_PARSE_CACHE)
+    n_raw = len(_RAW_DATA_LLM_CACHE)
+    _GEMINI_PARSE_CACHE.clear()
+    _RAW_DATA_LLM_CACHE.clear()
+    if clear_disk:
+        for fpath in [_GEMINI_PARSE_CACHE_FILE, _RAW_DATA_LLM_CACHE_FILE]:
+            if os.path.exists(fpath):
+                try:
+                    os.remove(fpath)
+                except Exception as e:
+                    logger.warning(f"Could not remove {fpath}: {e}")
+    logger.info(f"Cleared query caches: {n_gemini} Gemini parse entries, {n_raw} RawDataLLM entries (disk={clear_disk}).")
+    return {"gemini_query_cache": n_gemini, "raw_llm_query_cache": n_raw}
+
+
+# Convenience alias
+reset_query_cache = clear_query_cache
+
+
 class RawDataLLMRAG:
     """Baseline 1: LLM reasoning agent operating directly on raw telemetry columns and schema.
 
@@ -5561,6 +5728,7 @@ Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested 
         self.model_name = model_name
         self.api_key = api_key
         self.use_live_api = use_live_api
+        self.thinking_budget = kwargs.get("thinking_budget")
         raw_candidates = ["site_id", "site", "timestamp", "hs_m", "tp_s", "total_water_level_m", "surge_m", "wind_speed_ms", "wind_normal_ms", "tan_beta"]
         self.raw_cols = [c for c in raw_candidates if c in self.df.columns]
 
@@ -5577,7 +5745,8 @@ Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested 
         if self.use_live_api:
             raw_cache_key = f"{self.model_name}:{query_text.strip()}"
             _load_raw_llm_cache()
-            if raw_cache_key in _RAW_DATA_LLM_CACHE:
+            bypass = kwargs.get("bypass_cache", False)
+            if not bypass and raw_cache_key in _RAW_DATA_LLM_CACHE:
                 criteria = _RAW_DATA_LLM_CACHE[raw_cache_key]
             else:
                 try:
@@ -5593,6 +5762,7 @@ Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested 
                         f"User natural language query: '{query_text}'\n"
                         f"Extract JSON filtering criteria over these raw variables and metadata."
                     )
+                    tb = kwargs.get("thinking_budget", getattr(self, "thinking_budget", None))
                     response = _call_gemini_with_retry(
                         client=client,
                         model=self.model_name,
@@ -5605,6 +5775,7 @@ Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested 
                         },
                         max_retries=3,
                         backoff=2.0,
+                        thinking_budget=tb,
                     )
                     if response and response.text:
                         import json
@@ -6321,6 +6492,7 @@ def evaluate_rag_benchmark_suite(
     benchmark_mode: Optional[str] = None,
     n_queries: Optional[int] = None,
     max_queries: Optional[int] = None,
+    thinking_budget: Optional[int] = None,
     **kwargs: Any,
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Execute multi-k benchmark evaluation suite across diverse coastal query categories and decoupled modes.
@@ -6460,6 +6632,7 @@ def evaluate_rag_benchmark_suite(
             target_synthetic_values=target_synth,
             mode=q_mode,
             disable_spatiotemporal_filters=is_mode_a,
+            thinking_budget=thinking_budget,
             **kwargs,
         )
 
@@ -6624,6 +6797,8 @@ def evaluate_peak_impact_disequilibrium_benchmark(
     query_categories: Optional[List[str]] = None,
     parser_mode: str = "pure_gemini",
     aligned_surveys: Optional[Dict[str, pd.DataFrame]] = None,
+    thinking_budget: Optional[int] = None,
+    **kwargs: Any,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Evaluate Peak Impact & Disequilibrium Ranking across RAG architectures re-anchored to Geomorphic Ground Truth.
 
@@ -6658,6 +6833,8 @@ def evaluate_peak_impact_disequilibrium_benchmark(
     aligned_surveys : dict of str -> pd.DataFrame, optional
         Dictionary mapping site keys to aligned survey epoch DataFrames. If None,
         automatically discovered from rag_engines or loaded from in-situ survey files.
+    thinking_budget : int, optional
+        Thinking budget for Gemini reasoning models (0 disables thinking, None defers to env).
 
     Returns
     -------
@@ -6815,7 +6992,11 @@ def evaluate_peak_impact_disequilibrium_benchmark(
         parsed_spec = None
         if use_llm_parser:
             try:
-                parsed_spec = GeminiPhysicsQueryParser.parse(query_text=q["query"], parser_mode=parser_mode)
+                parsed_spec = GeminiPhysicsQueryParser.parse(
+                    query_text=q["query"],
+                    parser_mode=parser_mode,
+                    thinking_budget=thinking_budget,
+                )
             except Exception:
                 parsed_spec = None
         if parsed_spec is None:
