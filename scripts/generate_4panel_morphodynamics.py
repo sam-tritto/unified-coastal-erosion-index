@@ -46,10 +46,10 @@ def main():
 
     # Harmonious, domain-aligned site color palette (consistent across all subplots)
     site_palette = {
-        "duck_nc": "#1f77b4",          # Atlantic Ocean Blue (Barrier Island)
-        "narrabeen_aus": "#e76f51",     # Warm Coral / Terracotta (Embayed Beach)
-        "torrey_pines_ca": "#2a9d8f",   # California Coastal Teal (Pocket Beach)
-        "truc_vert_france": "#7b2cbf",  # French Atlantic Amethyst (Macrotidal)
+        "duck_nc": "#1E40AF",          # Atlantic Ocean Blue (Barrier Island)
+        "narrabeen_aus": "#D97706",     # Pacific Terracotta / Warm Amber (Embayed Beach)
+        "torrey_pines_ca": "#059669",   # California Coastal Emerald (Pocket Beach)
+        "truc_vert_france": "#7C3AED",  # French Atlantic Amethyst (Macrotidal)
     }
     site_colors = [site_palette[s] for s in sites]
 

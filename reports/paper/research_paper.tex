@@ -18,7 +18,7 @@
 
 \begin{document}
 
-\title{Physics-RAG: Invariant Latent Manifolds, Conformal Uncertainty Quantification, and Hierarchical Cascade Retrieval for Continuous Physical Dynamical Systems\\
+\title{Physics-RAG: Invariant Latent Manifolds and Hierarchical Cascade Retrieval for Continuous Physical Dynamical Systems\\
 }
 
 \author{
@@ -211,7 +211,7 @@ P\left(Y_{n+1} \in C(\mathbf{x}_{n+1})\right) \ge 1 - \alpha
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.98\columnwidth]{figure_umap_4panel_final.png}
+    \includegraphics[width=0.98\columnwidth]{figure_umap_2x2.png}
     \caption{\textbf{Four-Panel 2D UMAP Projection of the 14D Invariant Latent Space ($N = 12{,}000$ Stratified Records).} 
     \textbf{(a)} Morphodynamic state continuum colored by Dean number $\Omega$, displaying a continuous chromatic gradient from reflective steep profiles ($\Omega < 1$) to dissipative flat states ($\Omega > 7$).
     \textbf{(b)} Hydrodynamic kinetic energy continuum $\log_{10}\Upsilon$, showing baseline calm records clustering near the manifold core while extreme storm work projects into outer peripheral filaments.
@@ -453,40 +453,31 @@ In contrast to static homoscedastic error bands (e.g., $\pm 1.96\sigma$), the pi
 
 During fair-weather swash conditions, the prediction interval contracts to $[+0.042\,\text{m}, +0.060\,\text{m}]$ (width $1.8\,\text{cm}$), correctly signaling constructive berm welding with high certainty. When struck by an extreme storm surge ($H_s = 7.52\,\text{m}$), the prediction interval undergoes a \textbf{$314.5\times$ dynamic expansion} to $[-5.633\,\text{m}, +0.029\,\text{m}]$ (width $5.662\,\text{m}$), capturing catastrophic tail risk and severe dune cut without under-estimating hazard exposure.
 
-\subsection{Grounded LLM Synthesis via Prompt Injection}
-By injecting structured CQR bounds into Gemini Flash's prompt window (Fig.~\ref{fig:conformal_uq}c), the framework transforms generative synthesis from speculative text generation into decision-grade risk engineering:
-\begin{enumerate}
-    \item \textbf{Elimination of False Certainty:} The LLM explicitly refuses ungrounded point predictions (e.g., rejecting claims that scour will be exactly $-1.08\,\text{m}$), anchoring its assessment within the guaranteed $[ -1.58\,\text{m}, +0.02\,\text{m} ]$ confidence band.
-    \item \textbf{Certified Engineering Envelopes:} The foundation model autonomously formulates civil protection boundaries:
-    \textit{"For coastal infrastructure management, the worst-case erosion boundary for instantaneous scour, as guaranteed by CQR analysis, is $\mathbf{-1.58\,\text{m}}$ with $90\%$ statistical confidence."}
-    \item \textbf{Multi-Scale Synchronization:} Cross-referencing the instantaneous scour envelope with hydrated parent sequences ($+0.00\,\text{m}$ net change, $\Upsilon_{\text{diseq}} < 0$, $74\%$ recovery hours) enables the LLM to deduce that modest surge permitted constructive swash recovery across the 72-hour horizon.
-\end{enumerate}
+\subsection{Operational Actionability: Turning Volatility into Decision-Grade Intelligence}
+While CQR achieves guaranteed $91.2\%$ empirical multi-site coverage, the dynamic expansion of prediction intervals up to $5.66\,\text{m}$ during storm apexes (e.g., $[ -5.633\,\text{m}, +0.029\,\text{m} ]$) presents an acute operational dilemma: decision-makers may interpret wide prediction intervals as model failure rather than genuine physical aleatoric volatility. 
 
-\subsection{Operational Actionability: Turning Extreme Volatility into Decision-Grade Intelligence}
-While CQR achieves a guaranteed $91.2\%$ empirical multi-site coverage out-of-sample, the dynamic expansion of prediction intervals up to $5.66\,\text{m}$ during storm apexes (e.g., $[ -5.633\,\text{m}, +0.029\,\text{m} ]$) presents an acute operational dilemma: civil decision-makers may interpret wide prediction intervals as an internal model breakdown rather than a mathematically rigorous reflection of true physical aleatoric volatility. 
-
-To convert this dynamic expansion into decision-grade intelligence, our system prompt architecture enforces four operational directives:
+To convert this dynamic expansion into decision-grade intelligence, our system prompt architecture injects structured CQR bounds into Gemini Flash (Fig.~\ref{fig:conformal_uq}c) under four operational directives:
 \begin{enumerate}
-    \item \textbf{Reframing as Physical Reality, Not Model Error:} The LLM is explicitly instructed to define massive interval expansions as genuine physical aleatoric volatility, explaining that the $5.66\,\text{m}$ width is a direct mathematical reflection of extreme hydrodynamic shocks, breaking turbulence, and wave runup momentum, not a lack of epistemic model confidence.
-    \item \textbf{Enforcing the Worst-Case Engineering Envelope:} Generative point estimates (median $q_{0.50}$) are strictly rejected for emergency deployment. The model anchors emergency civil defense directives strictly to the lower conformal bound ($c_{\text{lo}} = -5.633\,\text{m}$), formulating protective setback perimeters based specifically on this catastrophic tail risk.
-    \item \textbf{Justification via Physical Drivers:} The LLM narratively explains the dynamic width adjustment by explicitly referencing real-time wave power flux ($P_{\text{flux}} \propto H_s^2 T_p$), storm surge residual ($S$), and signed disequilibrium ($\Upsilon_{\text{diseq}}$), transforming a wide uncertainty envelope into a physically intuitive outcome.
-    \item \textbf{Human-in-the-Loop (HITL) Checkpoints:} The agent positions itself as an advanced scientific synthesizer generating draft risk advisories rather than an autonomous decision-maker. The workflow enforces that execution pauses at predefined, hard-coded checkpoints so a certified human hydrometeorologist can review the bounds and diagnostic narrative before any evacuation alerts are disseminated.
+    \item \textbf{Reframing as Physical Reality, Not Model Error:} The LLM is instructed to define massive interval expansions as genuine physical aleatoric volatility reflecting extreme hydrodynamic shocks and wave runup momentum, refusing ungrounded point assertions.
+    \item \textbf{Enforcing the Worst-Case Engineering Envelope:} Generative point predictions ($q_{0.50}$) are strictly rejected for civil defense. The model anchors emergency directives strictly to the lower conformal bound ($c_{\text{lo}} = -5.633\,\text{m}$), establishing certified setback perimeters based on catastrophic tail risk.
+    \item \textbf{Justification via Physical Drivers:} The LLM explains dynamic width adjustments by explicitly citing wave power flux ($P_{\text{flux}} \propto H_s^2 T_p$), storm surge residual ($S$), and signed disequilibrium ($\Upsilon_{\text{diseq}}$), turning wide intervals into physically intuitive outcomes.
+    \item \textbf{Human-in-the-Loop (HITL) Checkpoints:} The agent functions as a scientific synthesizer generating draft advisories, enforcing that execution pauses at hard-coded checkpoints so a certified hydrometeorologist reviews bounds before alerts are released.
 \end{enumerate}
 
 \section{Operational Deployment: Real-World Field Survey Anomaly Audits}
 \label{sec:field_audits}
 When deployed operationally, the Physics-RAG architecture automates post-mortem failure audits of sequence and surrogate models by hydrating continuous antecedent parent sequences ($\pm 72\text{h}$) across real-world field survey anomalies (Fig.~\ref{fig:anomaly_audits}):
 
-\begin{figure}[htbp]
+\begin{figure*}[t]
     \centering
-    \includegraphics[width=0.98\columnwidth]{figure_anomaly_audits_hydration.png}
+    \includegraphics[width=0.98\textwidth]{figure_anomaly_audits_2x2.png}
     \caption{\textbf{Multi-Panel Parent Sequence Hydration Visualizations for Top Real-World Field Survey Anomaly Episodes Audited via Physics-RAG.} Continuous multi-channel hydrodynamics ($H_s$, $\text{TWL}$, and storm surge) centered on the matched storm apex ($t = 0$) diagnosing unmodeled physical processes across institutional field surveys:
     \textbf{(a)} USACE FRF Duck, NC: Antecedent berm stripping unbuffering the dune scarp.
     \textbf{(b)} Narrabeen-Collaroy, AUS: 2D embayment rotation and asymmetric radiation stress ($S_{xy} > 120\,\text{N/m}$).
     \textbf{(c)} Torrey Pines, CA: Long-period infragravity swash resonance ($T_p = 16.0\,\text{s}$).
     \textbf{(d)} Truc Vert, France: Post-storm sediment sequestration in offshore sandbars.}
     \label{fig:anomaly_audits}
-\end{figure}
+\end{figure*}
 
 \begin{itemize}
     \item \textbf{Case 1 (Infragravity Resonance, Torrey Pines):} In June 2015, RTK-GPS recorded severe erosion ($\Delta X = -9.80\,\text{m}$) \cite{ludka2015beach} while models predicted $+0.42\,\text{m}$ accretion ($H_s = 1.48\,\text{m}$). Sequence hydration revealed ultra-long swell ($T_p = 16.0\,\text{s}, s_0 = 0.0052$), amplifying infragravity surf-beat resonance into Sallenger Collision.
@@ -548,6 +539,27 @@ By combining zero-copy columnar DuckDB, vectorized latent neighbors, and calibra
 
 \appendices
 
+\section{Observing System Simulation Experiment (OSSE) Framework \& SciML Architectural Ablations}
+\label{sec:appendix_osse}
+
+\subsection{OSSE Benchmark Formulation}
+To evaluate neural architectures without observational sparsity ($N = 1,228$ discrete surveys) or unmeasured lateral fluxes, we formulated an Observing System Simulation Experiment (OSSE) \cite{atlas1997osse}: (i)~\textbf{Hydrodynamic Boundary Forcing}: 100\% authentic multi-year institutional sensor records (2012--2016 golden window, $N = 43,848$ contiguous hours per site) capturing authentic storm sequencing, peak wave power, and surge dynamics; and (ii)~\textbf{Closed Synthetic Nature Run}: continuous reference trajectory generated via a non-linear wave-energy equilibrium differential operator \cite{yates2009equilibrium} driven by real wave energy flux plus synthetic measurement noise ($\sigma = 0.25\,\text{m}$).
+
+In classical data assimilation theory \cite{charney1969osse,atlas1997osse}, an OSSE nature run establishes an \emph{analytically knowable reference frame} to stress-test whether architectures accumulate compounding drift over 72-hour autonomous storm rollouts and whether asymmetric soft-penalties ($\mathcal{L}_{\text{PINN}}$) suppress unphysical fair-weather accretion during peak wave power.
+
+\subsection{The $2 \times 2$ SciML Architectural Matrix}
+We benchmarked four distinct SciML paradigms across continuous 72-hour autonomous storm rollouts and multi-year out-of-sample test sets:
+\begin{itemize}
+    \item \textbf{Model A (Pure Data-Driven):} Standard MLP mapping raw inputs ($H_s, T_p, \eta_{\text{surge}}, U_{10}$) via Mean Squared Error ($\mathcal{L}_{\text{MSE}}$).
+    \item \textbf{Model B (Loss-Guided / PINN):} Standard inputs regularized via an asymmetric physical soft-loss penalizing seaward accretion during severe wave action:
+    \begin{equation}
+    \mathcal{L}_{\text{PINN}} = \mathcal{L}_{\text{MSE}} + \lambda_{\text{physics}} \cdot \mathbb{E}\left[\max(0, \dot{X}_{\text{pred}})^2 \cdot \mathbb{I}_{\Upsilon > \Upsilon_{p80}}\right]
+    \label{eq:pinn_loss}
+    \end{equation}
+    \item \textbf{Model C (Feature-Guided):} Unconstrained MLP supplied with our 14D invariant manifold features ($\Upsilon^*, \Omega, \xi, \text{TWL}$).
+    \item \textbf{Model D (Dual-Guided):} Combines 14D invariant manifold inputs with the PINN asymmetric soft-loss penalty (\ref{eq:pinn_loss}).
+\end{itemize}
+
 \begin{table}[htbp]
 \caption{SCIML ARCHITECTURAL MATRIX PERFORMANCE: DYNAMIC 72-HOUR STORM ROLLOUT \& MULTI-YEAR TEST SET}
 \label{tab:sciml_matrix}
@@ -567,31 +579,6 @@ Model A (Data-Driven)             & 0.368 & 0.311 & 0.236 & -0.183 & 0.503 & 0.5
 }
 \end{center}
 \end{table}
-
-\section{Observing System Simulation Experiment (OSSE) Framework \& SciML Architectural Ablations}
-\label{sec:appendix_osse}
-
-\subsection{OSSE Benchmark Formulation}
-To evaluate neural architectural paradigms without contamination from observational sparsity ($N = 1,228$ discrete surveys across 5 years) or unmeasured lateral sediment fluxes, we formulated an Observing System Simulation Experiment (OSSE) \cite{atlas1997osse}:
-\begin{itemize}
-    \item \textbf{Hydrodynamic Boundary Forcing:} 100\% authentic multi-year institutional sensor records (2012--2016 golden window, $N = 43,848$ contiguous hours per site) capturing authentic storm sequencing, peak wave power, and surge dynamics.
-    \item \textbf{Closed Synthetic Nature Run:} Continuous reference trajectory generated via a non-linear wave-energy equilibrium differential operator \cite{yates2009equilibrium} driven by real wave energy flux plus synthetic measurement noise ($\sigma = 0.25\,\text{m}$).
-\end{itemize}
-
-In classical data assimilation theory \cite{charney1969osse,atlas1997osse}, an OSSE nature run establishes a \emph{mathematically closed, analytically knowable reference frame}. Here, it serves as an \emph{in silico} algorithmic stress test to isolate two foundational SciML questions: (1)~does the neural architecture accumulate compounding errors over unanchored 72-hour continuous storm rollouts, and (2)~does an asymmetric physical soft-penalty ($\mathcal{L}_{\text{PINN}}$) successfully suppress unphysical fair-weather accretion during peak wave power?
-
-\subsection{The $2 \times 2$ SciML Architectural Matrix}
-We benchmarked four distinct SciML paradigms across continuous 72-hour autonomous storm rollouts and multi-year out-of-sample test sets:
-\begin{itemize}
-    \item \textbf{Model A (Pure Data-Driven):} Standard MLP mapping raw inputs ($H_s, T_p, \eta_{\text{surge}}, U_{10}$) via Mean Squared Error ($\mathcal{L}_{\text{MSE}}$).
-    \item \textbf{Model B (Loss-Guided / PINN):} Standard inputs regularized via an asymmetric physical soft-loss penalizing unphysical seaward accretion during severe wave action:
-    \begin{equation}
-    \mathcal{L}_{\text{PINN}} = \mathcal{L}_{\text{MSE}} + \lambda_{\text{physics}} \cdot \mathbb{E}\left[\max(0, \dot{X}_{\text{pred}})^2 \cdot \mathbb{I}_{\Upsilon > \Upsilon_{p80}}\right]
-    \label{eq:pinn_loss}
-    \end{equation}
-    \item \textbf{Model C (Feature-Guided):} Unconstrained MLP supplied with our 14D invariant manifold features ($\Upsilon^*, \Omega, \xi, \text{TWL}$).
-    \item \textbf{Model D (Dual-Guided):} Combines 14D invariant manifold inputs with the PINN asymmetric soft-loss penalty (\ref{eq:pinn_loss}).
-\end{itemize}
 
 \subsection{The Fundamental Representation vs. Loss Trade-Off}
 As reported in Table~\ref{tab:sciml_matrix}, the OSSE benchmark exposes a profound trade-off in Scientific Machine Learning:
