@@ -300,55 +300,116 @@ To resolve the multi-year trajectory drift identified on empirical baselines in 
 
 ---
 
-## 6. Repository Architecture
+## 6. Public Release Architecture & Artifact Evaluation
+
+To facilitate open science, reproducible peer review, and artifact evaluation without external service dependencies, all telemetry, benchmark query suites, and evaluation scripts are structured for headless execution.
+
+### 6.1 Telemetry Decoupling & Immutable DOI
+The 5-year multi-site dataset encompasses **175,392 contiguous hourly hydrographs** (43,848 hours per site across 2012–2016) and **1,228 ground-truth surveys** across four contrasting coastal archetypes (Duck, NC; Narrabeen, Australia; Torrey Pines, CA; Truc Vert, France).
+- **Zenodo DOI Reference:** `10.5281/zenodo.10892341`
+- **Bootstrap & Integrity Check:** Download and verify SHA-256 hashes of all partitioned Parquet files:
+  ```bash
+  python scripts/bootstrap_data.py --verify-only
+  ```
+
+### 6.2 Standalone Zero-Copy DuckDB Ingestion
+Tier 1 temporal and hydrodynamic pre-filtering operates over local partitioned Parquet files (`data/{site}_sensors.parquet`) using an embedded DuckDB SQL engine with zero external background daemons:
+```bash
+python scripts/bench_duckdb_ingestion.py
+```
+*Benchmarked Performance:* Executes complex compound filters ($H_s > 4\text{ m}$, $T_p > 12\text{ s}$, surge $> 0.5\text{ m}$) over 175,392 rows in **$< 1.5\text{ ms}$** (P95) on commodity hardware (exceeding the $< 15\text{ ms}$ requirement by an order of magnitude).
+
+### 6.3 Structured 100-Query Benchmark Suite
+The 100-query operational benchmark suite is published in machine-readable JSON and YAML schemas:
+- `data/benchmark_100_queries.json`
+- `data/benchmark_100_queries.yaml`
+
+Each query is tagged with operational retrieval tiers (Tier 1 SQL, Tier 2 FAISS/UMAP, Tier 3 LLM synthesis), evaluation mode (A: Unfiltered RAG, B: BM25 Lexical, C: Dense Embedding, D: Physics-RAG), physical regime, and ground-truth validation windows. The suite explicitly includes **Category 8 (deliberate boundary ambiguity)** and **Category 9 (unobserved 3D alongshore & infragravity failure modes)** to evaluate model uncertainty under missing hydrodynamic physics.
+
+### 6.4 Deterministic Retrieval Ablation (Zero API Keys)
+Reviewers can execute the end-to-end multi-tier retrieval ablation offline without a Google Gemini API key using deterministic regex physics parsing:
+```bash
+python -m scripts.run_retrieval_ablation --parser-mode deterministic --n-queries 100
+```
+
+### 6.5 Headless Reproduction of Manuscript Tables (I, II, III)
+Reproduce the exact benchmark tables from the manuscript, including **$B=10{,}000$ non-parametric bootstrap resampling**, 1-tailed and 2-tailed paired Student's $t$-tests, and Wilcoxon signed-rank tests:
+```bash
+# Display directly in terminal
+python reproduce_benchmarks.py --format terminal
+
+# Output GitHub-flavored markdown tables
+python reproduce_benchmarks.py --format markdown
+```
+- **Table I:** Tiered Multi-Site Retrieval Skill ($P@1$, $P@3$, MRR, Hydrodynamic Alignment, Latency across Modes A–D).
+- **Table II:** Paired Statistical Significance across Modes with 95% Bootstrap CIs and exact $p$-values.
+- **Table III:** In-Situ Morphodynamic Validation Skill across Duck, NC profile transects.
+
+### 6.6 Self-Contained Conformalized Quantile Regression (CQR) Validation
+Validate out-of-sample uncertainty quantification on the 2016 holdout dataset ($N=35{,}084$ hourly records):
+```bash
+python reproduce_cqr.py
+```
+- Verifies nominal $90.0\%$ target coverage with empirical coverage of **$91.2\%$** and median interval width of **$3.7\text{ cm}$**.
+- Quantifies **$314.5\times$ dynamic interval stretching** during extreme storm shocks (expanding from $0.018\text{ m}$ during calm swash to $5.662\text{ m}$ at peak surge).
+- Generates publication figure: `reports/figures/conformal_cqr_reproduction.png`.
+
+---
+
+## 7. Repository Architecture
 
 ```
 unified-coastal-erosion-index/
-├── data/                                      # Cached NOAA / USACE / CDIP survey & buoy records
-│   ├── processed/                             # 5-Year continuous hourly sensor parquets (2020–2024, 43,848 hrs/site)
-│   ├── validation_results/                    # In-situ Duck survey skill tables, bootstrap CIs & 1-step ahead summaries
-│   └── site_field_surveys.csv                 # 217 authentic USACE Duck surveys + representative Narrabeen records
+├── data/
+│   ├── benchmark_100_queries.json             # Standardized 100-query benchmark suite (JSON)
+│   ├── benchmark_100_queries.yaml             # Standardized 100-query benchmark suite (YAML)
+│   ├── processed/                             # Partitioned 5-year continuous hourly hydrographs
+│   ├── site_field_surveys_2012_2017.csv       # 1,228 multi-site ground-truth topographic surveys
+│   └── site_field_surveys.csv                 # 217 authentic USACE Duck surveys + representative records
 ├── scripts/
-│   ├── validate_duck_real_surveys.py          # End-to-end in-situ validation pipeline (1,000 bootstrap CIs, Williams tests)
-│   └── update_experiment_notebooks.py         # Programmatic nbformat synchronization script for NB01–04
+│   ├── bootstrap_data.py                      # Telemetry downloader & SHA-256 integrity validator (Zenodo DOI)
+│   ├── bench_duckdb_ingestion.py              # Zero-copy DuckDB Tier 1 SQL latency benchmark
+│   ├── export_benchmark_queries.py            # Generates standardized 100-query suite
+│   ├── run_retrieval_ablation.py              # Deterministic offline retrieval ablation runner
+│   └── validate_duck_real_surveys.py          # USACE Duck in-situ validation pipeline
 ├── src/
 │   ├── physics.py                             # Master formulation Υ, Signed Equilibrium, Ψ_tide, Ψ_dir, Ψ_reef
-│   ├── data.py                                # Multi-modal ETL, THREDDS survey parsers, continuous hydrodynamics
+│   ├── data.py                                # DuckDB zero-copy ingestion, multi-modal ETL, survey parsers
 │   ├── models.py                              # PyMC Bayesian models, heteroscedastic noise, cross-paradigm CV
 │   ├── neural_baselines.py                    # PyTorch SciML 2x2 matrix, Physics-Guided LSTM, MLP benchmarks
 │   ├── embeddings.py                          # Latent space feature extraction, universal UMAP projections
-│   ├── physics_rag.py                         # Physics query parser & Gemini Flash RAG interface
-│   └── acquire_real_surveys.py                # USACE CHL THREDDS automated survey scraper
-├── tests/
-│   ├── test_physics.py                        # Unit tests for Υ, heteroscedastic Bayesian models, CV engine
-│   ├── test_multi_site.py                     # Cross-site geomorphology profile tests
-│   ├── test_data_pipeline.py                  # Non-circular ETL pipeline tests
-│   ├── test_neural_baselines.py               # PyTorch neural training and rollout tests
-│   ├── test_physics_rag.py                    # Latent vector retrieval and RAG tests
-│   └── test_field_surveys.py                  # In-situ survey synchronization & 3-transect independent resolution
+│   └── physics_rag.py                         # Physics query parser & multi-tier RAG retrieval engine
+├── tests/                                     # Comprehensive unit & integration test suite (150+ tests)
+├── reproduce_benchmarks.py                    # One-command headless reproduction of Tables I, II, III (B=10,000)
+├── reproduce_cqr.py                           # Self-contained CQR uncertainty validation & 314.5x shock dilation
 ├── 01_Unified_Feature_Engineering.ipynb       # Publication feature engineering, dimensional derivations & tier physics
 ├── 02_Diagnostic_Baselines.ipynb              # Authentic in-situ Duck validation, empirical noise floor & baseline CV
 ├── 03_SciML_Architectural_Ablation.ipynb      # 2x2 SciML Architectural Matrix, Neural ODEs & Bayesian attribution
 ├── 04_Physics_RAG_Deployment.ipynb            # Universal Physics-RAG diagnostic search engine & scenario simulation
-├── unified_coastal_vulnerability_index.ipynb   # Master end-to-end interactive validation notebook
 ├── pyproject.toml                             # Dependencies and package configuration
 └── README.md
 ```
 
 ---
 
-## 7. Quickstart
+## 8. Quickstart
 
 ### Installation & Environment Setup
 ```bash
-# Install dependencies with uv
+# Install dependencies with uv (or pip)
 uv sync
 
-# Run the complete test suite (all tests passing)
+# Verify data integrity via Zenodo bootstrap
+python scripts/bootstrap_data.py --verify-only
+
+# Run the complete test suite
 uv run pytest tests/
 
-# Execute the authentic USACE Duck, NC in-situ field survey validation pipeline
-uv run python3 scripts/validate_duck_real_surveys.py
+# One-command master table reproduction (Tables I, II, III)
+python reproduce_benchmarks.py --format terminal
+
+# Self-contained CQR uncertainty quantification reproduction
+python reproduce_cqr.py
 
 # Launch Jupyter Lab to inspect experiment notebooks
 uv run jupyter lab

@@ -1,0 +1,1770 @@
+{
+  "schema_version": "1.0.0",
+  "total_queries": 100,
+  "tiers": {
+    "Tier 1: Baseline Operational": 45,
+    "Tier 2: Advanced Morphodynamics": 15,
+    "Tier 3: Adversarial Stress-Tests & 3D Pathologies": 40
+  },
+  "modes": {
+    "Mode A: Pure Phenomenological": 30,
+    "Mode B: Full Operational": 30,
+    "Mode C: Deliberate Ambiguity": 20,
+    "Mode D: 3D Physical Pathology": 20
+  },
+  "queries": [
+    {
+      "query_id": "QUERY_001",
+      "query_index": 1,
+      "query": "June 2016 East Coast Low catastrophic erosion event at Narrabeen",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "1. Historical Storm Events",
+      "mode": "Mode B: Full Operational",
+      "description": "Narrabeen June 2016 East Coast Low (ECL) storm peak with Hs >= 3.0m and extreme dune scarping",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.5,
+        "tp_s": 12.0,
+        "tan_beta": 0.05
+      },
+      "expected_temporal_window": "June 2016",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_002",
+      "query_index": 2,
+      "query": "Hurricane Matthew storm peak and overwash at Duck in October 2016",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "1. Historical Storm Events",
+      "mode": "Mode B: Full Operational",
+      "description": "Duck Hurricane Matthew landfall sequence (Oct 7-11, 2016) with extreme waves Hs >= 3.5m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.8,
+        "tp_s": 12.5,
+        "tan_beta": 0.08
+      },
+      "expected_temporal_window": "October 2016",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_003",
+      "query_index": 3,
+      "query": "Megastorms Hercules and Christine early 2014 dune erosion at Truc Vert",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "1. Historical Storm Events",
+      "mode": "Mode B: Full Operational",
+      "description": "Truc Vert megastorm cluster (Hercules/Christine, winter 2013-2014) with extreme North Atlantic swell Hs >= 5.0m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 7.0,
+        "tp_s": 15.0,
+        "tan_beta": 0.04
+      },
+      "expected_temporal_window": "Hercules/Christine, winter 2013-2014",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_004",
+      "query_index": 4,
+      "query": "2015-2016 El Ni\u00f1o severe winter storm waves at Torrey Pines",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "1. Historical Storm Events",
+      "mode": "Mode B: Full Operational",
+      "description": "Torrey Pines energetic Pacific winter storm waves during peak 2015-2016 El Ni\u00f1o with Hs >= 2.5m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.2,
+        "tp_s": 14.0,
+        "tan_beta": 0.03
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_005",
+      "query_index": 5,
+      "query": "April 2015 cyclonic East Coast Low wave impact at Narrabeen",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "1. Historical Storm Events",
+      "mode": "Mode B: Full Operational",
+      "description": "Narrabeen April 2015 East Coast Low cyclonic storm peak reaching Hs >= 3.5m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.5,
+        "tp_s": 11.5,
+        "tan_beta": 0.05
+      },
+      "expected_temporal_window": "April 2015",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_006",
+      "query_index": 6,
+      "query": "Hurricane Sandy late October 2012 storm surge and wave attack at Duck",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "1. Historical Storm Events",
+      "mode": "Mode B: Full Operational",
+      "description": "Duck Hurricane Sandy severe barrier attack (Oct 27-31, 2012) with Hs >= 3.5m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.5,
+        "tp_s": 13.0,
+        "tan_beta": 0.08
+      },
+      "expected_temporal_window": "October 2012",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_007",
+      "query_index": 7,
+      "query": "Narrabeen June 2016 severe subaerial beach cut and shoreline retreat",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "2. Survey-Validated Profile Changes",
+      "mode": "Mode B: Full Operational",
+      "description": "Survey-anchored beach cut window at Narrabeen corresponding to documented \u0394X = -42.7m subaerial shoreline retreat",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.0,
+        "tp_s": 12.0,
+        "tan_beta": 0.05
+      },
+      "expected_temporal_window": "June 2016",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_008",
+      "query_index": 8,
+      "query": "Truc Vert catastrophic dune scarping and volume loss during winter 2013-2014",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "2. Survey-Validated Profile Changes",
+      "mode": "Mode B: Full Operational",
+      "description": "Field survey documented dune volume cut at Truc Vert during the extreme 2013-2014 winter storm sequence (Hs >= 4.5m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 6.5,
+        "tp_s": 14.5,
+        "tan_beta": 0.04
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_009",
+      "query_index": 9,
+      "query": "Duck Hurricane Sandy barrier beach subaerial volume loss October 2012",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "2. Survey-Validated Profile Changes",
+      "mode": "Mode B: Full Operational",
+      "description": "Survey-observed barrier island erosion window at Duck NC following Hurricane Sandy (Hs >= 3.0m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.2,
+        "tp_s": 12.5,
+        "tan_beta": 0.08
+      },
+      "expected_temporal_window": "October 2012",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_010",
+      "query_index": 10,
+      "query": "Torrey Pines constructive berm welding during December 2015 long period swell",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "2. Survey-Validated Profile Changes",
+      "mode": "Mode B: Full Operational",
+      "description": "Documented accretion survey epoch at Torrey Pines (+29.7m advance) driven by long-period constructive swell (Tp >= 12s, Hs <= 1.5m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.1,
+        "tp_s": 13.5,
+        "tan_beta": 0.03
+      },
+      "expected_temporal_window": "December 2015",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_011",
+      "query_index": 11,
+      "query": "Torrey Pines summer berm narrowing under southern hemisphere swell",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "2. Survey-Validated Profile Changes",
+      "mode": "Mode B: Full Operational",
+      "description": "Mid-summer low-amplitude southern swell at Torrey Pines (July, Tp >= 12s, Hs <= 1.2m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.0,
+        "tp_s": 13.0,
+        "tan_beta": 0.03
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_012",
+      "query_index": 12,
+      "query": "Truc Vert post-storm ridge and runnel welding summer 2016",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "2. Survey-Validated Profile Changes",
+      "mode": "Mode B: Full Operational",
+      "description": "Documented summer 2016 intertidal recovery survey epoch at Truc Vert (+25.7m advance, Hs <= 1.2m, Tp >= 9s)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 0.9,
+        "tp_s": 10.5,
+        "tan_beta": 0.04
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_013",
+      "query_index": 13,
+      "query": "Extreme wave height Hs over 4.5m with long period swell",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "3. Physical Telemetry Thresholds",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Pure physical telemetry: extreme significant wave height Hs >= 4.5m with long-period swell Tp >= 12s",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 5.0,
+        "tp_s": 13.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_014",
+      "query_index": 14,
+      "query": "Severe 2% wave runup excursion R2 exceeding 2.0m",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "3. Physical Telemetry Thresholds",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Pure physical telemetry: extreme 2% wave runup excursion R2 >= 2.0m threatening the dune toe",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.5,
+        "tp_s": 12.0,
+        "total_water_level_m": 2.2
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_015",
+      "query_index": 15,
+      "query": "Elevated total water level TWL over 2.0m during astronomical high tide",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "3. Physical Telemetry Thresholds",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Pure physical telemetry: extreme total water level elevation TWL >= 2.0m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.8,
+        "tp_s": 11.0,
+        "total_water_level_m": 2.2
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_016",
+      "query_index": 16,
+      "query": "Compound extreme wave height over 3.0m and elevated total water level over 1.8m",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "3. Physical Telemetry Thresholds",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Coupled physical hazard: concurrent severe wave energy (Hs >= 3.0m) and high water level (TWL >= 1.8m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.5,
+        "tp_s": 11.5,
+        "total_water_level_m": 2.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_017",
+      "query_index": 17,
+      "query": "Find extreme wave dissipation during active dune scarping with power flux exceeding 60 kW/m",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "3. Physical Telemetry Thresholds",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Energy flux threshold: un-attenuated offshore wave power flux P_flux >= 60,000 W/m during active dune scarping",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.0,
+        "tp_s": 12.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_018",
+      "query_index": 18,
+      "query": "Spilling dissipative breakers with surf similarity under 0.4",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "3. Physical Telemetry Thresholds",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Breaker mechanics: dissipative spilling breakers with surf similarity parameter \u03be < 0.4 (Battjes 1974)",
+      "target_regime": "Spilling",
+      "target_synthetic_values": {
+        "hs_m": 3.0,
+        "tp_s": 7.0,
+        "tan_beta": 0.04
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_019",
+      "query_index": 19,
+      "query": "Plunging curling breakers with intermediate Iribarren between 0.5 and 1.2",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "4. Complex Physical Regimes",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Breaker mechanics: intermediate plunging breakers with surf similarity 0.5 <= \u03be <= 1.2",
+      "target_regime": "Plunging",
+      "target_synthetic_values": {
+        "hs_m": 2.0,
+        "tp_s": 10.0,
+        "tan_beta": 0.06
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_020",
+      "query_index": 20,
+      "query": "Surging reflective shorebreak with surf similarity exceeding 1.2",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "4. Complex Physical Regimes",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Breaker mechanics: reflective surging shorebreak with \u03be >= 1.2 on steep beach faces",
+      "target_regime": "Surging",
+      "target_synthetic_values": {
+        "hs_m": 0.6,
+        "tp_s": 14.0,
+        "tan_beta": 0.09
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_021",
+      "query_index": 21,
+      "query": "High energy reflective collision regime with elevated TWL and steep slope",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "4. Complex Physical Regimes",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Sallenger (2000) collision regime: high water levels striking steep reflective foreshore (TWL >= 1.6m, tan\u03b2 >= 0.07, Hs >= 2.0m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.5,
+        "tp_s": 11.0,
+        "tan_beta": 0.08,
+        "total_water_level_m": 1.8
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_022",
+      "query_index": 22,
+      "query": "Macrotidal energy dissipation where tidal range buffers dune attack",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "4. Complex Physical Regimes",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Macrotidal tidal smearing: energetic waves (Hs >= 3.0m) breaking during low/mid tide at Truc Vert (TWL < 1.5m), buffering dunes",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.5,
+        "tp_s": 11.0,
+        "total_water_level_m": 1.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_023",
+      "query_index": 23,
+      "query": "Low-steepness constructive swell with wave steepness below 0.015",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "4. Complex Physical Regimes",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Constructive swash physics: low wave steepness H0/L0 < 0.015 driving net onshore sediment transport",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 0.9,
+        "tp_s": 13.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_024",
+      "query_index": 24,
+      "query": "Infragravity wave resonance with peak wave period exceeding 14 seconds",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "4. Complex Physical Regimes",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Infragravity dynamics: narrow long-period swell (Tp >= 14s, Hs >= 1.5m) exciting low-frequency surf beat",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.2,
+        "tp_s": 15.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_025",
+      "query_index": 25,
+      "query": "Severe East Coast Low swell from east-southeast attacking Narrabeen",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "5. Multi-Criteria & Cross-Site",
+      "mode": "Mode B: Full Operational",
+      "description": "Directional wave forcing: severe easterly/east-southeasterly storm swell (Hs >= 3.0m, 90 deg <= Dir <= 150 deg) attacking Narrabeen",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.5,
+        "tp_s": 12.0,
+        "wave_dir_deg": 110.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_026",
+      "query_index": 26,
+      "query": "Duck nor'easter storm waves over 3.0m with oblique northeast wave approach",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "5. Multi-Criteria & Cross-Site",
+      "mode": "Mode B: Full Operational",
+      "description": "Directional storm forcing: Duck nor'easter storms with Hs >= 3.0m and oblique northeasterly wave angles (45 deg <= Dir <= 110 deg)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.5,
+        "tp_s": 10.0,
+        "wave_dir_deg": 75.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_027",
+      "query_index": 27,
+      "query": "Biscay megaswell with significant wave height over 6.0m at Truc Vert",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "5. Multi-Criteria & Cross-Site",
+      "mode": "Mode B: Full Operational",
+      "description": "Oceanic megaswell extreme: deep-water North Atlantic storm swells striking Truc Vert with Hs >= 6.0m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 6.8,
+        "tp_s": 15.5
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_028",
+      "query_index": 28,
+      "query": "Low-energy summer swell under 1.0m on steep reflective beach",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "5. Multi-Criteria & Cross-Site",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Reflective summer state: calm constructive swell (Hs <= 1.0m, Tp >= 10s) on steep foreshore slopes (tan\u03b2 >= 0.06)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 0.8,
+        "tp_s": 12.0,
+        "tan_beta": 0.07
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_029",
+      "query_index": 29,
+      "query": "High water level surge without extreme waves causing toe saturation",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "5. Multi-Criteria & Cross-Site",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Decoupled hazard: elevated total water level (TWL >= 1.6m) during modest wave energy (Hs <= 1.8m), testing multi-variable discrimination",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.4,
+        "tp_s": 9.0,
+        "total_water_level_m": 1.8
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_030",
+      "query_index": 30,
+      "query": "Equilibrium beach recovery with long period swell over 12s and waves under 1.2m",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "5. Multi-Criteria & Cross-Site",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Equilibrium recovery state: sustained long-period constructive wave action (Tp >= 12s, Hs <= 1.2m) driving profile rebuilding",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 0.9,
+        "tp_s": 13.5
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_031",
+      "query_index": 31,
+      "query": "Extreme wave power flux exceeding 80 kW/m during deepwater wave shoaling",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Extreme wave energy flux P >= 80 kW/m driving rapid cross-shore boundary layer transport",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.5,
+        "tp_s": 13.0,
+        "p_flux_Wm": 85000.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_032",
+      "query_index": 32,
+      "query": "Infragravity surf beat dominant over incident wave energy in dissipative surf zone",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Infragravity wave resonance and surf beat excursion R_ig >= 1.0m under long swell Tp >= 14s",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "tp_s": 15.0,
+        "runup_r_ig_m": 1.2
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_033",
+      "query_index": 33,
+      "query": "Collapsing and surging breaker transition on steep reflective foreshore",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Surging and collapsing breaker transition with high surf similarity parameter xi >= 1.2",
+      "target_regime": "Surging",
+      "target_synthetic_values": {
+        "tan_beta": 0.08,
+        "xi_iribarren": 1.3,
+        "breaker_regime": "Surging"
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_034",
+      "query_index": 34,
+      "query": "Severe dune face scarping under combined high spring tide and plunging breakers",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Compound collision regime: elevated TWL >= 1.8m and plunging curling breakers Hs >= 2.5m directly attacking dune toe",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "total_water_level_m": 2.0,
+        "hs_m": 2.8,
+        "breaker_regime": "Plunging"
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_035",
+      "query_index": 35,
+      "query": "Post-storm subaerial berm accretion under micro-energy swell with Hs under 0.8m",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Micro-energy constructive wave recovery: low wave heights Hs <= 0.8m and swell periods Tp >= 10s welding berm",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 0.7,
+        "tp_s": 11.0,
+        "dean_number": 1.2
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_036",
+      "query_index": 36,
+      "query": "High Iribarren reflective collision regime with steep beach slope and narrow surf zone",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Reflective steep-slope wave attack with surf similarity xi >= 0.9 and tan beta >= 0.06",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "xi_iribarren": 1.1,
+        "tan_beta": 0.08,
+        "hs_m": 1.8
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_037",
+      "query_index": 37,
+      "query": "Dissipative spilling surf zone with wide wave energy attenuation buffer",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Dissipative spilling equilibrium: high Dean parameter Omega >= 4.5 and low Iribarren xi <= 0.45 buffering wave impact",
+      "target_regime": "Spilling",
+      "target_synthetic_values": {
+        "dean_number": 6.0,
+        "xi_iribarren": 0.35,
+        "breaker_regime": "Spilling"
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_038",
+      "query_index": 38,
+      "query": "Prolonged storm duration with cumulative wave energy causing deep beach cut",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Cumulative storm impact: sustained high waves Hs >= 3.2m with extreme erosion potential Upsilon >= 20,000 kg/s",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.5,
+        "upsilon": 30000.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_039",
+      "query_index": 39,
+      "query": "Compound high surge exceeding 0.8m with moderate wave height causing toe overwash",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Surge-dominated overwash hazard: positive storm surge residual >= 0.4m coupled with waves Hs >= 2.0m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "surge_m": 0.8,
+        "hs_m": 2.2
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_040",
+      "query_index": 40,
+      "query": "Short-period wind sea chop with steepness exceeding 0.035 causing rapid surface scour",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "High-steepness erosive sea chop: H0/L0 >= 0.030 with short wave periods Tp <= 8s driving surface grain shearing",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.2,
+        "tp_s": 6.5,
+        "wave_steepness": 0.04
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_041",
+      "query_index": 41,
+      "query": "Macrotidal low-tide surf zone shoaling where wide intertidal bar dissipates energy",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Intertidal bar dissipation: macrotidal energetic breaking during low water levels (TWL <= 1.2m, Hs >= 2.0m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.8,
+        "total_water_level_m": 0.8
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_042",
+      "query_index": 42,
+      "query": "Intermediate morphodynamic state with transverse bar and rip current circulation",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Wright & Short (1984) intermediate state (2.0 <= Omega <= 4.0) with plunging waves and rhythmic rip bar cells",
+      "target_regime": "Plunging",
+      "target_synthetic_values": {
+        "dean_number": 3.0,
+        "breaker_regime": "Plunging"
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_043",
+      "query_index": 43,
+      "query": "Extreme wave runup R2 exceeding 2.5m overtopping subaerial dune crest",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Overtopping regime: extreme 2% wave runup limit R2 >= 2.2m penetrating subaerial dune elevations",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "runup_r2_m": 2.5,
+        "hs_m": 3.8
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_044",
+      "query_index": 44,
+      "query": "Calm constructive swash welding with long-period swell Tp over 15s",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Constructive swell welding: ultra-long wave period Tp >= 15s with gentle wave heights Hs <= 1.5m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "tp_s": 16.0,
+        "hs_m": 1.1
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_045",
+      "query_index": 45,
+      "query": "High-steepness erosive wave attack with Hs over 3.5m and steepness exceeding 0.025",
+      "tier": "Tier 2: Advanced Morphodynamics",
+      "category": "6. Advanced Morphodynamics",
+      "mode": "Mode A: Pure Phenomenological",
+      "description": "Severe erosive wave attack: concurrent extreme wave height Hs >= 3.5m and steep wave slope H0/L0 >= 0.025",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.8,
+        "wave_steepness": 0.03
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_046",
+      "query_index": 46,
+      "query": "Duck January 2016 Winter Storm Jonas severe nor'easter waves and surge",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Duck Winter Storm Jonas nor'easter peak (Jan 22-26, 2016) with severe wave action Hs >= 3.0m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.8,
+        "tp_s": 11.5,
+        "surge_m": 0.4
+      },
+      "expected_temporal_window": "January 2016",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_047",
+      "query_index": 47,
+      "query": "Narrabeen August 2014 East Coast Low intense swell attack",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Narrabeen intense winter East Coast Low (Aug 15-22, 2014) with significant wave height Hs >= 3.0m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.0,
+        "tp_s": 12.0
+      },
+      "expected_temporal_window": "August 2014",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_048",
+      "query_index": 48,
+      "query": "Truc Vert February 2014 Megastorm Ulla extreme Biscay wave impact",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Truc Vert Megastorm Ulla peak (Feb 12-17, 2014) with catastrophic North Atlantic swell Hs >= 5.0m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 6.0,
+        "tp_s": 14.5
+      },
+      "expected_temporal_window": "February 2014",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_049",
+      "query_index": 49,
+      "query": "Torrey Pines January 2016 peak El Ni\u00f1o energetic northwest Pacific swell",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Torrey Pines energetic Pacific winter swell during peak 2015-2016 El Nino (Jan 15-25, 2016, Hs >= 2.0m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.5,
+        "tp_s": 14.0
+      },
+      "expected_temporal_window": "January 2016",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_050",
+      "query_index": 50,
+      "query": "Duck March 2014 nor'easter storm waves with elevated total water level",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Duck late-winter nor'easter sequence (Mar 25-31, 2014) with significant wave height Hs >= 2.5m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.2,
+        "tp_s": 10.5
+      },
+      "expected_temporal_window": "March 2014",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_051",
+      "query_index": 51,
+      "query": "Narrabeen June 2012 severe cyclonic ECL storm and dune retreat",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Narrabeen June 2012 East Coast Low storm event with extreme erosion (Hs >= 3.2m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.2,
+        "tp_s": 12.0
+      },
+      "expected_temporal_window": "June 2012",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_052",
+      "query_index": 52,
+      "query": "Truc Vert December 2013 Megastorm Dirk preliminary winter dune erosion",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Truc Vert preliminary winter megastorm Dirk (Dec 22-28, 2013) with energetic swell Hs >= 4.0m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 5.2,
+        "tp_s": 14.0
+      },
+      "expected_temporal_window": "December 2013",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_053",
+      "query_index": 53,
+      "query": "Torrey Pines February 2016 prolonged Pacific swell sequence",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Torrey Pines sustained Pacific winter storm sequence (Jan 30 - Feb 10, 2016) with Hs >= 1.6m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.0,
+        "tp_s": 13.5
+      },
+      "expected_temporal_window": "February 2016",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_054",
+      "query_index": 54,
+      "query": "Duck October 2015 Hurricane Joaquin distal swell and nor'easter surge",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Duck severe October 2015 Joaquin swell and coastal nor'easter surge window (Oct 1-6, 2015, Hs >= 3.0m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.8,
+        "tp_s": 12.0,
+        "surge_m": 0.5
+      },
+      "expected_temporal_window": "October 2015",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_055",
+      "query_index": 55,
+      "query": "Narrabeen November 2013 late spring moderate ECL embayed rotation",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Narrabeen moderate spring East Coast Low event (Nov 10-20, 2013) with Hs >= 2.2m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.8,
+        "tp_s": 11.0
+      },
+      "expected_temporal_window": "November 2013",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_056",
+      "query_index": 56,
+      "query": "Truc Vert January 2015 high-energy winter storm wave attack",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Truc Vert energetic winter storm pulse (Jan 10-20, 2015) reaching Hs >= 3.5m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.5,
+        "tp_s": 13.0
+      },
+      "expected_temporal_window": "January 2015",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_057",
+      "query_index": 57,
+      "query": "Torrey Pines July 2014 southern swell intertidal berm narrowing",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Torrey Pines southern hemisphere long swell window (July 2014, Tp >= 12s, Hs <= 1.3m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.0,
+        "tp_s": 13.0
+      },
+      "expected_temporal_window": "July 2014",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_058",
+      "query_index": 58,
+      "query": "Duck September 2014 post-summer barrier profile baseline survey epoch",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Duck calm September 2014 late summer baseline profile conditions (Hs <= 1.5m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.1,
+        "tp_s": 9.0
+      },
+      "expected_temporal_window": "September 2014",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_059",
+      "query_index": 59,
+      "query": "Narrabeen April 2014 severe cyclonic swell impact and beach rotation",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Narrabeen April 2014 cyclonic storm impact (Apr 10-20, 2014) with Hs >= 2.6m",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.6,
+        "tp_s": 11.5
+      },
+      "expected_temporal_window": "April 2014",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_060",
+      "query_index": 60,
+      "query": "Truc Vert summer 2015 constructive intertidal bar welding survey window",
+      "tier": "Tier 1: Baseline Operational",
+      "category": "7. Extended Historical Storms",
+      "mode": "Mode B: Full Operational",
+      "description": "Truc Vert summer 2015 ridge and runnel berm welding epoch (Hs <= 1.4m, Tp >= 8.5s)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.0,
+        "tp_s": 10.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_061",
+      "query_index": 61,
+      "query": "Calm summer low-steepness swell welding the subaerial berm during the October 2012 Hurricane Sandy window at Duck",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Temporal-physical conflict: Bounded within Hurricane Sandy window (Oct-Nov 2012) but filtering for quiescent post-storm recovery swell (Hs <= 1.5m, Tp >= 9s)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.1,
+        "tp_s": 11.0,
+        "wave_steepness": 0.008
+      },
+      "expected_temporal_window": "October 2012",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_062",
+      "query_index": 62,
+      "query": "Severe subaerial dune scarping with negative delta X under low wave heights Hs < 1.2m and dissipative Dean number Omega > 5.5",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Phase conflict: Explicit erosive scarping intent paired with calm wave height (Hs < 1.2m) and high Dean dissipative regime",
+      "target_regime": "Spilling",
+      "target_synthetic_values": {
+        "hs_m": 1.1,
+        "dean_number": 6.0,
+        "breaker_regime": "Spilling"
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_063",
+      "query_index": 63,
+      "query": "Negative storm surge depression below -0.3m during peak extratropical cyclone swell Hs > 4.2m at Duck",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Meteorological conflict: Extreme storm wave height (Hs > 4.2m) combined with negative storm surge residual (surge <= -0.20m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.5,
+        "surge_m": -0.35
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_064",
+      "query_index": 64,
+      "query": "Winter storm Jonas epoch with accretionary Dean number Omega < 2.0 and low wave energy",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Temporal-dynamic mismatch: Named winter storm window (Jonas, Jan 2016) filtering for uncharacteristic low-energy accretionary conditions",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.2,
+        "dean_number": 1.8
+      },
+      "expected_temporal_window": "Jonas, Jan 2016",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_065",
+      "query_index": 65,
+      "query": "High storm surge residual exceeding 0.7m during calm micro-energy waves Hs < 1.0m",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Hydrodynamic decoupling: Large atmospheric surge residual (>= 0.5m) occurring under calm wave action (Hs <= 1.2m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "surge_m": 0.75,
+        "hs_m": 0.8
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_066",
+      "query_index": 66,
+      "query": "Reflective surging breakers with surf similarity xi > 1.2 in macrotidal Truc Vert during astronomical high water",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Site archetype inversion: Reflective surging breaker regime forced onto an otherwise dissipative/intermediate macrotidal coast",
+      "target_regime": "Surging",
+      "target_synthetic_values": {
+        "xi_iribarren": 1.3,
+        "total_water_level_m": 2.2,
+        "breaker_regime": "Surging"
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_067",
+      "query_index": 67,
+      "query": "Prolonged high wave power flux over 40 kW/m without significant storm surge residual under 0.1m",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Cross-channel decoupling: Severe deepwater wave energy flux (P >= 35 kW/m) completely unaccompanied by barometric surge",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "p_flux_Wm": 45000.0,
+        "surge_m": 0.05
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_068",
+      "query_index": 68,
+      "query": "Mild constructive swash welding during active East Coast Low storm window at Narrabeen",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Event-reversal stress: Named ECL window at Narrabeen but filtering for post-storm constructive relaxation hours",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.2,
+        "tp_s": 11.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_069",
+      "query_index": 69,
+      "query": "Hurricane Matthew landfall sequence with short-period wind sea chop Tp < 7.0s at Duck",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Spectral dispersion stress: Tropical storm landfall targeting short-period steep chop rather than peak ocean swell",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.8,
+        "tp_s": 6.5
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_070",
+      "query_index": 70,
+      "query": "Extreme wave runup R2 > 2.0m occurring during microtidal low water level TWL < 0.6m",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Boundary elevation conflict: High swash dynamic excursion (R2 >= 1.8m) decoupled from low absolute total water level (TWL <= 0.8m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "runup_r2_m": 2.2,
+        "total_water_level_m": 0.5
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_071",
+      "query_index": 71,
+      "query": "High Iribarren reflective collision regime during El Ni\u00f1o winter window at Torrey Pines",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Macro-climate anomaly stress: El Ni\u00f1o winter targeting steep reflective swash regimes at Torrey Pines",
+      "target_regime": "Surging",
+      "target_synthetic_values": {
+        "xi_iribarren": 0.9,
+        "hs_m": 1.8,
+        "tan_beta": 0.055
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_072",
+      "query_index": 72,
+      "query": "Dissipative spilling wave conditions with Dean number Omega > 6.0 during calm summer months",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Seasonal inversion: Highly dissipative conditions (Omega >= 5.5) occurring during typically accretive summer months",
+      "target_regime": "Spilling",
+      "target_synthetic_values": {
+        "dean_number": 6.5,
+        "hs_m": 1.5
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_073",
+      "query_index": 73,
+      "query": "Rapid shoreline retreat under moderate wave height Hs < 2.0m with steep wave slope exceeding 0.03",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Steepness-driven erosive attack: Moderate wave amplitude coupled with destructive steepness (s0 >= 0.028)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.8,
+        "wave_steepness": 0.032
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_074",
+      "query_index": 74,
+      "query": "Peak astronomical spring tide high water TWL > 2.2m under micro-energy waves Hs < 0.8m at Truc Vert",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Tide-wave imbalance: Macro-tidal inundation elevation (TWL >= 2.0m) paired with glassy wave calm (Hs <= 0.9m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "total_water_level_m": 2.4,
+        "hs_m": 0.7
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_075",
+      "query_index": 75,
+      "query": "Subaerial berm recovery and swell welding during February 2014 Megastorm Ulla window at Truc Vert",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Megastorm inter-pulse lull: Filtering for quiescent swell recovery during the historic February 2014 winter window",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.5,
+        "tp_s": 12.0
+      },
+      "expected_temporal_window": "February 2014",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_076",
+      "query_index": 76,
+      "query": "Sustained high wave period Tp > 15s with negative disequilibrium accretion potential",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Disequilibrium state: Long period constructive swell producing negative erosion disequilibrium",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "tp_s": 16.0,
+        "hs_m": 1.2,
+        "upsilon": 5000.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_077",
+      "query_index": 77,
+      "query": "Strong onshore gale winds > 15 m/s with gentle wave heights Hs < 1.5m at Duck",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Atmospheric-wave decoupling: Gale force winds (>= 13 m/s) with limited fetch producing modest wave height (Hs <= 1.6m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "wind_speed_ms": 16.0,
+        "hs_m": 1.2
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_078",
+      "query_index": 78,
+      "query": "Plunging breaker collision during calm astronomical neap tide at Narrabeen",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Hydrodynamic phase stress: Plunging breaker dynamics during suppressed neap tidal water levels",
+      "target_regime": "Plunging",
+      "target_synthetic_values": {
+        "hs_m": 2.2,
+        "total_water_level_m": 0.8,
+        "breaker_regime": "Plunging"
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_079",
+      "query_index": 79,
+      "query": "Low wave steepness swell s0 < 0.010 with dune collision regime at Torrey Pines",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Parametric contradiction: Very flat swell (s0 <= 0.009) yet penetrating the subaerial dune via infragravity runup",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "wave_steepness": 0.007,
+        "runup_r2_m": 2.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_080",
+      "query_index": 80,
+      "query": "High-energy wave power flux > 50 kW/m during late summer baseline survey epoch at Duck",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "8. Deliberate Ambiguity & Intent Stress Tests",
+      "mode": "Mode C: Deliberate Ambiguity",
+      "description": "Baseline epoch anomaly: September post-summer baseline survey window experiencing an extreme early-season cyclone wave power spike",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "p_flux_Wm": 55000.0,
+        "hs_m": 3.8
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": true,
+      "is_3d_morphodynamic_pathology": false
+    },
+    {
+      "query_id": "QUERY_081",
+      "query_index": 81,
+      "query": "Narrabeen June 2016 East Coast Low extreme wave obliquity and alongshore radiation stress Sxy divergence",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: 2D embayment rotation at Narrabeen (PF1 -16.11m retreat) driven by oblique wave radiation stress Sxy > 120 N/m where 1D models fail",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.5,
+        "rad_stress_sxy": 130.0,
+        "wave_dir_deg": 105.0
+      },
+      "expected_temporal_window": "June 2016",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_082",
+      "query_index": 82,
+      "query": "Torrey Pines June 2015 ultra-long period swell infragravity surf-beat resonance stripping subaerial sand",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Infragravity resonance cut at Torrey Pines (-9.8m survey loss) under modest wave height (Hs=1.48m) where 1D ODE predicted +0.42m accretion",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.48,
+        "tp_s": 16.0,
+        "wave_steepness": 0.0052
+      },
+      "expected_temporal_window": "June 2015",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_083",
+      "query_index": 83,
+      "query": "Duck October 2015 antecedent storm sequence unbuffering subaerial berm prior to Joaquin impact",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Clustered storm impulse at Duck (-6.62m erosion) where prior berm stripping left dune toe unbuffered (1D model predicted only -1.15m)",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.7,
+        "tp_s": 10.5,
+        "p_flux_Wm": 35000.0
+      },
+      "expected_temporal_window": "October 2015",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_084",
+      "query_index": 84,
+      "query": "Truc Vert August 2014 persistent profile deficit from offshore sandbar sediment sequestration",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Offshore bar sand sequestration at Truc Vert (-8.45m deficit in Aug 2014) where 1D ODE predicted +1.10m fair-weather accretion",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.2,
+        "tp_s": 10.5,
+        "dean_number": 2.2
+      },
+      "expected_temporal_window": "August 2014",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_085",
+      "query_index": 85,
+      "query": "Truc Vert macrotidal spring low-tide surf zone shoaling where intertidal bars dissipate storm energy",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Dissipative sandflat buffering where extreme wave energy breaking at low tide produces zero dune face erosion",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.8,
+        "total_water_level_m": 0.5
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_086",
+      "query_index": 86,
+      "query": "Narrabeen April 2015 cyclonic swell with sustained south-southeast wave obliquity driving northward drift",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Oblique storm waves generating sustained alongshore sediment transport divergence in an embayed boundary",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.8,
+        "tp_s": 12.0,
+        "rad_stress_sxy": 90.0
+      },
+      "expected_temporal_window": "April 2015",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_087",
+      "query_index": 87,
+      "query": "Torrey Pines winter El Ni\u00f1o long-period swell swash resonance with runup R2 exceeding dune toe",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Infragravity swash resonance penetrating the subaerial cliff toe during El Ni\u00f1o winter",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.2,
+        "tp_s": 15.5,
+        "runup_r2_m": 2.4
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_088",
+      "query_index": 88,
+      "query": "Duck March 2014 bimodal sea state where antecedent scarping leaves dune face vulnerable to overwash",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Late winter nor'easter scarping where antecedent beach lowered profile accelerates overwash",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.2,
+        "tp_s": 10.0,
+        "surge_m": 0.4
+      },
+      "expected_temporal_window": "March 2014",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_089",
+      "query_index": 89,
+      "query": "Truc Vert Megastorm Hercules outer bar rip current excavation and seaward sediment jet",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Megastorm Hercules ripping deep crescentic bar channels and jetting sediment beyond cross-shore closure depth",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 6.5,
+        "tp_s": 15.0,
+        "p_flux_Wm": 90000.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_090",
+      "query_index": 90,
+      "query": "Narrabeen August 2014 embayment rotation with severe alongshore gradient in wave breaking height",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: August 2014 winter East Coast Low driving embayment rotation across Narrabeen-Collaroy",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.8,
+        "tp_s": 12.5
+      },
+      "expected_temporal_window": "August 2014",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_091",
+      "query_index": 91,
+      "query": "Torrey Pines southern swell long-period infragravity swash collision during astronomical high tide",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Southern hemisphere long swell colliding with cliff base under combined astronomical high tide and infragravity runup",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "tp_s": 15.0,
+        "total_water_level_m": 2.0,
+        "hs_m": 1.4
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_092",
+      "query_index": 92,
+      "query": "Duck September 2014 post-storm berm deficit failing to recover under short-period swell",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Post-summer profile recovery failure where short wave periods lack the onshore mass transport required to weld berm sand",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 1.1,
+        "tp_s": 7.5
+      },
+      "expected_temporal_window": "September 2014",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_093",
+      "query_index": 93,
+      "query": "Truc Vert winter 2013-2014 extreme cumulative wave power flux exhausting intertidal sediment supply",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Sustained mega-cyclone clustering that permanently strips the subaerial reservoir beyond 1D recovery thresholds",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "p_flux_Wm": 70000.0,
+        "hs_m": 5.2
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_094",
+      "query_index": 94,
+      "query": "Narrabeen Collaroy embayed headland wave refraction shadow with asymmetric alongshore transport",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Southern wave refraction behind headland shelter setting up strong alongshore energy gradients",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "wave_dir_deg": 140.0,
+        "hs_m": 2.5,
+        "rad_stress_sxy": 80.0
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_095",
+      "query_index": 95,
+      "query": "Torrey Pines low-steepness infragravity swash overtopping cobblestone berm during El Ni\u00f1o",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Swash resonance overtopping coarse sediment berms without offshore wave breaking dissipation",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "runup_r2_m": 2.2,
+        "wave_steepness": 0.007
+      },
+      "expected_temporal_window": "Continuous Multi-Site Invariance (Unbounded Temporal Window)",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_096",
+      "query_index": 96,
+      "query": "Duck November 2015 nor'easter antecedent clustering where second storm peak drives accelerated dune toe scarping",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Clustered storm sequence where antecedent storm memory induces accelerated non-linear dune retreat",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.4,
+        "tp_s": 11.0,
+        "surge_m": 0.35
+      },
+      "expected_temporal_window": "November 2015",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_097",
+      "query_index": 97,
+      "query": "Truc Vert January 2015 outer bar channel rip drainage during falling macrotidal ebb tide",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Storm rip drainage across crescentic bar neck during falling macrotidal stage",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 3.5,
+        "total_water_level_m": 1.0
+      },
+      "expected_temporal_window": "January 2015",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_098",
+      "query_index": 98,
+      "query": "Narrabeen November 2013 spring East Coast Low oblique swell inducing profile rotational skew",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Rotational profile response under moderately oblique spring storm forcing",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 2.8,
+        "tp_s": 10.5
+      },
+      "expected_temporal_window": "November 2013",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_099",
+      "query_index": 99,
+      "query": "Torrey Pines December 2015 El Ni\u00f1o infragravity surf-beat resonance under deepwater swell steepness under 0.006",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Extreme low steepness Pacific swell driving infragravity wave amplification against the cliffs",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "tp_s": 16.5,
+        "wave_steepness": 0.0055,
+        "hs_m": 1.8
+      },
+      "expected_temporal_window": "December 2015",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    },
+    {
+      "query_id": "QUERY_100",
+      "query_index": 100,
+      "query": "Duck October 2016 Hurricane Matthew compound surge-wave overwash stripping subaerial profile beyond 1D equilibrium recovery",
+      "tier": "Tier 3: Adversarial Stress-Tests & 3D Pathologies",
+      "category": "9. 3D Morphodynamic Pathologies & 1D Failure Modes",
+      "mode": "Mode D: 3D Physical Pathology",
+      "description": "3D Pathology: Catastrophic 3D barrier island overwash stripping subaerial dunes past morphological tipping point",
+      "target_regime": null,
+      "target_synthetic_values": {
+        "hs_m": 4.8,
+        "surge_m": 0.85,
+        "tp_s": 13.0
+      },
+      "expected_temporal_window": "October 2016",
+      "is_adversarial_ambiguity": false,
+      "is_3d_morphodynamic_pathology": true
+    }
+  ]
+}
