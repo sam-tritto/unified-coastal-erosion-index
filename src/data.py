@@ -2294,6 +2294,8 @@ def export_unified_feature_engineered_datasets(
             dest_path = os.path.join(out_dir, file_name)
             df_physics.to_parquet(dest_path, index=True)
 
+    return exported_dfs
+
 
 def ingest_duckdb_telemetry(
     parquet_dir: str = "data",
