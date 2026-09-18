@@ -281,6 +281,7 @@ Rather than allowing the LLM to emit speculative point predictions, the retrieva
 System directives instruct the foundation model to anchor its hazard diagnosis strictly within the conformal interval, preventing ungrounded point-estimate assertions and explicitly formulating worst-case engineering envelopes.
 
 \section{Empirical Evaluation: The Grand 100-Query Multimodal Benchmark}
+\label{sec:benchmark}
 
 \begin{figure*}[t]
     \centering
@@ -494,16 +495,35 @@ By injecting structured CQR bounds into Gemini Flash's prompt window (Fig.~\ref{
     \item \textbf{Multi-Scale Synchronization:} Cross-referencing the instantaneous scour envelope with hydrated parent sequences ($+0.00\,\text{m}$ net change, $\Upsilon_{\text{diseq}} < 0$, $74\%$ recovery hours) enables the LLM to deduce that modest surge permitted constructive swash recovery across the 72-hour horizon.
 \end{enumerate}
 
+\subsection{Operational Actionability: Turning Extreme Volatility into Decision-Grade Intelligence}
+While CQR achieves a guaranteed $91.2\%$ empirical multi-site coverage out-of-sample, the dynamic expansion of prediction intervals up to $5.66\,\text{m}$ during storm apexes (e.g., $[ -5.633\,\text{m}, +0.029\,\text{m} ]$) presents an acute operational dilemma: civil decision-makers may interpret wide prediction intervals as an internal model breakdown rather than a mathematically rigorous reflection of true physical aleatoric volatility. 
+
+To convert this dynamic expansion into decision-grade intelligence, our system prompt architecture enforces four operational directives:
+\begin{enumerate}
+    \item \textbf{Reframing as Physical Reality, Not Model Error:} The LLM is explicitly instructed to define massive interval expansions as genuine physical aleatoric volatility, explaining that the $5.66\,\text{m}$ width is a direct mathematical reflection of extreme hydrodynamic shocks, breaking turbulence, and wave runup momentum, not a lack of epistemic model confidence.
+    \item \textbf{Enforcing the Worst-Case Engineering Envelope:} Generative point estimates (median $q_{0.50}$) are strictly rejected for emergency deployment. The model anchors emergency civil defense directives strictly to the lower conformal bound ($c_{\text{lo}} = -5.633\,\text{m}$), formulating protective setback perimeters based specifically on this catastrophic tail risk.
+    \item \textbf{Justification via Physical Drivers:} The LLM narratively explains the dynamic width adjustment by explicitly referencing real-time wave power flux ($P_{\text{flux}} \propto H_s^2 T_p$), storm surge residual ($S$), and signed disequilibrium ($\Upsilon_{\text{diseq}}$), transforming a wide uncertainty envelope into a physically intuitive outcome.
+    \item \textbf{Human-in-the-Loop (HITL) Checkpoints:} The agent positions itself as an advanced scientific synthesizer generating draft risk advisories rather than an autonomous decision-maker. The workflow enforces that execution pauses at predefined, hard-coded checkpoints so a certified human hydrometeorologist can review the bounds and diagnostic narrative before any evacuation alerts are disseminated.
+\end{enumerate}
+
 \section{Diagnostic Deployment: SciML Architectural Ablations \& Failure Auditing}
 
 \subsection{Observing System Simulation Experiment (OSSE) Framework}
-To rigorously evaluate neural architectural paradigms without contamination from field survey sparsity ($N = 1,228$ discrete points across 5 years), we formulated an Observing System Simulation Experiment (OSSE):
+To rigorously evaluate neural architectural paradigms without contamination from observational sparsity ($N = 1,228$ discrete RTK-GPS surveys across 5 years) or unmeasured lateral sediment fluxes, we formulated an Observing System Simulation Experiment (OSSE) \cite{atlas1997osse}:
 \begin{itemize}
-    \item Hydrodynamic forcing comprises 100\% authentic multi-year institutional sensor records (2012--2016 golden window, $N = 43,848$ contiguous hours per site).
-    \item The reference shoreline trajectory is a continuous nature run generated via dynamic wave-energy equilibrium formulations \cite{yates2009equilibrium} driven by real wave energy flux plus Gaussian measurement noise ($\sigma = 0.25\,\text{m}$).
+    \item \textbf{Hydrodynamic Boundary Forcing:} 100\% authentic multi-year institutional sensor records (2012--2016 golden window, $N = 43,848$ contiguous hours per site) capturing authentic storm sequencing, peak wave power, and surge dynamics.
+    \item \textbf{Closed Synthetic Nature Run:} Continuous reference trajectory generated via a non-linear wave-energy equilibrium differential operator \cite{yates2009equilibrium} driven by real wave energy flux plus synthetic measurement noise ($\sigma = 0.25\,\text{m}$).
 \end{itemize}
 
-\noindent\textbf{Role and Scope of the OSSE Nature Run:} We explicitly note that this 1D synthetic nature run serves strictly as an \emph{in silico} architectural stress test designed solely to evaluate neural rollout stability, multi-step error accumulation, and loss penalty dynamics under mathematically closed, continuous conditions. It is not intended as a substitute for 3D coastal morphodynamics. Because the nature run is generated via a 1D cross-shore equilibrium process, 2D alongshore features (such as Tier 3 radiation stress gradients) will naturally introduce minor discrepancies (+17\,mm error at Duck) within this idealized cross-shore framework. Rigorous authentic field-survey validation is instead provided in Section~\ref{subsec:field_audits} (Table~\ref{tab:anomaly_audits} and Fig.~\ref{fig:anomaly_audits}), where our Physics-RAG sequence hydration framework directly diagnoses the genuine 3D morphodynamic processes---including infragravity surf-beat resonance, 2D embayment rotation, and offshore sandbar sequestration---that the 1D synthetic nature run omits.
+\noindent\textbf{Epistemic Scope: Disentangling Neural Rollout Stability from 3D Geomorphology.} 
+We proactively address an apparent circularity: having demonstrated in Section~\ref{sec:benchmark} that 1D equilibrium formulations categorically fail to capture authentic 3D morphodynamic phenomena (e.g., alongshore sediment transport divergence, rip scour, and infragravity resonance), why employ a 1D cross-shore ODE as the synthetic nature run?
+
+In classical data assimilation theory \cite{charney1969osse,atlas1997osse}, an OSSE nature run does not serve as a proxy for the full, chaotic open-system physics of the real world. Rather, it establishes a \emph{mathematically closed, analytically knowable reference frame}. Here, the OSSE serves strictly as an \emph{in silico} algorithmic stress test to isolate two foundational SciML questions that field observations cannot untangle:
+\begin{enumerate}
+    \item \textbf{Autonomous Autoregressive Rollout Stability:} Does the neural architecture accumulate compounding multi-step errors or undergo unphysical trajectory divergence over unanchored 72-hour continuous storm rollouts?
+    \item \textbf{Loss Penalty Landscape Dynamics:} Does an asymmetric physical soft-penalty ($\mathcal{L}_{\text{PINN}}$) successfully suppress unphysical fair-weather accretion during peak wave power, or does it induce optimization stiffness in the gradient landscape?
+\end{enumerate}
+Because the governing operator is analytically closed, any rollout pathology can be unambiguously attributed to neural inductive biases and loss regularization rather than unobserved 3D sediment fluxes or instrument noise. Demonstrating stability on an idealized 1D dynamical manifold is a \emph{necessary baseline condition}, not an empirical assertion of 3D fidelity. Authentic 3D morphodynamic validation is reserved for Section~\ref{subsec:field_audits} (Table~\ref{tab:anomaly_audits}, Fig.~\ref{fig:anomaly_audits}), where our Physics-RAG sequence hydration framework directly audits and resolves the genuine 3D failure modes---infragravity surf-beat resonance, 2D embayed rotation, and offshore sandbar sequestration---that 1D equilibrium formulations systematically omit.
 
 \subsection{The $2 \times 2$ SciML Architectural Matrix}
 We benchmarked four distinct SciML paradigms across continuous 72-hour autonomous storm rollouts and multi-year out-of-sample test sets:
@@ -594,58 +614,16 @@ Truc Vert, France    & August 22, 2014 & -8.45 m  & +1.10 m & Multi-Year Post-St
     \item \textbf{Case 4 (Offshore Sequestration, Truc Vert):} In August 2014, fair weather produced $-8.45\,\text{m}$ erosion while models predicted $+1.10\,\text{m}$ accretion. Multi-scale convolution tracking traced the deficit back to the historic 2013--2014 winter cluster, which had locked nearshore sand into deep outer bars \cite{castelle2020planshape}.
 \end{itemize}
 
-\section{Cross-Domain Generalizability: Translating Physics-RAG to Cyber-Physical Assets}
+\section{Broader Architectural Generalizability: Cyber-Physical Systems}
+\label{sec:cross_domain}
 
-To demonstrate that the Physics-RAG architecture constitutes a foundational methodology for Scientific Machine Learning, we formalize its translation to other continuous cyber-physical systems (Table~\ref{tab:cross_domain}).
-
-\begin{table*}[t]
-\caption{CROSS-DOMAIN MATHEMATICAL \& ARCHITECTURAL TRANSLATION OF PHYSICS-RAG}
-\label{tab:cross_domain}
-\begin{center}
-\small
-\begin{tabularx}{\textwidth}{lXXX}
-\toprule
-\textbf{Architectural Dimension} & \textbf{Coastal Morphodynamics (Proving Ground)} & \textbf{Lithium-Ion / EV Battery Management} & \textbf{Wind Energy / Offshore Wind Turbines} \\
-\midrule
-\textbf{Static Boundary Vector ($\mathbf{p}_{\text{asset}}$)} & Foreshore slope $\tan\beta$, sediment size $D_{50}$, tidal range $\text{TR}$, crest $Z_{\text{crest}}$, orientation $\theta_{\text{shore}}$. & Cell chemistry (NMC/LFP), nominal capacity $Q_{\text{nom}}$, electrode geometry, thermal conductance, impedance $R_0$. & Rotor diameter $D$, hub height $z_{\text{hub}}$, rated power $P_{\text{rated}}$, blade polar curves, structural natural frequencies $\omega_0$. \\
-\addlinespace
-\textbf{Dynamic Forcing ($\mathbf{u}(t)$)} & Wave height $H_s$, period $T_p$, surge $\eta_{\text{surge}}$, wind velocity $U_{10}$, direction $\theta_{\text{wave}}$. & Current load $I(t)$, terminal voltage $V(t)$, cell temperature $T(t)$, cooling flow rate. & Inflow velocity $U(t)$, direction $\theta_{\text{wind}}$, turbulence intensity $TI$, wind shear exponent $\alpha$, wave forces. \\
-\addlinespace
-\textbf{Invariant Manifold ($\mathbf{z}_{\text{inv}}$)} & Dean number $\Omega$, Iribarren number $\xi$, dimensionless disequilibrium $\Delta\Upsilon^*$, steepness $s_0$, radiation stress $S_{xx}, S_{xy}$. & Arrhenius thermal factor $\exp(-E_a/RT)$, State of Charge ($SoC$), State of Health ($SoH$), overpotential $\eta / V_{\text{cell}}$, C-rate disequilibrium $\Delta C^*$. & Tip-Speed Ratio $\lambda = \omega R / U$, angle of attack $\alpha_{\text{AoA}}$, thrust $C_T$, power $C_P / C_{P,\max}$, wake deficit $\Delta U_{\text{wake}} / U_\infty$, dissipation $\epsilon$. \\
-\addlinespace
-\textbf{Physical Hazard Threshold} & Sallenger storm regime $\mathcal{I}_{\text{Sallenger}}$, dune toe collision, berm stripping threshold $\Upsilon_{\text{crit}}$. & Lithium plating boundary ($\Phi_{\text{plating}} = \operatorname{ReLU}(V_{\text{anode}} - V_{\text{ref}})$), thermal runaway $T_{\text{crit}}$, SEI fracture. & Dynamic stall boundary, flutter velocity, blade fatigue damage rate (Palmgren-Miner), wake turbulence resonance. \\
-\addlinespace
-\textbf{Directional Pareto Objective} & Penalize under-representation of wave energy; reward positive kinetic disequilibrium excess $\Delta\Upsilon^*$. & Penalize under-estimation of high C-rate pulse discharge, overtemperature spikes, or deep discharge depth ($DoD$). & Penalize under-estimation of peak gust shear, turbulent dissipation $\epsilon$, or extreme aerodynamic thrust $C_T$. \\
-\addlinespace
-\textbf{Parent Sequence Hydration} & $\pm 72\text{h}$ multi-tide storm history, subaerial berm draw-down, infragravity resonance. & $\pm 72\text{h}$ to $\pm 30\text{d}$ multi-cycle thermal duty cycles, fast-charge shock history, cumulative Ah throughput. & $\pm 24\text{h}$ to $\pm 72\text{h}$ gust-induced aeroelastic load cycles, low-level jet passage, persistent yaw misalignment. \\
-\addlinespace
-\textbf{Conformal UQ (CQR Bounds)} & Statistically certified prediction interval $[c_{\text{lo}}, c_{\text{hi}}]$ for shoreline cut; dynamic width driven by storm volatility. & Certified State-of-Health prediction intervals $[SoH_{\text{lo}}, SoH_{\text{hi}}]$; dynamic expansion during high-C-rate fast charge. & Statistically guaranteed blade deflection and fatigue damage intervals; dynamic expansion under extreme atmospheric turbulence. \\
-\addlinespace
-\textbf{Diagnostic SciML Utility} & Audit 1D equilibrium model drift, unphysical accretion in neural rollouts, infragravity scarping. & Audit neural State-of-Charge estimators suffering thermal drift, detect internal micro-shorts, predict knee-point fade \cite{severson2019battery}. & Audit neural surrogate turbine power curves, diagnose wake losses across wind farm clusters \cite{porteagel2020wind}. \\
-\bottomrule
-\end{tabularx}
-\end{center}
-\end{table*}
-
-\subsection{Lithium-Ion \& EV Battery Management Systems (BMS)}
-In electric vehicle battery systems, predictive neural networks estimate State-of-Charge ($SoC$), State-of-Health ($SoH$), and remaining useful life \cite{severson2019battery}. Deploying standard RAG over telemetry streams triggers catastrophic hallucinations: searching for \textit{"fast charging thermal spike"} maps benign ambient summer charging to hazardous cold-weather high C-rate charging because both register elevated temperatures. However, cold fast-charging induces lithium plating and solid-electrolyte interphase (SEI) fracture, whereas summer charging accelerates Arrhenius dissolution \cite{ramadesigan2012battery}.
-
-Under Physics-RAG:
+While empirically instantiated in this work for coastal morphodynamics as a high-dimensional physical proving ground, the Physics-RAG architecture addresses universal structural vulnerabilities in scientific machine learning: applying memoryless, symmetric Euclidean vector embeddings to continuous non-equilibrium physical media. The foundational mathematical primitives established herein translate directly to other safety-critical cyber-physical systems characterized by threshold-activated kinetics and path-dependent hysteresis:
 \begin{itemize}
-    \item \textbf{Invariant Manifold ($\mathbf{z}_{\text{battery}}$):} Includes dimensionless Arrhenius groupings $\exp(-E_a/RT)$, overpotential ratios $\eta / V_{\text{cell}}$, Peukert capacity loss exponents, and continuous plating risk $\Phi_{\text{plating}} = \operatorname{ReLU}(V_{\text{anode}} - V_{\text{ref}})$.
-    \item \textbf{Directional Pareto Ranking:} Rewards candidates exceeding critical thermal thresholds ($T > T_{\text{crit}}$) and high C-rate excursions, preventing symmetric distance search from matching severe overvoltage events to nominal cycles.
-    \item \textbf{Sequence Hydration \& CQR Envelopes:} Rehydrates continuous antecedent fast-charge duty cycles while computing certified CQR bounds $[SoH_{\text{lo}}, SoH_{\text{hi}}]$, allowing diagnostic models to differentiate reversible impedance rise from irreversible capacity knee-point fade.
+    \item \textbf{Electrochemical Energy Storage (EV \& Grid BMS):} Estimating battery State-of-Health ($SoH$) and detecting internal short-circuits requires replacing raw current-voltage telemetry with dimensionless Arrhenius groupings and overpotential ratios ($\mathbf{z}_{\text{battery}}$) \cite{ramadesigan2012battery}. Directional Pareto filtering eliminates dangerous symmetric distance degeneracy by penalizing under-estimation of high C-rate pulse excursions, while sequence hydration of antecedent thermal duty cycles enables downstream diagnostic models to differentiate reversible impedance rise from irreversible capacity knee-point fade \cite{severson2019battery}.
+    \item \textbf{Renewable Energy \& Aeromechanical Assets:} In offshore wind turbine arrays, predicting blade aeroelastic loads, dynamic stall margins, and turbulent wake deficits requires mapping anemometer telemetry to Tip-Speed Ratios ($\lambda$) and thrust coefficients ($C_T$) \cite{porteagel2020wind}. Hydrating multi-hour wake meandering histories restores structural fatigue memory, while Conformal Quantile Regression (CQR) dynamically bounds blade deflection envelopes under non-stationary atmospheric turbulence.
+    \item \textbf{Inverter-Dominated Electrical Grids \& Continuous Process Systems:} The identical architectural cascade maps directly to Rate-of-Change-of-Frequency (RoCoF) stability and synthetic inertia deficits in low-inertia smart grids, compressor surge margins in aerospace turbomachinery, and Semenov runaway bifurcations in continuous industrial chemical reactors.
 \end{itemize}
-
-\subsection{Wind Energy \& Offshore Wind Turbines}
-In modern wind farms, deep neural operators forecast blade aeroelastic loads, power production, and turbulent wake deficits \cite{porteagel2020wind}. Standard vector search suffers from cross-farm degeneracy: queries for \textit{"high turbulence blade fatigue"} match identical mean wind speeds occurring under laminar flow, failing to capture wake meandering and dynamic stall.
-
-Under Physics-RAG:
-\begin{itemize}
-    \item \textbf{Invariant Manifold ($\mathbf{z}_{\text{turbine}}$):} Parameterized by Tip-Speed Ratio $\lambda = \omega R / U$, blade angle of attack $\alpha_{\text{AoA}}$, thrust coefficient $C_T$, power coefficient $C_P / C_{P,\max}$, normalized wake velocity deficit $\Delta U_{\text{wake}} / U_\infty$, and turbulent dissipation rate $\epsilon$.
-    \item \textbf{Directional Pareto Ranking:} Prioritizes extreme aerodynamic shear gusts and dynamic stall boundaries rather than symmetric wind speed proximity.
-    \item \textbf{Sequence Hydration \& CQR Envelopes:} Hydrates antecedent gust sequences and yaw misalignment cycles, while CQR dynamically bounds structural deflection envelopes under non-stationary wake turbulence.
-\end{itemize}
+By decoupling domain-specific conservation invariants ($\mathcal{M}_{\text{inv}}$) from the domain-agnostic retrieval and auditing engine (zero-copy SQL pre-filtering, Directional Pareto ranking, sequence pointer hydration, and conformal coverage bounds), Physics-RAG establishes a generalizable, distribution-free blueprint for continuous physical asset surveillance.
 
 \section{Discussion, SciML Design Principles \& Conclusion}
 
@@ -689,6 +667,8 @@ By deploying this architecture using zero-copy columnar DuckDB, vectorized neare
 \bibitem{barber2023conformal} R.~F. Barber, E.~J. Cand{\`e}s, A.~Ramdas, and R.~J. Tibshirani, ``Conformal prediction beyond exchangeability,'' \textit{Ann. Statist.}, vol.~51, no.~2, pp. 816--845, 2023.
 \bibitem{gneiting2007strictly} T.~Gneiting and A.~E. Raftery, ``Strictly proper scoring rules, prediction, and estimation,'' \textit{J. Amer. Statist. Assoc.}, vol. 102, no. 477, pp. 359--378, 2007.
 \bibitem{koenker1978regression} R.~Koenker and G.~Bassett, ``Regression quantiles,'' \textit{Econometrica}, vol.~46, no.~1, pp. 33--50, 1978.
+\bibitem{charney1969osse} J.~G. Charney, M.~Halem, and R.~Jastrow, ``Use of incomplete historical data to infer the present state of the atmosphere,'' \textit{J. Atmos. Sci.}, vol.~26, no.~5, pp. 1160--1163, 1969.
+\bibitem{atlas1997osse} R.~Atlas, ``Atmospheric observations and experiments to assess their usefulness in data assimilation,'' \textit{J. Meteorol. Soc. Japan. Ser. II}, vol.~75, no.~1B, pp. 111--130, 1997.
 \end{thebibliography}
 
 \end{document}

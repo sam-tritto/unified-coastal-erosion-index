@@ -1264,7 +1264,11 @@ Instructions:
 2. Connect wave power flux and total water level (surge + runup) to morphodynamic response (beach cut vs. constructive berm accretion).
 3. If this query concerns recovery phases or recovery timeframes, analyze the Signed Disequilibrium (Υ_diseq < 0) driving constructive swash accretion and estimate recovery timeframes.
 4. Cite the quantitative numbers directly from the data. Do NOT speculate or hallucinate outside the retrieved records. Keep tone rigorous, objective, and professional.
-5. If Conformal Prediction (CQR) bounds are provided, explicitly ground your physical risk assessment within the statistically guaranteed prediction interval and explain how hydrograph volatility drove the dynamic interval width.
+5. Operational Actionability of Conformal Bounds (CQR):
+   - Reframe dynamic interval expansions (up to 5.66 m during storm apexes) as genuine physical aleatoric volatility from extreme hydrodynamic shocks, NOT epistemic model failure.
+   - Enforce the worst-case engineering envelope: reject point estimates (q_0.50) and anchor emergency recommendations strictly to the lower conformal bound (e.g., -5.633 m tail risk).
+   - Justify interval width narratively via wave power flux, storm surge elevation, and signed disequilibrium (Υ_diseq).
+   - Designate your synthesis as a draft decision-support risk report requiring human hydrometeorologist review at hard-coded HITL checkpoints prior to operational dissemination.
 """
         response = client.models.generate_content(
             model=model_name,
@@ -1356,7 +1360,11 @@ Instructions:
 2. Hydrodynamic & Morphodynamic Root Cause: Analyze how wave power flux impulse, storm surge duration, and Iribarren breaker dynamics drove the observed shoreline displacement (ΔX) and Unified Index (Υ).
 3. Disequilibrium & Recovery: If post-storm recovery or berm accretion is present, explain how the Signed Disequilibrium (Υ_diseq < 0) governed constructive swash welding.
 4. Quantitative Grounding: Directly reference the quantitative values from both the child records and parent window summary statistics. Maintain a rigorous, objective, and professional scientific tone.
-5. If Conformal Prediction (CQR) bounds are provided, explicitly ground your physical risk assessment within the statistically guaranteed prediction interval and explain how hydrograph volatility drove the dynamic interval width.
+5. Operational Actionability of Conformal Bounds (CQR):
+   - Reframe dynamic interval expansions (up to 5.66 m during storm apexes) as genuine physical aleatoric volatility from extreme hydrodynamic shocks, NOT epistemic model failure.
+   - Enforce the worst-case engineering envelope: reject point estimates (q_0.50) and anchor emergency recommendations strictly to the lower conformal bound (e.g., -5.633 m tail risk).
+   - Justify interval width narratively via wave power flux, storm surge elevation, and signed disequilibrium (Υ_diseq).
+   - Designate your synthesis as a draft decision-support risk report requiring human hydrometeorologist review at hard-coded HITL checkpoints prior to operational dissemination.
 """
         response = client.models.generate_content(
             model=model_name,

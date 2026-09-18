@@ -63,6 +63,7 @@
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {Continuous $\pm 72$-Hour Dynamic Parent Sequence Hydration across Wave, Kinetic Energy, and Elevation Channels (October 2015 Nor'easter at USACE FRF Duck, NC).} \textbf  {(Top)} Significant wave height $H_s$ ($1.5 \to 4.24\,\text  {m}$) and barometric surge $\eta _{\text  {surge}}$, locking onto the storm apex ($t = 0$, dashed red line). \textbf  {(Middle)} Unified Kinetic Erosion Index $\Upsilon $ ($\log _{10}$ scale), showing a $26.5\times $ nonlinear amplification ($6{,}500 \to 172{,}275\,\text  {kg/s}$) driven by $H_s^{2.5}$ kinematics. \textbf  {(Bottom)} Total Water Level ($\text  {TWL} = \eta _{\text  {tide}} + \eta _{\text  {surge}} + R_{2\%}$) confronting berm crest $Z_{\text  {crest}}$, initiating sustained Sallenger Collision.}}{6}{}\protected@file@percent }
 \newlabel{fig:parent_hydration}{{4}{6}}
 \@writefile{toc}{\contentsline {section}{\numberline {IV}Empirical Evaluation: The Grand 100-Query Multimodal Benchmark}{6}{}\protected@file@percent }
+\newlabel{sec:benchmark}{{IV}{6}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Evaluation Methodology, Categories, and Tiers}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Information Retrieval Performance \& Tier Analysis}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Statistical Hypothesis Testing on 100 Queries}{6}{}\protected@file@percent }
@@ -89,45 +90,41 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Dynamic Volatility Adaptation ($314.5\times $ Expansion)}{9}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces DYNAMIC HYDROGRAPH VOLATILITY ADAPTATION ACROSS DIVERSE HYDRODYNAMIC REGIMES}}{9}{}\protected@file@percent }
 \newlabel{tab:cqr_volatility}{{V}{9}}
+\citation{atlas1997osse}
 \citation{yates2009equilibrium}
+\citation{charney1969osse,atlas1997osse}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Grounded LLM Synthesis via Prompt Injection}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}Operational Actionability: Turning Extreme Volatility into Decision-Grade Intelligence}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Diagnostic Deployment: SciML Architectural Ablations \& Failure Auditing}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Observing System Simulation Experiment (OSSE) Framework}{10}{}\protected@file@percent }
 \citation{sutherland2004evaluating}
 \citation{ludka2015beach}
 \citation{turner2016multidecade}
 \citation{longuethiggins1964radiation}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Grounded LLM Synthesis via Prompt Injection}{10}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {VI}Diagnostic Deployment: SciML Architectural Ablations \& Failure Auditing}{10}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Observing System Simulation Experiment (OSSE) Framework}{10}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}The $2 \times 2$ SciML Architectural Matrix}{10}{}\protected@file@percent }
-\newlabel{eq:pinn_loss}{{19}{10}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}The Fundamental Representation vs. Loss Trade-Off}{10}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-D}}Field Survey Anomaly Audits via Sequence Hydration}{10}{}\protected@file@percent }
-\newlabel{subsec:field_audits}{{\mbox  {VI-D}}{10}}
-\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces SCIML ARCHITECTURAL MATRIX PERFORMANCE: DYNAMIC 72-HOUR STORM ROLLOUT \& MULTI-YEAR TEST SET}}{11}{}\protected@file@percent }
-\newlabel{tab:sciml_matrix}{{VI}{11}}
-\@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces REAL-WORLD FIELD SURVEY ANOMALY EPISODES AUDITED VIA PHYSICS-RAG SEQUENCE HYDRATION}}{11}{}\protected@file@percent }
-\newlabel{tab:anomaly_audits}{{VII}{11}}
+\citation{birkemeier1985users}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}The $2 \times 2$ SciML Architectural Matrix}{11}{}\protected@file@percent }
+\newlabel{eq:pinn_loss}{{19}{11}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}The Fundamental Representation vs. Loss Trade-Off}{11}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-D}}Field Survey Anomaly Audits via Sequence Hydration}{11}{}\protected@file@percent }
+\newlabel{subsec:field_audits}{{\mbox  {VI-D}}{11}}
 \@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces \textbf  {Dynamic 72-Hour Autonomous Storm Rollout Trajectories across Contrasting Global Archetypes (Observing System Simulation Experiment).} Continuous shoreline position evolution $\Delta X(t)$ comparing Ground Truth Nature Run $x(t)$ (black) against Model A (Data-Driven, red dashed), Model B (PINN Loss-Guided, orange dotted), Model C (Feature-Guided, teal dash-dotted), and Model D (Dual-Guided, dark slate solid) centered on peak compound hazard ($t = 0$, crimson dotted line). Notice how Model B stabilizes acute shock without hallucinating fair-weather accretion during peak storm forcing ($\text  {BSS} = +0.108$), while Model C captures dynamic recovery amplitude ($r = 0.574$, reaching $r = 0.839$ at Truc Vert).}}{11}{}\protected@file@percent }
 \newlabel{fig:sciml_rollouts}{{9}{11}}
-\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces \textbf  {Multi-Panel Parent Sequence Hydration Visualizations for Top Real-World Field Survey Anomaly Episodes Audited via Physics-RAG.} Continuous multi-channel hydrodynamics ($H_s$, $\text  {TWL}$, and storm surge) centered on the matched storm apex ($t = 0$) diagnosing unmodeled physical processes across institutional field surveys: \textbf  {(a)} USACE FRF Duck, NC: Antecedent berm stripping unbuffering the dune scarp. \textbf  {(b)} Narrabeen-Collaroy, AUS: 2D embayment rotation and asymmetric radiation stress ($S_{xy} > 120\,\text  {N/m}$). \textbf  {(c)} Torrey Pines, CA: Long-period infragravity swash resonance ($T_p = 16.0\,\text  {s}$). \textbf  {(d)} Truc Vert, France: Post-storm sediment sequestration in offshore sandbars.}}{11}{}\protected@file@percent }
-\newlabel{fig:anomaly_audits}{{10}{11}}
-\citation{birkemeier1985users}
 \citation{castelle2020planshape}
-\citation{severson2019battery}
-\citation{porteagel2020wind}
-\citation{severson2019battery}
 \citation{ramadesigan2012battery}
+\citation{severson2019battery}
 \citation{porteagel2020wind}
-\@writefile{toc}{\contentsline {section}{\numberline {VII}Cross-Domain Generalizability: Translating Physics-RAG to Cyber-Physical Assets}{12}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-A}}Lithium-Ion \& EV Battery Management Systems (BMS)}{12}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-B}}Wind Energy \& Offshore Wind Turbines}{12}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {VIII}Discussion, SciML Design Principles \& Conclusion}{12}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces SCIML ARCHITECTURAL MATRIX PERFORMANCE: DYNAMIC 72-HOUR STORM ROLLOUT \& MULTI-YEAR TEST SET}}{12}{}\protected@file@percent }
+\newlabel{tab:sciml_matrix}{{VI}{12}}
+\@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces REAL-WORLD FIELD SURVEY ANOMALY EPISODES AUDITED VIA PHYSICS-RAG SEQUENCE HYDRATION}}{12}{}\protected@file@percent }
+\newlabel{tab:anomaly_audits}{{VII}{12}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces \textbf  {Multi-Panel Parent Sequence Hydration Visualizations for Top Real-World Field Survey Anomaly Episodes Audited via Physics-RAG.} Continuous multi-channel hydrodynamics ($H_s$, $\text  {TWL}$, and storm surge) centered on the matched storm apex ($t = 0$) diagnosing unmodeled physical processes across institutional field surveys: \textbf  {(a)} USACE FRF Duck, NC: Antecedent berm stripping unbuffering the dune scarp. \textbf  {(b)} Narrabeen-Collaroy, AUS: 2D embayment rotation and asymmetric radiation stress ($S_{xy} > 120\,\text  {N/m}$). \textbf  {(c)} Torrey Pines, CA: Long-period infragravity swash resonance ($T_p = 16.0\,\text  {s}$). \textbf  {(d)} Truc Vert, France: Post-storm sediment sequestration in offshore sandbars.}}{12}{}\protected@file@percent }
+\newlabel{fig:anomaly_audits}{{10}{12}}
+\@writefile{toc}{\contentsline {section}{\numberline {VII}Broader Architectural Generalizability: Cyber-Physical Systems}{12}{}\protected@file@percent }
+\newlabel{sec:cross_domain}{{VII}{12}}
 \bibcite{lewis2020rag}{1}
 \bibcite{karniadakis2021physics}{2}
 \bibcite{wright1984morphodynamic}{3}
 \bibcite{birkemeier1985users}{4}
-\@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces CROSS-DOMAIN MATHEMATICAL \& ARCHITECTURAL TRANSLATION OF PHYSICS-RAG}}{13}{}\protected@file@percent }
-\newlabel{tab:cross_domain}{{VIII}{13}}
-\@writefile{toc}{\contentsline {section}{References}{13}{}\protected@file@percent }
 \bibcite{sallenger2000storm}{5}
 \bibcite{stockdon2006empirical}{6}
 \bibcite{raissi2019pinns}{7}
@@ -139,6 +136,8 @@
 \bibcite{williams1959comparison}{13}
 \bibcite{turner2016multidecade}{14}
 \bibcite{ludka2015beach}{15}
+\@writefile{toc}{\contentsline {section}{\numberline {VIII}Discussion, SciML Design Principles \& Conclusion}{13}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{13}{}\protected@file@percent }
 \bibcite{castelle2020planshape}{16}
 \bibcite{raasveldt2019duckdb}{17}
 \bibcite{mcinnes2018umap}{18}
@@ -153,4 +152,6 @@
 \bibcite{barber2023conformal}{27}
 \bibcite{gneiting2007strictly}{28}
 \bibcite{koenker1978regression}{29}
+\bibcite{charney1969osse}{30}
+\bibcite{atlas1997osse}{31}
 \gdef \@abspage@last{14}

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  17 SEP 2026 20:15
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  17 SEP 2026 20:58
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -504,7 +504,7 @@ pt>
 File: ../figures//grand_4way_benchmark_comparison.png Graphic file (type png)
 <use ../figures//grand_4way_benchmark_comparison.png>
 Package pdftex.def Info: ../figures//grand_4way_benchmark_comparison.png  used 
-on input line 287.
+on input line 288.
 (pdftex.def)             Requested size: 490.19843pt x 175.14186pt.
 <../figures//grand_benchmark_accuracy_by_category_and_tier.png, id=54, 1373.13p
 t x 534.5571pt>
@@ -512,7 +512,7 @@ File: ../figures//grand_benchmark_accuracy_by_category_and_tier.png Graphic fil
 e (type png)
 <use ../figures//grand_benchmark_accuracy_by_category_and_tier.png>
 Package pdftex.def Info: ../figures//grand_benchmark_accuracy_by_category_and_t
-ier.png  used on input line 296.
+ier.png  used on input line 297.
 (pdftex.def)             Requested size: 490.19843pt x 190.83354pt.
  [6 <../figures//figure_hydrated_parent_sequence.png (PNG copy)>]
 <../figures//figure_peak_impact_disequilibrium_advantage.png, id=58, 1582.713pt
@@ -521,7 +521,7 @@ File: ../figures//figure_peak_impact_disequilibrium_advantage.png Graphic file
 (type png)
 <use ../figures//figure_peak_impact_disequilibrium_advantage.png>
 Package pdftex.def Info: ../figures//figure_peak_impact_disequilibrium_advantag
-e.png  used on input line 406.
+e.png  used on input line 407.
 (pdftex.def)             Requested size: 505.6778pt x 117.60751pt.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
@@ -533,7 +533,7 @@ ark_accuracy_by_category_and_tier.png>]
 File: ../figures//figure_conformal_prediction_uq.png Graphic file (type png)
 <use ../figures//figure_conformal_prediction_uq.png>
 Package pdftex.def Info: ../figures//figure_conformal_prediction_uq.png  used o
-n input line 426.
+n input line 427.
 (pdftex.def)             Requested size: 505.6778pt x 192.36086pt.
 
 Underfull \vbox (badness 7326) has occurred while \output is active []
@@ -542,121 +542,34 @@ Underfull \vbox (badness 7326) has occurred while \output is active []
 Underfull \vbox (badness 1577) has occurred while \output is active []
 
  [9 <../figures//figure_peak_impact_disequilibrium_advantage.png> <../figures//
-figure_conformal_prediction_uq.png>]
-Underfull \hbox (badness 4072) in paragraph at lines 517--518
+figure_conformal_prediction_uq.png>] [10]
+Underfull \hbox (badness 4072) in paragraph at lines 537--538
 []\OT1/ptm/b/n/10 (+20) Model C (Feature-Guided): \OT1/ptm/m/n/10 (+20) Un-con-
 strained MLP
  []
 
 
-Underfull \hbox (badness 1521) in paragraph at lines 517--518
+Underfull \hbox (badness 1521) in paragraph at lines 537--538
 \OT1/ptm/m/n/10 (+20) sup-plied with our 14D in-vari-ant man-i-fold fea-tures
  []
 
-<../figures//figure_sciml_72h_storm_rollouts.png, id=74, 434.3427pt x 561.7788p
+<../figures//figure_sciml_72h_storm_rollouts.png, id=77, 434.3427pt x 561.7788p
 t>
 File: ../figures//figure_sciml_72h_storm_rollouts.png Graphic file (type png)
 <use ../figures//figure_sciml_72h_storm_rollouts.png>
 Package pdftex.def Info: ../figures//figure_sciml_72h_storm_rollouts.png  used 
-on input line 543.
+on input line 563.
 (pdftex.def)             Requested size: 246.95892pt x 319.42004pt.
-<../figures//figure_anomaly_audits_hydration.png, id=75, 383.031pt x 431.211pt>
+<../figures//figure_anomaly_audits_hydration.png, id=78, 383.031pt x 431.211pt>
 
 File: ../figures//figure_anomaly_audits_hydration.png Graphic file (type png)
 <use ../figures//figure_anomaly_audits_hydration.png>
 Package pdftex.def Info: ../figures//figure_anomaly_audits_hydration.png  used 
-on input line 562.
+on input line 582.
 (pdftex.def)             Requested size: 246.95892pt x 278.02698pt.
-[10] [11 <../figures//figure_sciml_72h_storm_rollouts.png (PNG copy)> <../figur
-es//figure_anomaly_audits_hydration.png (PNG copy)>]
-Underfull \hbox (badness 10000) in paragraph at lines 626--626
-[]|\OT1/ptm/b/n/9 (+20) Coastal Mor-pho-dy-nam-ics
- []
-
-
-Underfull \hbox (badness 1939) in paragraph at lines 626--626
-[]|\OT1/ptm/b/n/9 (+20) Lithium-Ion / EV Bat-tery
- []
-
-
-Underfull \hbox (badness 7667) in paragraph at lines 626--626
-[]|\OT1/ptm/m/n/9 (+20) Cell chem-istry (NMC/LFP),
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 626--626
-[]|\OT1/ptm/m/n/9 (+20) Arrhenius ther-mal fac-tor
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 626--626
-[]\OT1/cmr/m/n/9 (\OMS/cmsy/m/n/9 ^^@\OML/cmm/m/it/9 E[]=RT\OT1/cmr/m/n/9 )$\OT
-1/ptm/m/n/9 (+20) , State of
- []
-
-
-Underfull \hbox (badness 3646) in paragraph at lines 626--626
-\OT1/ptm/m/n/9 (+20) ($\OML/cmm/m/it/9 SoH$\OT1/ptm/m/n/9 (+20) ), over-po-ten-
-tial $\OML/cmm/m/it/9 ^^Q=V[]$\OT1/ptm/m/n/9 (+20) ,
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 626--626
-[]|\OT1/ptm/m/n/9 (+20) Lithium plat-ing bound-ary
- []
-
-
-Underfull \hbox (badness 7397) in paragraph at lines 626--626
-\OT1/ptm/m/n/9 (+20) ther-mal run-away $\OML/cmm/m/it/9 T[]$\OT1/ptm/m/n/9 (+20
-) , SEI
- []
-
-
-Underfull \hbox (badness 1874) in paragraph at lines 626--626
-\OT1/ptm/m/n/9 (+20) ki-netic dis-e-qui-lib-rium ex-cess
- []
-
-
-Underfull \hbox (badness 3417) in paragraph at lines 626--626
-[]|\OT1/ptm/m/n/9 (+20) Penalize under-estimation of
- []
-
-
-Underfull \hbox (badness 2326) in paragraph at lines 626--626
-\OT1/ptm/m/n/9 (+20) high C-rate pulse dis-charge,
- []
-
-
-Underfull \hbox (badness 3417) in paragraph at lines 626--626
-[]|\OT1/ptm/m/n/9 (+20) Penalize under-estimation of
- []
-
-
-Underfull \hbox (badness 1831) in paragraph at lines 626--626
-\OT1/ptm/m/n/9 (+20) mal duty cy-cles, fast-charge
- []
-
-
-Underfull \hbox (badness 1478) in paragraph at lines 626--626
-[]|$\OMS/cmsy/m/n/9 ^^F\OT1/cmr/m/n/9 24[]$ \OT1/ptm/m/n/9 (+20) to $\OMS/cmsy/
-m/n/9 ^^F\OT1/cmr/m/n/9 72[]$ \OT1/ptm/m/n/9 (+20) gust-induced
- []
-
-
-Underfull \hbox (badness 2073) in paragraph at lines 626--626
-\OT1/ptm/m/n/9 (+20) aeroe-las-tic load cy-cles, low-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 626--626
-\OT1/ptm/m/n/9 (+20) neu-ral roll-outs, in-fra-grav-ity
- []
-
-[12]
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [13]
-Underfull \hbox (badness 1527) in paragraph at lines 688--689
+[11 <../figures//figure_sciml_72h_storm_rollouts.png (PNG copy)>] [12 <../figur
+es//figure_anomaly_audits_hydration.png (PNG copy)>] [13]
+Underfull \hbox (badness 1527) in paragraph at lines 666--667
 \OT1/ptm/m/n/8 (+20) for-mal pre-dic-tion and distribution-free un-cer-tainty q
 uan-tifi-ca-tion,''
  []
@@ -672,48 +585,52 @@ Before submitting the final camera ready copy, remember to:
  uses only Type 1 fonts and that every step in the generation
  process uses the appropriate paper size.
 
-[14] (./research_paper.aux) ) 
+[14
+
+] (./research_paper.aux)
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
+ ) 
 Here is how much of TeX's memory you used:
- 7682 strings out of 476025
- 122076 string characters out of 5790017
+ 7650 strings out of 476025
+ 121820 string characters out of 5790017
  1886388 words of memory out of 5000000
- 27436 multiletter control sequences out of 15000+600000
- 591499 words of font info for 503 fonts, out of 8000000 for 9000
+ 27439 multiletter control sequences out of 15000+600000
+ 588284 words of font info for 480 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 57i,15n,62p,1877b,392s stack positions out of 10000i,1000n,20000p,200000b,200000s
-</usr/local/texlive/2023/texmf-dist/fonts/type1/pu
-blic/amsfonts/cm/cmbx10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/pub
-lic/amsfonts/cm/cmbx7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/publi
-c/amsfonts/cm/cmbx8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/
-amsfonts/cm/cmbx9.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/am
-sfonts/cm/cmex10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/ams
-fonts/cm/cmmi10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsf
-onts/cm/cmmi5.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfon
-ts/cm/cmmi6.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts
-/cm/cmmi7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/c
-m/cmmi8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/
-cmmi9.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cm
-mib10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cm
-r10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5
-.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pf
-b></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb><
-/usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></us
-r/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/l
-ocal/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/lo
-cal/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb></usr/loca
-l/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/local/
-texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/te
-xlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/local/texl
-ive/2023/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/local/
-texlive/2023/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/local/texlive/
-2023/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2023/texmf
--dist/fonts/type1/urw/times/utmbi8a.pfb></usr/local/texlive/2023/texmf-dist/fon
-ts/type1/urw/times/utmr8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/u
-rw/times/utmri8a.pfb>
-Output written on research_paper.pdf (14 pages, 8690983 bytes).
+ 57i,14n,62p,1877b,321s stack positions out of 10000i,1000n,20000p,200000b,200000s
+</usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb
+></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx7.pfb><
+/usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx8.pfb></u
+sr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></us
+r/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr
+/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi5.pfb></usr/l
+ocal/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi6.pfb></usr/loc
+al/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb></usr/local
+/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr/local/t
+exlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi9.pfb></usr/local/tex
+live/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmmib10.pfb></usr/local/tex
+live/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/local/texli
+ve/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5.pfb></usr/local/texlive/
+2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb></usr/local/texlive/202
+3/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/local/texlive/2023/t
+exmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/local/texlive/2023/texm
+f-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/local/texlive/2023/texmf-d
+ist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texlive/2023/texmf-di
+st/fonts/type1/public/amsfonts/cm/cmsy6.pfb></usr/local/texlive/2023/texmf-dist
+/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/local/texlive/2023/texmf-dist/f
+onts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texlive/2023/texmf-dist/fon
+ts/type1/public/amsfonts/cm/cmsy9.pfb></usr/local/texlive/2023/texmf-dist/fonts
+/type1/public/amsfonts/symbols/msbm10.pfb></usr/local/texlive/2023/texmf-dist/f
+onts/type1/urw/courier/ucrr8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/typ
+e1/urw/times/utmb8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/urw/tim
+es/utmbi8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/urw/times/utmr8a
+.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
+Output written on research_paper.pdf (14 pages, 8668317 bytes).
 PDF statistics:
- 214 PDF objects out of 1000 (max. 8388607)
- 122 compressed objects within 2 object streams
+ 209 PDF objects out of 1000 (max. 8388607)
+ 119 compressed objects within 2 object streams
  0 named destinations out of 1000 (max. 500000)
- 86579 words of extra memory for PDF output out of 89155 (max. 10000000)
+ 82483 words of extra memory for PDF output out of 89155 (max. 10000000)
 
