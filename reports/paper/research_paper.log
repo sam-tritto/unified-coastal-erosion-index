@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  17 SEP 2026 20:58
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  17 SEP 2026 21:44
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -489,89 +489,60 @@ Package pdftex.def Info: ../figures//figure_umap_4panel_final.png  used on inpu
 t line 214.
 (pdftex.def)             Requested size: 246.95892pt x 56.23404pt.
 
-[4]
-<../figures//figure_hydrated_parent_sequence.png, id=47, 334.851pt x 190.311pt>
+[4] [5 <../figures//figure_physics_rag_architecture.png (PNG copy)> <../figures
+//figure_umap_4panel_final.png>]
+<../figures//figure_precision_at_k_single_column.png, id=52, 238.491pt x 187.90
+2pt>
+File: ../figures//figure_precision_at_k_single_column.png Graphic file (type pn
+g)
+<use ../figures//figure_precision_at_k_single_column.png>
+Package pdftex.def Info: ../figures//figure_precision_at_k_single_column.png  u
+sed on input line 278.
+(pdftex.def)             Requested size: 252.0pt x 198.55013pt.
+ [6 <../figures//figure_precision_at_k_single_column.png>]
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
-File: ../figures//figure_hydrated_parent_sequence.png Graphic file (type png)
-<use ../figures//figure_hydrated_parent_sequence.png>
-Package pdftex.def Info: ../figures//figure_hydrated_parent_sequence.png  used 
-on input line 264.
-(pdftex.def)             Requested size: 246.95892pt x 140.36038pt.
- [5 <../figures//figure_physics_rag_architecture.png (PNG copy)> <../figures//f
-igure_umap_4panel_final.png>]
-<../figures//grand_4way_benchmark_comparison.png, id=53, 1293.8739pt x 462.2871
-pt>
-File: ../figures//grand_4way_benchmark_comparison.png Graphic file (type png)
-<use ../figures//grand_4way_benchmark_comparison.png>
-Package pdftex.def Info: ../figures//grand_4way_benchmark_comparison.png  used 
-on input line 288.
-(pdftex.def)             Requested size: 490.19843pt x 175.14186pt.
-<../figures//grand_benchmark_accuracy_by_category_and_tier.png, id=54, 1373.13p
-t x 534.5571pt>
-File: ../figures//grand_benchmark_accuracy_by_category_and_tier.png Graphic fil
-e (type png)
-<use ../figures//grand_benchmark_accuracy_by_category_and_tier.png>
-Package pdftex.def Info: ../figures//grand_benchmark_accuracy_by_category_and_t
-ier.png  used on input line 297.
-(pdftex.def)             Requested size: 490.19843pt x 190.83354pt.
- [6 <../figures//figure_hydrated_parent_sequence.png (PNG copy)>]
-<../figures//figure_peak_impact_disequilibrium_advantage.png, id=58, 1582.713pt
+<../figures//figure_peak_impact_disequilibrium_advantage.png, id=57, 1582.713pt
  x 368.0952pt>
 File: ../figures//figure_peak_impact_disequilibrium_advantage.png Graphic file 
 (type png)
 <use ../figures//figure_peak_impact_disequilibrium_advantage.png>
 Package pdftex.def Info: ../figures//figure_peak_impact_disequilibrium_advantag
-e.png  used on input line 407.
+e.png  used on input line 387.
 (pdftex.def)             Requested size: 505.6778pt x 117.60751pt.
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [7 <../figures//grand_4way_benchmark_comparison.png> <../figures//grand_benchm
-ark_accuracy_by_category_and_tier.png>]
-<../figures//figure_conformal_prediction_uq.png, id=65, 897.3525pt x 341.3553pt
+ [7]
+<../figures//figure_conformal_prediction_uq.png, id=62, 897.3525pt x 341.3553pt
 >
 File: ../figures//figure_conformal_prediction_uq.png Graphic file (type png)
 <use ../figures//figure_conformal_prediction_uq.png>
 Package pdftex.def Info: ../figures//figure_conformal_prediction_uq.png  used o
-n input line 427.
+n input line 407.
 (pdftex.def)             Requested size: 505.6778pt x 192.36086pt.
 
-Underfull \vbox (badness 7326) has occurred while \output is active []
+[8 <../figures//figure_peak_impact_disequilibrium_advantage.png>]
+<../figures//figure_anomaly_audits_hydration.png, id=67, 383.031pt x 431.211pt>
 
- [8]
-Underfull \vbox (badness 1577) has occurred while \output is active []
+File: ../figures//figure_anomaly_audits_hydration.png Graphic file (type png)
+<use ../figures//figure_anomaly_audits_hydration.png>
+Package pdftex.def Info: ../figures//figure_anomaly_audits_hydration.png  used 
+on input line 482.
+(pdftex.def)             Requested size: 246.95892pt x 278.02698pt.
+ [9 <../figures//figure_conformal_prediction_uq.png>] [10 <../figures//figure_a
+nomaly_audits_hydration.png (PNG copy)>]
+Underfull \hbox (badness 1527) in paragraph at lines 541--542
+\OT1/ptm/m/n/8 (+20) for-mal pre-dic-tion and distribution-free un-cer-tainty q
+uan-tifi-ca-tion,''
+ []
 
- [9 <../figures//figure_peak_impact_disequilibrium_advantage.png> <../figures//
-figure_conformal_prediction_uq.png>] [10]
-Underfull \hbox (badness 4072) in paragraph at lines 537--538
+[11]
+Underfull \hbox (badness 4072) in paragraph at lines 592--593
 []\OT1/ptm/b/n/10 (+20) Model C (Feature-Guided): \OT1/ptm/m/n/10 (+20) Un-con-
 strained MLP
  []
 
 
-Underfull \hbox (badness 1521) in paragraph at lines 537--538
+Underfull \hbox (badness 1521) in paragraph at lines 592--593
 \OT1/ptm/m/n/10 (+20) sup-plied with our 14D in-vari-ant man-i-fold fea-tures
- []
-
-<../figures//figure_sciml_72h_storm_rollouts.png, id=77, 434.3427pt x 561.7788p
-t>
-File: ../figures//figure_sciml_72h_storm_rollouts.png Graphic file (type png)
-<use ../figures//figure_sciml_72h_storm_rollouts.png>
-Package pdftex.def Info: ../figures//figure_sciml_72h_storm_rollouts.png  used 
-on input line 563.
-(pdftex.def)             Requested size: 246.95892pt x 319.42004pt.
-<../figures//figure_anomaly_audits_hydration.png, id=78, 383.031pt x 431.211pt>
-
-File: ../figures//figure_anomaly_audits_hydration.png Graphic file (type png)
-<use ../figures//figure_anomaly_audits_hydration.png>
-Package pdftex.def Info: ../figures//figure_anomaly_audits_hydration.png  used 
-on input line 582.
-(pdftex.def)             Requested size: 246.95892pt x 278.02698pt.
-[11 <../figures//figure_sciml_72h_storm_rollouts.png (PNG copy)>] [12 <../figur
-es//figure_anomaly_audits_hydration.png (PNG copy)>] [13]
-Underfull \hbox (badness 1527) in paragraph at lines 666--667
-\OT1/ptm/m/n/8 (+20) for-mal pre-dic-tion and distribution-free un-cer-tainty q
-uan-tifi-ca-tion,''
  []
 
 
@@ -585,7 +556,7 @@ Before submitting the final camera ready copy, remember to:
  uses only Type 1 fonts and that every step in the generation
  process uses the appropriate paper size.
 
-[14
+[12
 
 ] (./research_paper.aux)
 
@@ -593,13 +564,13 @@ LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
 
  ) 
 Here is how much of TeX's memory you used:
- 7650 strings out of 476025
- 121820 string characters out of 5790017
- 1886388 words of memory out of 5000000
- 27439 multiletter control sequences out of 15000+600000
- 588284 words of font info for 480 fonts, out of 8000000 for 9000
+ 7589 strings out of 476025
+ 120099 string characters out of 5790017
+ 1883388 words of memory out of 5000000
+ 27411 multiletter control sequences out of 15000+600000
+ 586863 words of font info for 460 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 57i,14n,62p,1877b,321s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 57i,13n,62p,1877b,321s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb
 ></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx7.pfb><
 /usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx8.pfb></u
@@ -627,10 +598,10 @@ onts/type1/urw/courier/ucrr8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/typ
 e1/urw/times/utmb8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/urw/tim
 es/utmbi8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/urw/times/utmr8a
 .pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on research_paper.pdf (14 pages, 8668317 bytes).
+Output written on research_paper.pdf (12 pages, 7014579 bytes).
 PDF statistics:
- 209 PDF objects out of 1000 (max. 8388607)
- 119 compressed objects within 2 object streams
+ 198 PDF objects out of 1000 (max. 8388607)
+ 114 compressed objects within 2 object streams
  0 named destinations out of 1000 (max. 500000)
- 82483 words of extra memory for PDF output out of 89155 (max. 10000000)
+ 82468 words of extra memory for PDF output out of 89155 (max. 10000000)
 

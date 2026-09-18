@@ -259,17 +259,7 @@ Retrieving isolated 1-hour point embeddings leaves downstream models blind to an
 \mathbf{X}_{\text{parent}} \in \mathbb{R}^{145 \times 14}
 \label{eq:parent_tensor}
 \end{equation}
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.98\columnwidth]{figure_hydrated_parent_sequence.png}
-    \caption{\textbf{Continuous $\pm 72$-Hour Dynamic Parent Sequence Hydration across Wave, Kinetic Energy, and Elevation Channels (October 2015 Nor'easter at USACE FRF Duck, NC).} 
-    \textbf{(Top)} Significant wave height $H_s$ ($1.5 \to 4.24\,\text{m}$) and barometric surge $\eta_{\text{surge}}$, locking onto the storm apex ($t = 0$, dashed red line).
-    \textbf{(Middle)} Unified Kinetic Erosion Index $\Upsilon$ ($\log_{10}$ scale), showing a $26.5\times$ nonlinear amplification ($6{,}500 \to 172{,}275\,\text{kg/s}$) driven by $H_s^{2.5}$ kinematics.
-    \textbf{(Bottom)} Total Water Level ($\text{TWL} = \eta_{\text{tide}} + \eta_{\text{surge}} + R_{2\%}$) confronting berm crest $Z_{\text{crest}}$, initiating sustained Sallenger Collision.}
-    \label{fig:parent_hydration}
-\end{figure}
-
-This rehydrated sequence contains the complete evolution of wave steepening, surge phase alignment, tidal elevations, and bar dissipation rates, supplying downstream models with the temporal context necessary for diagnostic auditing (Fig.~\ref{fig:parent_hydration}).
+This rehydrated sequence contains the complete temporal evolution of wave steepening, surge phase alignment, tidal elevations, and bar dissipation rates, supplying downstream models with the continuous dynamical context necessary for diagnostic auditing (detailed across four global field survey anomaly cases in Section~\ref{sec:field_audits} and visualized in Fig.~\ref{fig:anomaly_audits}).
 
 \subsection{Decision-Grade LLM Prompt Window Injection}
 Rather than allowing the LLM to emit speculative point predictions, the retrieval engine queries the calibrated CQR module to produce decision-grade uncertainty bounds. The formatted payload injected into Gemini Flash's prompt window includes:
@@ -283,23 +273,13 @@ System directives instruct the foundation model to anchor its hazard diagnosis s
 \section{Empirical Evaluation: The Grand 100-Query Multimodal Benchmark}
 \label{sec:benchmark}
 
-\begin{figure*}[t]
+\begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.95\textwidth]{grand_4way_benchmark_comparison.png}
-    \caption{\textbf{Grand 4-Way Information Retrieval Benchmark Across 100 Multimodal Operational, Ambiguity, and Pathology Queries.} 
-    \textbf{(a)} Macro-averaged retrieval precision across expanding cutoff radii ($k = 1$ to $k = 20$), illustrating the unbroken performance advantage maintained by the Two-Tier Hybrid Cascade across all evaluation depths.
-    \textbf{(b)} Macro-averaged Information Retrieval metrics comparing Raw-Data LLM-RAG, Rule-Based SQL, Pure Physics-RAG, and the proposed Hybrid Cascade across Precision@5, NDCG@5, MRR, and Regime Purity@5.}
+    \includegraphics[width=\columnwidth]{figure_precision_at_k_single_column.png}
+    \caption{\textbf{Retrieval Precision Across Expanding Cutoff Radii ($k = 1$ to $k = 20$).} Macro-averaged retrieval precision across all $N = 100$ multimodal operational and pathology queries, illustrating the unbroken performance advantage maintained by the Two-Tier Hybrid Cascade across all evaluation depths (see Table~\ref{tab:grand_benchmark} for comprehensive multi-metric breakdown).}
     \label{fig:grand_benchmark}
-\end{figure*}
+\end{figure}
 
-\begin{figure*}[t]
-    \centering
-    \includegraphics[width=0.95\textwidth]{grand_benchmark_accuracy_by_category_and_tier.png}
-    \caption{\textbf{Stratified Information Retrieval Benchmark Accuracy Partitioned by Category and Operational Tier ($N = 100$ Queries).} 
-    \textbf{(a)} Precision@5 across nine distinct physical categories, highlighting that the macro-average drop in accuracy is driven by Tier 3 adversarial ambiguity stress tests (Cat 8) and 3D morphodynamic pathologies (Cat 9).
-    \textbf{(b)} Precision@5 stratified across three operational tiers: Tier 1 (Baseline Operational, $N=30$), Tier 2 (Advanced Morphodynamics, $N=30$), and Tier 3 (Adversarial Stress-Tests, $N=40$). Notice the dramatic collapse of Rule-Based SQL in Tier 3 ($0.215$) while the Two-Tier Hybrid Cascade preserves resilient retrieval competency ($0.310$).}
-    \label{fig:tier_benchmark}
-\end{figure*}
 
 \subsection{Evaluation Methodology, Categories, and Tiers}
 To thoroughly stress-test physical retrieval under realistic and adversarial conditions, we expanded our benchmark to a comprehensive $N = 100$ query suite partitioned into three operational tiers and nine physical categories spanning four testing modes:
@@ -387,9 +367,9 @@ vs. Pure Physics (Prec@5) & +0.0560 & [+0.0020, +0.1120] & $\mathbf{t = 1.979, p
 \end{table*}
 
 \subsection{Information Retrieval Performance \& Tier Analysis}
-As detailed in Tables~\ref{tab:grand_benchmark}--\ref{tab:tier_benchmark} and Figs.~\ref{fig:grand_benchmark}--\ref{fig:tier_benchmark}, the Two-Tier Hybrid Cascade demonstrates commanding superiority across the master 100-query benchmark:
+As detailed in Tables~\ref{tab:grand_benchmark}--\ref{tab:tier_benchmark} and Fig.~\ref{fig:grand_benchmark}, the Two-Tier Hybrid Cascade demonstrates commanding superiority across the master 100-query benchmark:
 \begin{itemize}
-    \item \textbf{Overall Superiority Across All Cutoffs:} The Hybrid Cascade maintains an unbroken precision ceiling ($0.4640$ to $0.4800$) from $k = 1$ to $k = 20$ (Fig.~\ref{fig:grand_benchmark}a), consistently outperforming Pure Physics ($0.4165$ to $0.4240$), Rule-Based SQL ($0.3935$ to $0.4020$), and Raw LLM ($0.4175$ to $0.4400$).
+    \item \textbf{Overall Superiority Across All Cutoffs:} The Hybrid Cascade maintains an unbroken precision ceiling ($0.4640$ to $0.4800$) from $k = 1$ to $k = 20$ (Fig.~\ref{fig:grand_benchmark}), consistently outperforming Pure Physics ($0.4165$ to $0.4240$), Rule-Based SQL ($0.3935$ to $0.4020$), and Raw LLM ($0.4175$ to $0.4400$).
     \item \textbf{Understanding the Difficulty Distribution Shift:} In Tier 1 ($N=30$ standard operational queries), retrieval accuracy is high across all methods ($P@5 \approx 0.61 - 0.65$). However, when progressing to Tier 2 (complex morphodynamics, $P@5 \approx 0.40 - 0.53$) and Tier 3 (adversarial stress tests, $P@5 \approx 0.21 - 0.31$), absolute metrics drop across all architectures. Because $40\%$ of the expanded suite comprises extreme adversarial edge cases, the macro-averaged score collapses to $\sim 0.48$. This drop is an intentional measurement artifact of the shifted testing distribution.
     \item \textbf{Catastrophic SQL Failure in Tier 3:} When presented with semantic ambiguity and 3D physical pathologies (Tier 3), Rule-Based SQL collapses catastrophically to $P@5 = 0.2150$ and $\text{NDCG@5} = 0.2605$. In Category 8 (deliberate ambiguity), SQL precision drops to $0.1500$. In stark contrast, the Hybrid Cascade maintains resilient retrieval ($P@5 = 0.3100$, $+44.2\%$ relative gain over SQL; $\text{NDCG@5} = 0.4265$, $+63.7\%$ relative gain over SQL). In Category 9 (3D pathologies), Hybrid Cascade achieves $P@5 = 0.4100$ and $\text{NDCG@5} = 0.5483$, proving that 14D invariant manifold ranking retrieves true physical analogs even when textual query intent is deliberately ambiguous.
 \end{itemize}
@@ -436,13 +416,15 @@ Evaluating retrieved wave power and temporal synchronization reveals the critica
 To evaluate the Conformalized Quantile Regression engine under real-world non-exchangeable conditions, we executed out-of-sample validation across the entire 2016 holdout split spanning $N = 35{,}084$ contiguous hourly records across all four global archetypes (Table~\ref{tab:cqr_validation}, Fig.~\ref{fig:conformal_uq}a).
 
 \begin{table}[htbp]
-\caption{CONFORMALIZED QUANTILE REGRESSION (CQR) OUT-OF-SAMPLE VALIDATION ($N = 35{,}084$ RECORDS, 2016 HOLDOUT SPLIT)}
+\caption{CONFORMALIZED QUANTILE REGRESSION (CQR): OUT-OF-SAMPLE VALIDATION \& DYNAMIC VOLATILITY ADAPTATION}
 \label{tab:cqr_validation}
 \begin{center}
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{lcc}
 \toprule
-\textbf{Validation Metric} & \textbf{Empirical Result} & \textbf{Theoretical Benchmark} \\
+\multicolumn{3}{c}{\textbf{(a) Empirical Holdout Validation ($N = 35{,}084$ Records, 2016 Split)}} \\
+\midrule
+\textbf{Validation Metric} & \textbf{Empirical Result} & \textbf{Theoretical Target} \\
 \midrule
 Nominal Target Coverage ($1 - \alpha$) & \textbf{90.0\%} & 90.0\% \\
 Empirical Multi-Site Coverage & \textbf{91.2\%} & $\ge 90.0\%$ (Guaranteed) \\
@@ -450,6 +432,14 @@ Conformal Calibration Margin ($Q_{1-\alpha}$) & \textbf{-0.0001 m} & $\approx 0.
 Mean Prediction Interval Width (MPIW) & \textbf{0.1401 m} & Compact \\
 Median Prediction Interval Width & \textbf{0.0369 m} & Ultra-Sharp ($3.7\,\text{cm}$) \\
 Interval Winkler Score \cite{gneiting2007strictly} & \textbf{0.1523} & High Efficiency \\
+\midrule
+\multicolumn{3}{c}{\textbf{(b) Dynamic Hydrograph Volatility Adaptation}} \\
+\midrule
+\textbf{Hydrodynamic State \& Forcing} & \textbf{Conformal 90\% Bounds} & \textbf{Interval Width} \\
+\midrule
+\textbf{Quiescent Swash} ($H_s = 0.33\,\text{m}, \Upsilon = 66$) & $[ +0.042\,\text{m}, +0.060\,\text{m} ]$ & 0.018 m ($1.8\,\text{cm}$) \\
+\textbf{Moderate Wave} ($H_s = 4.09\,\text{m}, \Upsilon = 1.1\times 10^5$) & $[ -1.580\,\text{m}, +0.020\,\text{m} ]$ & 1.600 m \\
+\textbf{Severe Storm Apex} ($H_s = 7.52\,\text{m}, \Upsilon = 6.5\times 10^5$) & $[ -5.633\,\text{m}, +0.029\,\text{m} ]$ & \textbf{5.662 m} ($\mathbf{314.5\times}$) \\
 \bottomrule
 \end{tabular}%
 }
@@ -459,30 +449,7 @@ Interval Winkler Score \cite{gneiting2007strictly} & \textbf{0.1523} & High Effi
 The empirical multi-site coverage of \textbf{$91.2\%$} strictly satisfies the finite-sample mathematical guarantee ($\ge 90.0\%$). Furthermore, the near-zero conformal calibration adjustment ($Q_{1-\alpha} = -0.0001\,\text{m}$) confirms that our multi-quantile pinball loss models were exceptionally well-calibrated prior to conformalization. Crucially, the median prediction interval width collapses to \textbf{$0.0369\,\text{m}$ ($3.7\,\text{cm}$)}, demonstrating that during modal coastal conditions, uncertainty bounds achieve centimeter-scale precision rather than defaulting to loose, uninformative bounds.
 
 \subsection{Dynamic Volatility Adaptation ($314.5\times$ Expansion)}
-In contrast to static homoscedastic error bands (e.g., $\pm 1.96\sigma$), the pinball loss model inherently adapts to local hydrograph forcing, dynamically stretching and shrinking prediction intervals based on real-time wave power flux impulse and storm surge elevation (Table~\ref{tab:cqr_volatility}, Fig.~\ref{fig:conformal_uq}b).
-
-\begin{table}[htbp]
-\caption{DYNAMIC HYDROGRAPH VOLATILITY ADAPTATION ACROSS DIVERSE HYDRODYNAMIC REGIMES}
-\label{tab:cqr_volatility}
-\begin{center}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{lllc}
-\toprule
-\textbf{Hydrodynamic State} & \textbf{Forcing Telemetry} & \textbf{Conformal 90\% Bounds} & \textbf{Interval Width} \\
-\midrule
-\textbf{Quiescent Swash} & $H_s = 0.33\,\text{m}$, $S = 0.05\,\text{m}$ & $[ +0.042\,\text{m}, +0.060\,\text{m} ]$ & 0.018 m \\
-(Calm Equilibrium) & $\Upsilon = 66\,\text{kg/s}$ & Constructive swash welding & ($1.8\,\text{cm}$) \\
-\addlinespace
-\textbf{Moderate Wave Action} & $H_s = 4.09\,\text{m}$, $S = 0.05\,\text{m}$ & $[ -1.580\,\text{m}, +0.020\,\text{m} ]$ & 1.600 m \\
-(Transient Scour) & $\Upsilon = 1.1 \times 10^5\,\text{kg/s}$ & Dissipative wave scarping & \\
-\addlinespace
-\textbf{Severe Storm Apex} & $H_s = 7.52\,\text{m}$, $S = 0.05\,\text{m}$ & $[ -5.633\,\text{m}, +0.029\,\text{m} ]$ & 5.662 m \\
-(Nor'easter Cut) & $\Upsilon = 6.5 \times 10^5\,\text{kg/s}$ & Catastrophic dune cut & ($\mathbf{314.5\times}$) \\
-\bottomrule
-\end{tabular}%
-}
-\end{center}
-\end{table}
+In contrast to static homoscedastic error bands (e.g., $\pm 1.96\sigma$), the pinball loss model inherently adapts to local hydrograph forcing, dynamically stretching and shrinking prediction intervals based on real-time wave power flux impulse and storm surge elevation (Table~\ref{tab:cqr_validation}b, Fig.~\ref{fig:conformal_uq}b).
 
 During fair-weather swash conditions, the prediction interval contracts to $[+0.042\,\text{m}, +0.060\,\text{m}]$ (width $1.8\,\text{cm}$), correctly signaling constructive berm welding with high certainty. When struck by an extreme storm surge ($H_s = 7.52\,\text{m}$), the prediction interval undergoes a \textbf{$314.5\times$ dynamic expansion} to $[-5.633\,\text{m}, +0.029\,\text{m}]$ (width $5.662\,\text{m}$), capturing catastrophic tail risk and severe dune cut without under-estimating hazard exposure.
 
@@ -506,76 +473,9 @@ To convert this dynamic expansion into decision-grade intelligence, our system p
     \item \textbf{Human-in-the-Loop (HITL) Checkpoints:} The agent positions itself as an advanced scientific synthesizer generating draft risk advisories rather than an autonomous decision-maker. The workflow enforces that execution pauses at predefined, hard-coded checkpoints so a certified human hydrometeorologist can review the bounds and diagnostic narrative before any evacuation alerts are disseminated.
 \end{enumerate}
 
-\section{Diagnostic Deployment: SciML Architectural Ablations \& Failure Auditing}
-
-\subsection{Observing System Simulation Experiment (OSSE) Framework}
-To rigorously evaluate neural architectural paradigms without contamination from observational sparsity ($N = 1,228$ discrete RTK-GPS surveys across 5 years) or unmeasured lateral sediment fluxes, we formulated an Observing System Simulation Experiment (OSSE) \cite{atlas1997osse}:
-\begin{itemize}
-    \item \textbf{Hydrodynamic Boundary Forcing:} 100\% authentic multi-year institutional sensor records (2012--2016 golden window, $N = 43,848$ contiguous hours per site) capturing authentic storm sequencing, peak wave power, and surge dynamics.
-    \item \textbf{Closed Synthetic Nature Run:} Continuous reference trajectory generated via a non-linear wave-energy equilibrium differential operator \cite{yates2009equilibrium} driven by real wave energy flux plus synthetic measurement noise ($\sigma = 0.25\,\text{m}$).
-\end{itemize}
-
-\noindent\textbf{Epistemic Scope: Disentangling Neural Rollout Stability from 3D Geomorphology.} 
-We proactively address an apparent circularity: having demonstrated in Section~\ref{sec:benchmark} that 1D equilibrium formulations categorically fail to capture authentic 3D morphodynamic phenomena (e.g., alongshore sediment transport divergence, rip scour, and infragravity resonance), why employ a 1D cross-shore ODE as the synthetic nature run?
-
-In classical data assimilation theory \cite{charney1969osse,atlas1997osse}, an OSSE nature run does not serve as a proxy for the full, chaotic open-system physics of the real world. Rather, it establishes a \emph{mathematically closed, analytically knowable reference frame}. Here, the OSSE serves strictly as an \emph{in silico} algorithmic stress test to isolate two foundational SciML questions that field observations cannot untangle:
-\begin{enumerate}
-    \item \textbf{Autonomous Autoregressive Rollout Stability:} Does the neural architecture accumulate compounding multi-step errors or undergo unphysical trajectory divergence over unanchored 72-hour continuous storm rollouts?
-    \item \textbf{Loss Penalty Landscape Dynamics:} Does an asymmetric physical soft-penalty ($\mathcal{L}_{\text{PINN}}$) successfully suppress unphysical fair-weather accretion during peak wave power, or does it induce optimization stiffness in the gradient landscape?
-\end{enumerate}
-Because the governing operator is analytically closed, any rollout pathology can be unambiguously attributed to neural inductive biases and loss regularization rather than unobserved 3D sediment fluxes or instrument noise. Demonstrating stability on an idealized 1D dynamical manifold is a \emph{necessary baseline condition}, not an empirical assertion of 3D fidelity. Authentic 3D morphodynamic validation is reserved for Section~\ref{subsec:field_audits} (Table~\ref{tab:anomaly_audits}, Fig.~\ref{fig:anomaly_audits}), where our Physics-RAG sequence hydration framework directly audits and resolves the genuine 3D failure modes---infragravity surf-beat resonance, 2D embayed rotation, and offshore sandbar sequestration---that 1D equilibrium formulations systematically omit.
-
-\subsection{The $2 \times 2$ SciML Architectural Matrix}
-We benchmarked four distinct SciML paradigms across continuous 72-hour autonomous storm rollouts and multi-year out-of-sample test sets:
-\begin{itemize}
-    \item \textbf{Model A (Pure Data-Driven):} Standard MLP mapping raw inputs ($H_s, T_p, \eta_{\text{surge}}, U_{10}$) via Mean Squared Error ($\mathcal{L}_{\text{MSE}}$).
-    \item \textbf{Model B (Loss-Guided / PINN):} Standard inputs regularized via an asymmetric physical soft-loss penalizing unphysical seaward accretion during severe wave action:
-    \begin{equation}
-    \mathcal{L}_{\text{PINN}} = \mathcal{L}_{\text{MSE}} + \lambda_{\text{physics}} \cdot \mathbb{E}\left[\max(0, \dot{X}_{\text{pred}})^2 \cdot \mathbb{I}_{\Upsilon > \Upsilon_{p80}}\right]
-    \label{eq:pinn_loss}
-    \end{equation}
-    \item \textbf{Model C (Feature-Guided):} Unconstrained MLP supplied with our 14D invariant manifold features ($\Upsilon^*, \Omega, \xi, \text{TWL}$).
-    \item \textbf{Model D (Dual-Guided):} Combines 14D invariant manifold inputs with the PINN asymmetric soft-loss penalty (\ref{eq:pinn_loss}).
-\end{itemize}
-
-\begin{table*}[t]
-\caption{SCIML ARCHITECTURAL MATRIX PERFORMANCE: DYNAMIC 72-HOUR STORM ROLLOUT \& MULTI-YEAR TEST SET}
-\label{tab:sciml_matrix}
-\begin{center}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{lccccccc}
-\toprule
-\textbf{SciML Architecture} & \textbf{Storm RMSE (m)} & \textbf{Storm MAE (m)} & \textbf{Storm Pearson $r$} & \textbf{Storm BSS} & \textbf{Peak $\Delta X$ Err (m)} & \textbf{Test RMSE (m)} & \textbf{Test Pearson $r$} \\
-\midrule
-Model A: Pure Data-Driven    & 0.368 & 0.311 & 0.236 & -0.183 & 0.503 & 0.537 & 0.539 \\
-\textbf{Model B: Loss-Guided (PINN)} & \textbf{0.342} & \textbf{0.285} & \textbf{0.264} & \textbf{+0.108} & \textbf{0.501} & 0.521 & 0.533 \\
-\textbf{Model C: Feature-Guided}     & 0.547 & 0.468 & 0.124 & -0.537 & 0.678 & 0.523 & \textbf{0.574}$^\ast$ \\
-\textbf{Model D: Dual-Guided}        & 0.458 & 0.385 & 0.210 & -0.001 & 0.687 & \textbf{0.509} & 0.543 \\
-\bottomrule
-\multicolumn{8}{l}{$^\ast$Model C achieves the highest out-of-sample multi-year correlation ($r = 0.574$, reaching $r = 0.720$ at Torrey Pines and $r = 0.839$ at Truc Vert).}
-\end{tabular}%
-}
-\end{center}
-\end{table*}
-
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.98\columnwidth]{figure_sciml_72h_storm_rollouts.png}
-    \caption{\textbf{Dynamic 72-Hour Autonomous Storm Rollout Trajectories across Contrasting Global Archetypes (Observing System Simulation Experiment).} Continuous shoreline position evolution $\Delta X(t)$ comparing Ground Truth Nature Run $x(t)$ (black) against Model A (Data-Driven, red dashed), Model B (PINN Loss-Guided, orange dotted), Model C (Feature-Guided, teal dash-dotted), and Model D (Dual-Guided, dark slate solid) centered on peak compound hazard ($t = 0$, crimson dotted line). Notice how Model B stabilizes acute shock without hallucinating fair-weather accretion during peak storm forcing ($\text{BSS} = +0.108$), while Model C captures dynamic recovery amplitude ($r = 0.574$, reaching $r = 0.839$ at Truc Vert).}
-    \label{fig:sciml_rollouts}
-\end{figure}
-
-\subsection{The Fundamental Representation vs. Loss Trade-Off}
-As reported in Table~\ref{tab:sciml_matrix} and visualized in Fig.~\ref{fig:sciml_rollouts}, the benchmark exposes a profound trade-off in Scientific Machine Learning:
-\begin{itemize}
-    \item \textbf{PINN Loss Guidance Stabilizes Acute Shock (Model B):} Model B achieves the lowest overall storm rollout RMSE ($0.342\,\text{m}$) and is the only architecture with a positive mean Brier Skill Score ($\text{BSS} = +0.108$) \cite{sutherland2004evaluating}. The asymmetric penalty successfully prevents the network from hallucinating fair-weather accretion during peak wave action.
-    \item \textbf{Feature-Guided Invariants Dominate Multi-Year Correlation (Model C):} Model C achieves the highest multi-year out-of-sample correlation (Mean Test $r = 0.574$, reaching $r = 0.839$ at Truc Vert).
-    \item \textbf{Dual Synergy (Model D):} Uniting both representations in Model D yields the lowest overall multi-site test RMSE ($0.509\,\text{m}$).
-\end{itemize}
-
-\subsection{Field Survey Anomaly Audits via Sequence Hydration}
-\label{subsec:field_audits}
-When deployed operationally, the Physics-RAG architecture automates post-mortem failure audits of sequence models by hydrating continuous antecedent parent sequences ($\pm 72\text{h}$) across real-world field survey anomalies (Table~\ref{tab:anomaly_audits}, Fig.~\ref{fig:anomaly_audits}):
+\section{Operational Deployment: Real-World Field Survey Anomaly Audits}
+\label{sec:field_audits}
+When deployed operationally, the Physics-RAG architecture automates post-mortem failure audits of sequence and surrogate models by hydrating continuous antecedent parent sequences ($\pm 72\text{h}$) across real-world field survey anomalies (Fig.~\ref{fig:anomaly_audits}):
 
 \begin{figure}[htbp]
     \centering
@@ -588,56 +488,31 @@ When deployed operationally, the Physics-RAG architecture automates post-mortem 
     \label{fig:anomaly_audits}
 \end{figure}
 
-\begin{table*}[t]
-\caption{REAL-WORLD FIELD SURVEY ANOMALY EPISODES AUDITED VIA PHYSICS-RAG SEQUENCE HYDRATION}
-\label{tab:anomaly_audits}
-\begin{center}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{llccl}
-\toprule
-\textbf{Observatory Site} & \textbf{Survey Date} & \textbf{Observed $\Delta X$} & \textbf{Predicted $\Delta X$} & \textbf{Diagnosed Physical Failure Mode} \\
-\midrule
-Torrey Pines, CA     & June 17, 2015   & -9.80 m  & +0.42 m & Infragravity Swash \& Surf-Beat Resonance ($s_0 \approx 0.0052, T_p = 16.0\,\text{s}$) \\
-Narrabeen, AUS (PF1) & June 07, 2016   & -16.11 m & -4.25 m & 2D Embayment Rotation \& Asymmetric Radiation Stress ($S_{xy} > 120\,\text{N/m}$) \\
-USACE FRF Duck, NC   & October 02, 2015& -6.62 m  & -1.15 m & Antecedent Subaerial Berm Stripping ($E_{\text{impulse}}$ unbuffered scarp) \\
-Truc Vert, France    & August 22, 2014 & -8.45 m  & +1.10 m & Multi-Year Post-Storm Sediment Sequestration in Offshore Bars \\
-\bottomrule
-\end{tabular}%
-}
-\end{center}
-\end{table*}
-
 \begin{itemize}
-    \item \textbf{Case 1 (Infragravity Resonance, Torrey Pines):} In June 2015, an RTK-GPS survey recorded an unexpected cut of $\Delta X = -9.80\,\text{m}$ \cite{ludka2015beach}. Models predicted accretion ($+0.42\,\text{m}$) due to modest deepwater waves ($H_s = 1.48\,\text{m}$). Physics-RAG sequence hydration revealed an ultra-long swell period ($T_p = 16.0\,\text{s}$) with deepwater steepness $s_0 = 0.0052$, which amplified infragravity surf-beat resonance and pushed Total Water Level into Sallenger Collision.
-    \item \textbf{Case 2 (Embayment Rotation, Narrabeen):} Following the June 2016 East Coast Low, Profile PF1 retreated $-16.11\,\text{m}$ \cite{turner2016multidecade}. Standalone models predicted $-4.25\,\text{m}$. Physics-RAG identified sustained wave obliquity ($\Delta\theta > 28^\circ$) and severe radiation stress ($S_{xy} > 120\,\text{N/m}$ \cite{longuethiggins1964radiation}), diagnosing alongshore transport divergence ($\partial Q_y / \partial y$) rather than cross-shore kinematics.
-    \item \textbf{Case 3 (Antecedent Berm Stripping, Duck):} A moderate storm ($H_s = 2.70\,\text{m}$) in October 2015 induced $-6.62\,\text{m}$ retreat \cite{birkemeier1985users}. Standalone models predicted $-1.15\,\text{m}$. Hydrating the 72-hour antecedent window revealed a preceding storm 96 hours prior that had stripped the subaerial berm, leaving the dune toe completely unbuffered.
-    \item \textbf{Case 4 (Offshore Sequestration, Truc Vert):} In August 2014, fair weather produced $-8.45\,\text{m}$ erosion while models predicted $+1.10\,\text{m}$ accretion. Multi-scale convolution tracking traced the deficit back to the historic 2013--2014 winter cluster, which had locked nearshore sand into deep outer bars \cite{castelle2020planshape}.
+    \item \textbf{Case 1 (Infragravity Resonance, Torrey Pines):} In June 2015, RTK-GPS recorded severe erosion ($\Delta X = -9.80\,\text{m}$) \cite{ludka2015beach} while models predicted $+0.42\,\text{m}$ accretion ($H_s = 1.48\,\text{m}$). Sequence hydration revealed ultra-long swell ($T_p = 16.0\,\text{s}, s_0 = 0.0052$), amplifying infragravity surf-beat resonance into Sallenger Collision.
+    \item \textbf{Case 2 (Embayment Rotation, Narrabeen):} In June 2016, Profile PF1 retreated $-16.11\,\text{m}$ \cite{turner2016multidecade} vs. $-4.25\,\text{m}$ predicted. Sequence hydration identified oblique radiation stress ($S_{xy} > 120\,\text{N/m}$ \cite{longuethiggins1964radiation}), diagnosing alongshore transport divergence ($\partial Q_y / \partial y$) rather than 1D cross-shore deficit.
+    \item \textbf{Case 3 (Antecedent Berm Stripping, Duck):} A moderate October 2015 storm ($H_s = 2.70\,\text{m}$) cut $-6.62\,\text{m}$ \cite{birkemeier1985users} vs. $-1.15\,\text{m}$ predicted. Hydrating the 72-hour antecedent window revealed a storm 96 hours prior that stripped the subaerial berm, leaving the dune toe completely unbuffered.
+    \item \textbf{Case 4 (Offshore Sequestration, Truc Vert):} In August 2014, fair weather produced $-8.45\,\text{m}$ erosion vs. $+1.10\,\text{m}$ predicted accretion. Multi-scale convolution traced the deficit to the 2013--2014 winter cluster, which locked nearshore sand into outer bars \cite{castelle2020planshape}.
 \end{itemize}
 
 \section{Broader Architectural Generalizability: Cyber-Physical Systems}
 \label{sec:cross_domain}
-
-While empirically instantiated in this work for coastal morphodynamics as a high-dimensional physical proving ground, the Physics-RAG architecture addresses universal structural vulnerabilities in scientific machine learning: applying memoryless, symmetric Euclidean vector embeddings to continuous non-equilibrium physical media. The foundational mathematical primitives established herein translate directly to other safety-critical cyber-physical systems characterized by threshold-activated kinetics and path-dependent hysteresis:
-\begin{itemize}
-    \item \textbf{Electrochemical Energy Storage (EV \& Grid BMS):} Estimating battery State-of-Health ($SoH$) and detecting internal short-circuits requires replacing raw current-voltage telemetry with dimensionless Arrhenius groupings and overpotential ratios ($\mathbf{z}_{\text{battery}}$) \cite{ramadesigan2012battery}. Directional Pareto filtering eliminates dangerous symmetric distance degeneracy by penalizing under-estimation of high C-rate pulse excursions, while sequence hydration of antecedent thermal duty cycles enables downstream diagnostic models to differentiate reversible impedance rise from irreversible capacity knee-point fade \cite{severson2019battery}.
-    \item \textbf{Renewable Energy \& Aeromechanical Assets:} In offshore wind turbine arrays, predicting blade aeroelastic loads, dynamic stall margins, and turbulent wake deficits requires mapping anemometer telemetry to Tip-Speed Ratios ($\lambda$) and thrust coefficients ($C_T$) \cite{porteagel2020wind}. Hydrating multi-hour wake meandering histories restores structural fatigue memory, while Conformal Quantile Regression (CQR) dynamically bounds blade deflection envelopes under non-stationary atmospheric turbulence.
-    \item \textbf{Inverter-Dominated Electrical Grids \& Continuous Process Systems:} The identical architectural cascade maps directly to Rate-of-Change-of-Frequency (RoCoF) stability and synthetic inertia deficits in low-inertia smart grids, compressor surge margins in aerospace turbomachinery, and Semenov runaway bifurcations in continuous industrial chemical reactors.
-\end{itemize}
-By decoupling domain-specific conservation invariants ($\mathcal{M}_{\text{inv}}$) from the domain-agnostic retrieval and auditing engine (zero-copy SQL pre-filtering, Directional Pareto ranking, sequence pointer hydration, and conformal coverage bounds), Physics-RAG establishes a generalizable, distribution-free blueprint for continuous physical asset surveillance.
+While empirically instantiated here for coastal morphodynamics, the Physics-RAG architecture addresses universal vulnerabilities across continuous non-equilibrium physical media. Its mathematical primitives decouple domain-specific conservation invariants ($\mathcal{M}_{\text{inv}}$) from the domain-agnostic retrieval engine. This blueprint directly generalizes to safety-critical cyber-physical systems characterized by threshold kinetics and hysteresis: (i)~\textbf{Electrochemical Battery BMS}: mapping current-voltage telemetry to dimensionless Arrhenius groupings and overpotential ratios ($\mathbf{z}_{\text{battery}}$) \cite{ramadesigan2012battery}, where Directional Pareto filtering penalizes high C-rate pulse under-estimation and sequence hydration tracks capacity knee-point fade \cite{severson2019battery}; (ii)~\textbf{Aeromechanical Assets}: parameterizing turbine anemometry via Tip-Speed Ratios ($\lambda$) and thrust coefficients ($C_T$) \cite{porteagel2020wind} while CQR dynamically bounds aeroelastic deflection envelopes under non-stationary turbulence; and (iii)~\textbf{Low-Inertia Smart Grids}: resolving synthetic inertia deficits and frequency runaway bifurcations.
 
 \section{Discussion, SciML Design Principles \& Conclusion}
-
-Deploying deep learning and generative foundation models to continuous, safety-critical physical systems requires anchoring retrieval and reasoning in first-principles conservation laws. The empirical and architectural findings from this investigation yield four general design principles for Scientific Machine Learning:
+Deploying generative foundation models to continuous physical systems requires anchoring retrieval and reasoning in first-principles conservation laws. Our findings establish four general SciML design principles:
 \begin{enumerate}
-    \item \textbf{Invariant Manifolds Outperform Loss Regularizers in Field Settings:} In noisy, real-world observational environments, feature-guided invariant projections (Model C) achieve superior long-term representation tracking ($r = 0.574$, reaching $r = 0.839$) compared to unguided networks ($r = 0.539$) and over-constrained PINN soft constraints ($r = 0.533$). Providing neural architectures with pre-computed physical invariants establishes exact non-linear mappings, whereas PINN soft losses often trap gradient descent in conflicting penalty barriers.
-    \item \textbf{Hybrid Cascades Resolve Dual Temporal Pathologies Across Operational and Adversarial Suites:} Physical time series require a two-tier cascade: zero-copy relational SQL pre-filtering eliminates cross-decadal temporal drift, while asymmetric Directional Pareto ranking eliminates chronological blindness, achieving non-zero storm apex synchronization ($P_{\text{apex}}@5 = 0.6078$). Crucially, on our comprehensive $N = 100$ query benchmark, the Hybrid Cascade demonstrates statistically significant superiority over Pure Physics-RAG ($p = 0.0253$, bootstrap 95\% CI $[+0.0020, +0.1120]$ strictly positive) and maintains robust performance ($P@5 = 0.3100$) under adversarial stress tests where SQL collapses ($P@5 = 0.2150$).
-    \item \textbf{Continuous Sequence Hydration Combats Markovian Memorylessness:} Point-in-time vector embeddings discard the antecedent energy impulse required to predict threshold-dependent damage in media with memory. Zero-copy pointer hydration ($\pm 72\text{h}$) restores temporal continuity, unlocking verified, zero-hallucination failure mode diagnosis across real-world survey anomalies.
-    \item \textbf{Conformal Prediction Guarantees Distribution-Free Safety Bounds for Cyber-Physical AI:} Point predictions in dynamical systems provide false certainty during extreme shocks. Integrating Conformalized Quantile Regression (CQR) with multi-site stratified chronological calibration guarantees finite-sample marginal coverage ($\ge 90.0\%$, achieving $91.2\%$ out-of-sample coverage across $35{,}084$ records) while enabling $314.5\times$ dynamic interval adaptation. Injecting these bounds into foundation model prompts transforms generative AI from an ungrounded hallucinator into a certified civil protection tool.
+    \item \textbf{Invariant Manifolds Outperform Loss Regularizers in Field Settings:} In noisy observational environments, feature-guided invariant projections (Model C) achieve superior long-term representation tracking ($r = 0.574$, reaching $r = 0.839$) compared to unguided networks ($r = 0.539$) and PINN soft constraints ($r = 0.533$). Pre-computed physical invariants establish exact mappings, avoiding optimization stiffness from penalty barriers.
+    \item \textbf{Hybrid Cascades Resolve Dual Temporal Pathologies:} Physical time series require a two-tier cascade: zero-copy relational SQL pre-filtering eliminates cross-decadal temporal drift, while asymmetric Directional Pareto ranking eliminates chronological blindness ($P_{\text{apex}}@5 = 0.6078$). Across $N = 100$ queries, the Hybrid Cascade achieves statistically significant gains over Pure Physics-RAG ($p = 0.0253$, bootstrap 95\% CI $[+0.0020, +0.1120]$) and preserves robust competency under adversarial tests ($P@5 = 0.3100$) where SQL collapses ($0.2150$).
+    \item \textbf{Sequence Hydration Combats Markovian Memorylessness:} Point-in-time vector embeddings discard antecedent energy impulses required to predict threshold damage. Pointer hydration ($\pm 72\text{h}$) restores temporal continuity, enabling verified zero-hallucination failure diagnosis across field anomalies.
+    \item \textbf{Conformal Prediction Guarantees Distribution-Free Safety Bounds:} Point predictions in dynamical systems provide false certainty during extreme shocks. Multi-site stratified CQR guarantees finite-sample marginal coverage ($91.2\%$ out-of-sample coverage across $35{,}084$ records) with $314.5\times$ dynamic interval adaptation, transforming generative LLM prompts into certified civil defense tools.
 \end{enumerate}
 
-By deploying this architecture using zero-copy columnar DuckDB, vectorized nearest neighbors, and calibrated CQR quantile regressors, the entire system executes in under 15 milliseconds on commodity hardware, providing an open-source, scalable blueprint for operational hazard monitoring, retrieval, and forecasting across coastal morphodynamics, renewable energy, and cyber-physical infrastructure.
+By combining zero-copy columnar DuckDB, vectorized latent neighbors, and calibrated CQR quantile regressors, the entire system executes in under 15 milliseconds on commodity hardware, providing an open-source, scalable blueprint for operational hazard monitoring and forecasting across continuous cyber-physical systems.
 
 \begin{thebibliography}{00}
+\footnotesize
+\setlength{\itemsep}{0.2pt plus 0.2pt minus 0.1pt}
 \bibitem{lewis2020rag} P.~Lewis, E.~Perez, A.~Piktus, F.~Petroni, V.~Karpukhin, N.~Goyal, H.~K{\"u}ttler, M.~Lewis, W.-t.~Yih, T.~Rockt{\"a}schel \textit{et~al.}, ``Retrieval-augmented generation for knowledge-intensive nlp tasks,'' \textit{Adv. Neural Inf. Process. Syst. (NeurIPS)}, vol.~33, pp. 9459--9474, 2020.
 \bibitem{karniadakis2021physics} G.~E. Karniadakis, I.~G. Kevrekidis, L.~Lu, P.~Perdikaris, S.~Wang, and L.~Yang, ``Physics-informed machine learning,'' \textit{Nat. Rev. Phys.}, vol.~3, no.~6, pp. 422--440, 2021.
 \bibitem{wright1984morphodynamic} L.~D. Wright and A.~D. Short, ``Morphodynamic variability of surf zones and beaches: A synthesis,'' \textit{Mar. Geol.}, vol.~56, no. 1--4, pp. 93--118, 1984.
@@ -670,5 +545,60 @@ By deploying this architecture using zero-copy columnar DuckDB, vectorized neare
 \bibitem{charney1969osse} J.~G. Charney, M.~Halem, and R.~Jastrow, ``Use of incomplete historical data to infer the present state of the atmosphere,'' \textit{J. Atmos. Sci.}, vol.~26, no.~5, pp. 1160--1163, 1969.
 \bibitem{atlas1997osse} R.~Atlas, ``Atmospheric observations and experiments to assess their usefulness in data assimilation,'' \textit{J. Meteorol. Soc. Japan. Ser. II}, vol.~75, no.~1B, pp. 111--130, 1997.
 \end{thebibliography}
+
+\appendices
+
+\begin{table}[htbp]
+\caption{SCIML ARCHITECTURAL MATRIX PERFORMANCE: DYNAMIC 72-HOUR STORM ROLLOUT \& MULTI-YEAR TEST SET}
+\label{tab:sciml_matrix}
+\begin{center}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lccccccc}
+\toprule
+\textbf{Architecture} & \textbf{Storm RMSE} & \textbf{Storm MAE} & \textbf{Storm $r$} & \textbf{BSS} & \textbf{Peak Err} & \textbf{Test RMSE} & \textbf{Test $r$} \\
+\midrule
+Model A (Data-Driven)             & 0.368 & 0.311 & 0.236 & -0.183 & 0.503 & 0.537 & 0.539 \\
+\textbf{Model B (Loss-Guided)}    & \textbf{0.342} & \textbf{0.285} & \textbf{0.264} & \textbf{+0.108} & \textbf{0.501} & 0.521 & 0.533 \\
+\textbf{Model C (Feature-Guided)} & 0.547 & 0.468 & 0.124 & -0.537 & 0.678 & 0.523 & \textbf{0.574}$^\ast$ \\
+\textbf{Model D (Dual-Guided)}    & 0.458 & 0.385 & 0.210 & -0.001 & 0.687 & \textbf{0.509} & 0.543 \\
+\bottomrule
+\multicolumn{8}{l}{$^\ast$Model C reaches $r = 0.720$ at Torrey Pines and $r = 0.839$ at Truc Vert.}
+\end{tabular}%
+}
+\end{center}
+\end{table}
+
+\section{Observing System Simulation Experiment (OSSE) Framework \& SciML Architectural Ablations}
+\label{sec:appendix_osse}
+
+\subsection{OSSE Benchmark Formulation}
+To evaluate neural architectural paradigms without contamination from observational sparsity ($N = 1,228$ discrete surveys across 5 years) or unmeasured lateral sediment fluxes, we formulated an Observing System Simulation Experiment (OSSE) \cite{atlas1997osse}:
+\begin{itemize}
+    \item \textbf{Hydrodynamic Boundary Forcing:} 100\% authentic multi-year institutional sensor records (2012--2016 golden window, $N = 43,848$ contiguous hours per site) capturing authentic storm sequencing, peak wave power, and surge dynamics.
+    \item \textbf{Closed Synthetic Nature Run:} Continuous reference trajectory generated via a non-linear wave-energy equilibrium differential operator \cite{yates2009equilibrium} driven by real wave energy flux plus synthetic measurement noise ($\sigma = 0.25\,\text{m}$).
+\end{itemize}
+
+In classical data assimilation theory \cite{charney1969osse,atlas1997osse}, an OSSE nature run establishes a \emph{mathematically closed, analytically knowable reference frame}. Here, it serves as an \emph{in silico} algorithmic stress test to isolate two foundational SciML questions: (1)~does the neural architecture accumulate compounding errors over unanchored 72-hour continuous storm rollouts, and (2)~does an asymmetric physical soft-penalty ($\mathcal{L}_{\text{PINN}}$) successfully suppress unphysical fair-weather accretion during peak wave power?
+
+\subsection{The $2 \times 2$ SciML Architectural Matrix}
+We benchmarked four distinct SciML paradigms across continuous 72-hour autonomous storm rollouts and multi-year out-of-sample test sets:
+\begin{itemize}
+    \item \textbf{Model A (Pure Data-Driven):} Standard MLP mapping raw inputs ($H_s, T_p, \eta_{\text{surge}}, U_{10}$) via Mean Squared Error ($\mathcal{L}_{\text{MSE}}$).
+    \item \textbf{Model B (Loss-Guided / PINN):} Standard inputs regularized via an asymmetric physical soft-loss penalizing unphysical seaward accretion during severe wave action:
+    \begin{equation}
+    \mathcal{L}_{\text{PINN}} = \mathcal{L}_{\text{MSE}} + \lambda_{\text{physics}} \cdot \mathbb{E}\left[\max(0, \dot{X}_{\text{pred}})^2 \cdot \mathbb{I}_{\Upsilon > \Upsilon_{p80}}\right]
+    \label{eq:pinn_loss}
+    \end{equation}
+    \item \textbf{Model C (Feature-Guided):} Unconstrained MLP supplied with our 14D invariant manifold features ($\Upsilon^*, \Omega, \xi, \text{TWL}$).
+    \item \textbf{Model D (Dual-Guided):} Combines 14D invariant manifold inputs with the PINN asymmetric soft-loss penalty (\ref{eq:pinn_loss}).
+\end{itemize}
+
+\subsection{The Fundamental Representation vs. Loss Trade-Off}
+As reported in Table~\ref{tab:sciml_matrix}, the OSSE benchmark exposes a profound trade-off in Scientific Machine Learning:
+\begin{itemize}
+    \item \textbf{PINN Loss Guidance Stabilizes Acute Shock (Model B):} Model B achieves the lowest overall storm rollout RMSE ($0.342\,\text{m}$) and is the only architecture with a positive mean Brier Skill Score ($\text{BSS} = +0.108$) \cite{sutherland2004evaluating}. The asymmetric penalty successfully prevents the network from hallucinating fair-weather accretion during peak wave action.
+    \item \textbf{Feature-Guided Invariants Dominate Multi-Year Correlation (Model C):} Model C achieves the highest multi-year out-of-sample correlation (Mean Test $r = 0.574$, reaching $r = 0.839$ at Truc Vert).
+    \item \textbf{Dual Synergy (Model D):} Uniting both representations in Model D yields the lowest overall multi-site test RMSE ($0.509\,\text{m}$).
+\end{itemize}
 
 \end{document}
