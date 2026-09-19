@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  18 SEP 2026 21:20
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  18 SEP 2026 21:22
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -428,9 +428,6 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 (/usr/local/texlive/2023/texmf-dist/tex/latex/microtype/mt-msb.cfg
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
-Underfull \vbox (badness 3701) has occurred while \output is active []
-
-
 Underfull \hbox (badness 10000) in paragraph at lines 41--43
 []\OT1/ptm/b/it/9 (+20) Index Terms\OT1/ptm/b/n/9 (+20) ---Scientific Ma-chine 
 Learn-ing, Retrieval-
@@ -448,19 +445,19 @@ Underfull \hbox (badness 2181) in paragraph at lines 41--43
 tent
  []
 
-[1{/usr/local/texlive/2023/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/usr/l
-ocal/texlive/2023/texmf-dist/fonts/enc/dvips/base/8r.enc}
-
-
-]
-<../figures//figure_morphodynamic_regimes_4panel.png, id=16, 1136.0844pt x 851.
-5815pt>
+<../figures//figure_morphodynamic_regimes_4panel.png, id=1, 1136.0844pt x 851.5
+815pt>
 File: ../figures//figure_morphodynamic_regimes_4panel.png Graphic file (type pn
 g)
 <use ../figures//figure_morphodynamic_regimes_4panel.png>
 Package pdftex.def Info: ../figures//figure_morphodynamic_regimes_4panel.png  u
 sed on input line 54.
 (pdftex.def)             Requested size: 239.39923pt x 179.4481pt.
+[1{/usr/local/texlive/2023/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/usr/l
+ocal/texlive/2023/texmf-dist/fonts/enc/dvips/base/8r.enc}
+
+
+]
 LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 6
 5.
 
@@ -471,10 +468,10 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `pcr' (encoding: OT1).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
- [2 <../figures//figure_morphodynamic_regimes_4panel.png>]
-Underfull \vbox (badness 1292) has occurred while \output is active []
 
- [3]
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [2 <../figures//figure_morphodynamic_regimes_4panel.png>] [3]
 <../figures//figure_physics_rag_architecture.png, id=41, 1438.173pt x 607.068pt
 >
 File: ../figures//figure_physics_rag_architecture.png Graphic file (type png)
@@ -488,9 +485,8 @@ File: ../figures//figure_umap_2x2.png Graphic file (type png)
 Package pdftex.def Info: ../figures//figure_umap_2x2.png  used on input line 21
 4.
 (pdftex.def)             Requested size: 246.95892pt x 211.42021pt.
-
-[4] [5 <../figures//figure_physics_rag_architecture.png> <../figures//figure_um
-ap_2x2.png>]
+ [4] [5 <../figures//figure_physics_rag_architecture.png> <../figures//figure_u
+map_2x2.png>]
 <../figures//figure_precision_at_k_single_column.png, id=53, 466.1415pt x 317.2
 653pt>
 File: ../figures//figure_precision_at_k_single_column.png Graphic file (type pn
@@ -508,8 +504,7 @@ File: ../figures//figure_peak_impact_disequilibrium_advantage.png Graphic file
 Package pdftex.def Info: ../figures//figure_peak_impact_disequilibrium_advantag
 e.png  used on input line 387.
 (pdftex.def)             Requested size: 505.6778pt x 119.43013pt.
- [7]
-<../figures//figure_conformal_prediction_uq.png, id=63, 897.3525pt x 341.3553pt
+<../figures//figure_conformal_prediction_uq.png, id=59, 897.3525pt x 341.3553pt
 >
 File: ../figures//figure_conformal_prediction_uq.png Graphic file (type png)
 <use ../figures//figure_conformal_prediction_uq.png>
@@ -517,22 +512,25 @@ Package pdftex.def Info: ../figures//figure_conformal_prediction_uq.png  used o
 n input line 407.
 (pdftex.def)             Requested size: 505.6778pt x 192.36086pt.
 
-[8 <../figures//figure_peak_impact_disequilibrium_advantage.png>]
-<../figures//figure_anomaly_audits_2x2.png, id=68, 766.062pt x 215.3646pt>
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [7]
+[8 <../figures//figure_peak_impact_disequilibrium_advantage.png> <../figures//f
+igure_conformal_prediction_uq.png>]
+<../figures//figure_anomaly_audits_2x2.png, id=69, 766.062pt x 215.3646pt>
 File: ../figures//figure_anomaly_audits_2x2.png Graphic file (type png)
 <use ../figures//figure_anomaly_audits_2x2.png>
 Package pdftex.def Info: ../figures//figure_anomaly_audits_2x2.png  used on inp
 ut line 473.
 (pdftex.def)             Requested size: 505.6778pt x 142.16734pt.
- [9 <../figures//figure_conformal_prediction_uq.png>] [10 <../figures//figure_a
-nomaly_audits_2x2.png (PNG copy)>]
+ [9]
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [10 <../figures//figure_anomaly_audits_2x2.png (PNG copy)>]
 Underfull \hbox (badness 1527) in paragraph at lines 532--533
 \OT1/ptm/m/n/8 (+20) for-mal pre-dic-tion and distribution-free un-cer-tainty q
 uan-tifi-ca-tion,''
  []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 Underfull \hbox (badness 4072) in paragraph at lines 559--560
@@ -545,7 +543,6 @@ Underfull \hbox (badness 1521) in paragraph at lines 559--560
 \OT1/ptm/m/n/10 (+20) sup-plied with our 14D in-vari-ant man-i-fold fea-tures
  []
 
-[11]
 
 ** Conference Paper **
 Before submitting the final camera ready copy, remember to:
@@ -557,49 +554,47 @@ Before submitting the final camera ready copy, remember to:
  uses only Type 1 fonts and that every step in the generation
  process uses the appropriate paper size.
 
-[12
-
-] (./research_paper.aux) ) 
+[11] (./research_paper.aux) ) 
 Here is how much of TeX's memory you used:
  7574 strings out of 476025
  119835 string characters out of 5790017
- 1883388 words of memory out of 5000000
+ 1884388 words of memory out of 5000000
  27411 multiletter control sequences out of 15000+600000
  586189 words of font info for 450 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  57i,13n,62p,1877b,321s stack positions out of 10000i,1000n,20000p,200000b,200000s
-</usr/local/texlive/2023/texmf-dist/fonts/type1/publi
-c/amsfonts/cm/cmbx10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public
-/amsfonts/cm/cmbx7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/a
-msfonts/cm/cmbx8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/ams
-fonts/cm/cmex10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsf
-onts/cm/cmmi10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfo
-nts/cm/cmmi5.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfont
-s/cm/cmmi6.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/
-cm/cmmi7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm
-/cmmi8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/c
-mmi9.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmm
-ib10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr
-10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5.
-pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb
-></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></
-usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr
-/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/lo
-cal/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/loc
-al/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb></usr/local
-/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/local/t
-exlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/tex
-live/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/local/texli
-ve/2023/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/local/t
-exlive/2023/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/local/texlive/2
-023/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2023/texmf-
-dist/fonts/type1/urw/times/utmbi8a.pfb></usr/local/texlive/2023/texmf-dist/font
-s/type1/urw/times/utmr8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/ur
-w/times/utmri8a.pfb>
-Output written on research_paper.pdf (12 pages, 7037796 bytes).
+</usr/local/texlive/2023/texmf-dist/fonts/type1/pu
+blic/amsfonts/cm/cmbx10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/pub
+lic/amsfonts/cm/cmbx7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/publi
+c/amsfonts/cm/cmbx8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/
+amsfonts/cm/cmex10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/a
+msfonts/cm/cmmi10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/am
+sfonts/cm/cmmi5.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsf
+onts/cm/cmmi6.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfon
+ts/cm/cmmi7.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts
+/cm/cmmi8.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/c
+m/cmmi9.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/
+cmmib10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/
+cmr10.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cm
+r5.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.
+pfb></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb
+></usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></
+usr/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr
+/local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/
+local/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb></usr/lo
+cal/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/loca
+l/texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/
+texlive/2023/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/local/te
+xlive/2023/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/loca
+l/texlive/2023/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/local/texliv
+e/2023/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2023/tex
+mf-dist/fonts/type1/urw/times/utmbi8a.pfb></usr/local/texlive/2023/texmf-dist/f
+onts/type1/urw/times/utmr8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1
+/urw/times/utmri8a.pfb>
+Output written on research_paper.pdf (11 pages, 7036808 bytes).
 PDF statistics:
- 199 PDF objects out of 1000 (max. 8388607)
- 114 compressed objects within 2 object streams
+ 196 PDF objects out of 1000 (max. 8388607)
+ 112 compressed objects within 2 object streams
  0 named destinations out of 1000 (max. 500000)
  82468 words of extra memory for PDF output out of 89155 (max. 10000000)
 

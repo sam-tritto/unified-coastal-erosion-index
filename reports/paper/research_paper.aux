@@ -1,15 +1,15 @@
 \relax 
 \citation{lewis2020rag}
 \citation{karniadakis2021physics}
+\citation{wright1984morphodynamic}
+\citation{birkemeier1985users}
+\citation{sallenger2000storm}
+\citation{stockdon2006empirical}
+\citation{wright1984morphodynamic}
+\citation{birkemeier1985users}
+\citation{sallenger2000storm}
+\citation{stockdon2006empirical}
 \@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{}\protected@file@percent }
-\citation{wright1984morphodynamic}
-\citation{birkemeier1985users}
-\citation{sallenger2000storm}
-\citation{stockdon2006empirical}
-\citation{wright1984morphodynamic}
-\citation{birkemeier1985users}
-\citation{sallenger2000storm}
-\citation{stockdon2006empirical}
 \citation{barber2023conformal}
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {Four-Panel Climatological and Morphodynamic Regime Characterization across Global Archetypes ($N = 175{,}392$ hours, 2012--2016).} \textbf  {(a)} Dimensionless Dean fall velocity parameter $\Omega = H_s / (w_s T_p)$ displaying Wright \& Short classification boundaries \cite  {wright1984morphodynamic} for reflective ($\Omega < 1.0$) and fully dissipative ($\Omega > 6.0$) states, showing the extreme Pacific swell tail at Torrey Pines ($\Omega > 20$). \textbf  {(b)} Deep-water wave steepness $s_0 = 2\pi H_s / (g T_p^2)$ evaluated against the critical threshold ($s_{0,\text  {crit}} = 0.025$), separating swell-dominated accretionary regimes ($98.0\%$ at Torrey Pines) from steep erosive storm seas ($28.8\%$ at USACE FRF Duck \cite  {birkemeier1985users}). \textbf  {(c)} Sallenger storm impact regime distributions (Swash, Collision, and Overwash) \cite  {sallenger2000storm} parameterized via dynamic Total Water Level ($\text  {TWL} = \eta _{\text  {tide}} + S_{\text  {surge}} + R_{2\%}$) confrontation with berm crests $z_{\text  {berm}}$ \cite  {stockdon2006empirical}. \textbf  {(d)} Scale-invariant dimensional collapse $\Upsilon ^* = \Upsilon / \Upsilon _{\text  {ref}}$, demonstrating that normalizing raw kinetic energy forcing by site-specific carrying capacity collapses multi-order-of-magnitude energy differences into a universal invariant distribution centered at $\Upsilon ^* \approx 1.0$.}}{2}{}\protected@file@percent }
 \newlabel{fig:morphodynamic_regimes}{{1}{2}}
@@ -17,6 +17,10 @@
 \citation{buckingham1914physically}
 \citation{dietrich1982settling}
 \citation{longuethiggins1964radiation}
+\citation{wright1984morphodynamic}
+\citation{battjes1974surf}
+\citation{stockdon2006empirical}
+\citation{sallenger2000storm}
 \@writefile{toc}{\contentsline {section}{\numberline {II}Theoretical Formulation: Invariant Manifolds \& Conformal Prediction}{3}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-A}}Generalized Continuous Physical Dynamical Systems}{3}{}\protected@file@percent }
 \newlabel{eq:general_dynamical_system}{{1}{3}}
@@ -31,15 +35,11 @@
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {II-B}3}Scale-Invariant Dimensional Collapse}{3}{}\protected@file@percent }
 \newlabel{eq:upsilon_star}{{7}{3}}
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {II-B}4}The 14-Dimensional State Manifold ($\mathbf  {z}_{\text  {physics}}$)}{3}{}\protected@file@percent }
-\citation{wright1984morphodynamic}
-\citation{battjes1974surf}
-\citation{stockdon2006empirical}
-\citation{sallenger2000storm}
+\newlabel{eq:14d_manifold}{{8}{3}}
 \citation{romano2019conformalized,vovk2005algorithmic}
 \citation{koenker1978regression}
 \citation{barber2023conformal}
 \citation{raasveldt2019duckdb}
-\newlabel{eq:14d_manifold}{{8}{4}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-C}}Conformalized Quantile Regression (CQR) Formulation}{4}{}\protected@file@percent }
 \newlabel{eq:pinball_loss}{{9}{4}}
 \newlabel{eq:nonconformity_score}{{10}{4}}
@@ -51,38 +51,38 @@
 \newlabel{eq:tier1_duckdb}{{14}{4}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Tier 2: 14D Invariant Latent Ranking via Directional Pareto Objectives}{4}{}\protected@file@percent }
 \newlabel{eq:cosine_sim}{{15}{4}}
+\newlabel{eq:directional_pareto}{{16}{4}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}Continuous Dynamical Sequence Hydration ($\pm 72\text  {h}$)}{4}{}\protected@file@percent }
+\newlabel{eq:antecedent_impulse}{{17}{4}}
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {End-to-End System Architecture and Dataflow of the Two-Tier Hybrid Cascade Physics-RAG Framework.} \textbf  {(1)} Natural language operational queries are decoupled by the Hybrid Query Parser into structured columnar SQL predicates and a 14D target physical invariant vector $\mathbf  {z}_{\text  {target}}$. \textbf  {(2)} Tier\nobreakspace  {}1 executes sub-15-millisecond zero-copy predicate pushdown over columnar Parquet storage via DuckDB, pruning the multi-site golden window archive ($N = 175{,}392$ records) into an anchored spatiotemporal candidate subset $\mathcal  {C}_{\text  {filtered}}$, eliminating cross-decadal manifold degeneracy. \textbf  {(3)} Tier\nobreakspace  {}2 projects candidates into the 14D Buckingham $\pi $ invariant latent space, evaluating them via an asymmetric Directional Pareto ranking objective (Eq.\nobreakspace  {}\ref {eq:directional_pareto}) that penalizes sub-threshold calm states and rewards kinetic disequilibrium excess, eliminating chronological blindness and synchronizing to true hydrodynamic storm apexes ($t^*$). \textbf  {(4)} Top-$k$ target event timestamps trigger zero-copy pointer retrieval to hydrate continuous antecedent parent sequences ($\mathbf  {X}_{\text  {parent}} \in \mathbb  {R}^{145 \times 14}$, $\pm 72\text  { hours}$), capturing multi-channel wave steepening, the $26.5\times $ kinetic surge in $\Upsilon $, and Total Water Level confronting berm crests ($Z_{\text  {crest}}$), eliminating Markovian memorylessness. \textbf  {(5)} Retrieved states are evaluated by the Conformal Quantile Regressor, injecting certified prediction intervals $[c_{\text  {lo}}, c_{\text  {hi}}]$ and hydrograph volatility states into downstream LLM reasoning engines.}}{5}{}\protected@file@percent }
 \newlabel{fig:physics_rag_architecture}{{2}{5}}
 \@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Four-Panel 2D UMAP Projection of the 14D Invariant Latent Space ($N = 12{,}000$ Stratified Records).} \textbf  {(a)} Morphodynamic state continuum colored by Dean number $\Omega $, displaying a continuous chromatic gradient from reflective steep profiles ($\Omega < 1$) to dissipative flat states ($\Omega > 7$). \textbf  {(b)} Hydrodynamic kinetic energy continuum $\log _{10}\Upsilon $, showing baseline calm records clustering near the manifold core while extreme storm work projects into outer peripheral filaments. \textbf  {(c)} Breaker dissipation regimes classified by Iribarren number $\xi $, showing topological separation between spilling ($\xi < 0.5$, cyan) and plunging ($\xi \ge 0.5$, pink) wave dissipation. \textbf  {(d)} Universal cross-site invariance: records from all four global observatories (Duck, Narrabeen, Torrey Pines, Truc Vert) interleave across identical topological branches, confirming cross-site physical similitude.}}{5}{}\protected@file@percent }
 \newlabel{fig:umap_4panel}{{3}{5}}
-\newlabel{eq:directional_pareto}{{16}{5}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}Continuous Dynamical Sequence Hydration ($\pm 72\text  {h}$)}{5}{}\protected@file@percent }
-\newlabel{eq:antecedent_impulse}{{17}{5}}
 \newlabel{eq:parent_tensor}{{18}{5}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Decision-Grade LLM Prompt Window Injection}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Decision-Grade LLM Prompt Window Injection}{5}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {IV}Empirical Evaluation: The Grand 100-Query Multimodal Benchmark}{6}{}\protected@file@percent }
 \newlabel{sec:benchmark}{{IV}{6}}
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {Retrieval Precision Across Expanding Cutoff Radii ($k = 1$ to $k = 20$).} Macro-averaged retrieval precision across all $N = 100$ multimodal operational and pathology queries, illustrating the unbroken performance advantage maintained by the Two-Tier Hybrid Cascade across all evaluation depths (see Table\nobreakspace  {}\ref {tab:grand_benchmark} for comprehensive multi-metric breakdown).}}{6}{}\protected@file@percent }
 \newlabel{fig:grand_benchmark}{{4}{6}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Evaluation Methodology, Categories, and Tiers}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Information Retrieval Performance \& Tier Analysis}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Statistical Hypothesis Testing on 100 Queries}{6}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces GRAND 4-WAY INFORMATION RETRIEVAL BENCHMARK ACROSS 100 MULTIMODAL OPERATIONAL \& ADVERSARIAL QUERIES}}{7}{}\protected@file@percent }
 \newlabel{tab:grand_benchmark}{{I}{7}}
 \@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces PAIRED STATISTICAL HYPOTHESIS TESTING: HYBRID CASCADE VS. BASELINE ARCHITECTURES ($N = 100$ QUERIES)}}{7}{}\protected@file@percent }
 \newlabel{tab:statistical_testing}{{II}{7}}
 \@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces STRATIFIED INFORMATION RETRIEVAL BENCHMARK ACCURACY BY OPERATIONAL TIER}}{7}{}\protected@file@percent }
 \newlabel{tab:tier_benchmark}{{III}{7}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Statistical Hypothesis Testing on 100 Queries}{7}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-D}}Peak Impact \& Disequilibrium Synchronization}{7}{}\protected@file@percent }
 \citation{gneiting2007strictly}
 \@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces \textbf  {Peak Impact and Disequilibrium Ranking Advantage Across Complex Cyclone and Hazard Queries.} \textbf  {(a)} Graded NDCG@5 under 4-tier hydrodynamic work grading, where the Hybrid Cascade achieves $0.4544$ ($+34.3\%$ relative gain over Flat SQL). \textbf  {(b)} Median temporal peak alignment error ($|\Delta t_{\text  {peak}}|$ in hours), proving that relational pre-filtering eliminates cross-decadal temporal drift. \textbf  {(c)} Retrieved kinetic disequilibrium energy ($\Upsilon $), showing preferential ranking of extreme energetic shocks. \textbf  {(d)} Peak Precision@5 ($P_{\text  {apex}}@5$) vs. retrieved wave power: the Hybrid Cascade achieves the highest peak synchronization ($0.6078$) while isolating verified nearshore dissipated wave power ($69.8\,\text  {kW/m}$) rather than unconstrained offshore buoy spikes ($>150\,\text  {kW/m}$).}}{8}{}\protected@file@percent }
 \newlabel{fig:peak_impact}{{5}{8}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces \textbf  {Conformalized Quantile Regression (CQR) and Decision-Grade Uncertainty Quantification in Physics-RAG.} \textbf  {(a)} Out-of-sample empirical coverage across the four global archetypes on the 2016 holdout test split ($N = 35{,}084$ records), demonstrating finite-sample validity exceeding the nominal $90.0\%$ target ($91.2\%$ multi-site average) with ultra-sharp median prediction interval widths ($3.7\,\text  {cm}$). \textbf  {(b)} Dynamic hydrograph volatility adaptation during a 144-hour storm sequence at Duck, NC: prediction intervals dynamically expand by $314.5\times $ during storm surge apex ($H_s = 7.52\,\text  {m}$, width $5.66\,\text  {m}$) and collapse to centimeter precision during calm swash equilibrium ($H_s = 0.33\,\text  {m}$, width $0.018\,\text  {m}$). \textbf  {(c)} LLM decision-grade grounding: injecting structured CQR bounds into Gemini Flash eliminates speculative point assertions and grounds hazard directives in certified engineering bounds.}}{8}{}\protected@file@percent }
+\newlabel{fig:conformal_uq}{{6}{8}}
 \@writefile{toc}{\contentsline {section}{\numberline {V}Decision-Grade Uncertainty Quantification: Conformal Prediction}{8}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Multi-Site Stratified Empirical Validation}{8}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Dynamic Volatility Adaptation ($314.5\times $ Expansion)}{8}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces CONFORMALIZED QUANTILE REGRESSION (CQR): OUT-OF-SAMPLE VALIDATION \& DYNAMIC VOLATILITY ADAPTATION}}{8}{}\protected@file@percent }
 \newlabel{tab:cqr_validation}{{IV}{8}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Operational Actionability: Turning Volatility into Decision-Grade Intelligence}{8}{}\protected@file@percent }
 \citation{ludka2015beach}
 \citation{turner2016multidecade}
 \citation{longuethiggins1964radiation}
@@ -91,12 +91,13 @@
 \citation{ramadesigan2012battery}
 \citation{severson2019battery}
 \citation{porteagel2020wind}
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces \textbf  {Conformalized Quantile Regression (CQR) and Decision-Grade Uncertainty Quantification in Physics-RAG.} \textbf  {(a)} Out-of-sample empirical coverage across the four global archetypes on the 2016 holdout test split ($N = 35{,}084$ records), demonstrating finite-sample validity exceeding the nominal $90.0\%$ target ($91.2\%$ multi-site average) with ultra-sharp median prediction interval widths ($3.7\,\text  {cm}$). \textbf  {(b)} Dynamic hydrograph volatility adaptation during a 144-hour storm sequence at Duck, NC: prediction intervals dynamically expand by $314.5\times $ during storm surge apex ($H_s = 7.52\,\text  {m}$, width $5.66\,\text  {m}$) and collapse to centimeter precision during calm swash equilibrium ($H_s = 0.33\,\text  {m}$, width $0.018\,\text  {m}$). \textbf  {(c)} LLM decision-grade grounding: injecting structured CQR bounds into Gemini Flash eliminates speculative point assertions and grounds hazard directives in certified engineering bounds.}}{9}{}\protected@file@percent }
-\newlabel{fig:conformal_uq}{{6}{9}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Dynamic Volatility Adaptation ($314.5\times $ Expansion)}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Operational Actionability: Turning Volatility into Decision-Grade Intelligence}{9}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {VI}Operational Deployment: Real-World Field Survey Anomaly Audits}{9}{}\protected@file@percent }
 \newlabel{sec:field_audits}{{VI}{9}}
 \@writefile{toc}{\contentsline {section}{\numberline {VII}Broader Architectural Generalizability: Cyber-Physical Systems}{9}{}\protected@file@percent }
 \newlabel{sec:cross_domain}{{VII}{9}}
+\@writefile{toc}{\contentsline {section}{\numberline {VIII}Discussion, SciML Design Principles \& Conclusion}{9}{}\protected@file@percent }
 \bibcite{lewis2020rag}{1}
 \bibcite{karniadakis2021physics}{2}
 \bibcite{wright1984morphodynamic}{3}
@@ -105,10 +106,6 @@
 \bibcite{stockdon2006empirical}{6}
 \bibcite{raissi2019pinns}{7}
 \bibcite{lu2021deeponet}{8}
-\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces \textbf  {Multi-Panel Parent Sequence Hydration Visualizations for Top Real-World Field Survey Anomaly Episodes Audited via Physics-RAG.} Continuous multi-channel hydrodynamics ($H_s$, $\text  {TWL}$, and storm surge) centered on the matched storm apex ($t = 0$) diagnosing unmodeled physical processes across institutional field surveys: \textbf  {(a)} USACE FRF Duck, NC: Antecedent berm stripping unbuffering the dune scarp. \textbf  {(b)} Narrabeen-Collaroy, AUS: 2D embayment rotation and asymmetric radiation stress ($S_{xy} > 120\,\text  {N/m}$). \textbf  {(c)} Torrey Pines, CA: Long-period infragravity swash resonance ($T_p = 16.0\,\text  {s}$). \textbf  {(d)} Truc Vert, France: Post-storm sediment sequestration in offshore sandbars.}}{10}{}\protected@file@percent }
-\newlabel{fig:anomaly_audits}{{7}{10}}
-\@writefile{toc}{\contentsline {section}{\numberline {VIII}Discussion, SciML Design Principles \& Conclusion}{10}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{References}{10}{}\protected@file@percent }
 \bibcite{buckingham1914physically}{9}
 \bibcite{dietrich1982settling}{10}
 \bibcite{longuethiggins1964radiation}{11}
@@ -118,6 +115,9 @@
 \bibcite{ludka2015beach}{15}
 \bibcite{castelle2020planshape}{16}
 \bibcite{raasveldt2019duckdb}{17}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces \textbf  {Multi-Panel Parent Sequence Hydration Visualizations for Top Real-World Field Survey Anomaly Episodes Audited via Physics-RAG.} Continuous multi-channel hydrodynamics ($H_s$, $\text  {TWL}$, and storm surge) centered on the matched storm apex ($t = 0$) diagnosing unmodeled physical processes across institutional field surveys: \textbf  {(a)} USACE FRF Duck, NC: Antecedent berm stripping unbuffering the dune scarp. \textbf  {(b)} Narrabeen-Collaroy, AUS: 2D embayment rotation and asymmetric radiation stress ($S_{xy} > 120\,\text  {N/m}$). \textbf  {(c)} Torrey Pines, CA: Long-period infragravity swash resonance ($T_p = 16.0\,\text  {s}$). \textbf  {(d)} Truc Vert, France: Post-storm sediment sequestration in offshore sandbars.}}{10}{}\protected@file@percent }
+\newlabel{fig:anomaly_audits}{{7}{10}}
+\@writefile{toc}{\contentsline {section}{References}{10}{}\protected@file@percent }
 \bibcite{mcinnes2018umap}{18}
 \bibcite{yates2009equilibrium}{19}
 \bibcite{sutherland2004evaluating}{20}
@@ -144,4 +144,4 @@
 \@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces SCIML ARCHITECTURAL MATRIX PERFORMANCE: DYNAMIC 72-HOUR STORM ROLLOUT \& MULTI-YEAR TEST SET}}{11}{}\protected@file@percent }
 \newlabel{tab:sciml_matrix}{{V}{11}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {A-C}}The Fundamental Representation vs. Loss Trade-Off}{11}{}\protected@file@percent }
-\gdef \@abspage@last{12}
+\gdef \@abspage@last{11}
