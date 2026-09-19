@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  18 SEP 2026 21:22
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  19 SEP 2026 18:54
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -522,24 +522,21 @@ File: ../figures//figure_anomaly_audits_2x2.png Graphic file (type png)
 <use ../figures//figure_anomaly_audits_2x2.png>
 Package pdftex.def Info: ../figures//figure_anomaly_audits_2x2.png  used on inp
 ut line 473.
-(pdftex.def)             Requested size: 505.6778pt x 142.16734pt.
- [9]
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [10 <../figures//figure_anomaly_audits_2x2.png (PNG copy)>]
-Underfull \hbox (badness 1527) in paragraph at lines 532--533
+(pdftex.def)             Requested size: 361.19843pt x 101.54669pt.
+ [9] [10 <../figures//figure_anomaly_audits_2x2.png (PNG copy)>]
+Underfull \hbox (badness 1527) in paragraph at lines 545--546
 \OT1/ptm/m/n/8 (+20) for-mal pre-dic-tion and distribution-free un-cer-tainty q
 uan-tifi-ca-tion,''
  []
 
 
-Underfull \hbox (badness 4072) in paragraph at lines 559--560
+Underfull \hbox (badness 4072) in paragraph at lines 569--570
 []\OT1/ptm/b/n/10 (+20) Model C (Feature-Guided): \OT1/ptm/m/n/10 (+20) Un-con-
 strained MLP
  []
 
 
-Underfull \hbox (badness 1521) in paragraph at lines 559--560
+Underfull \hbox (badness 1521) in paragraph at lines 569--570
 \OT1/ptm/m/n/10 (+20) sup-plied with our 14D in-vari-ant man-i-fold fea-tures
  []
 
@@ -556,11 +553,11 @@ Before submitting the final camera ready copy, remember to:
 
 [11] (./research_paper.aux) ) 
 Here is how much of TeX's memory you used:
- 7574 strings out of 476025
- 119835 string characters out of 5790017
+ 7571 strings out of 476025
+ 119827 string characters out of 5790017
  1884388 words of memory out of 5000000
  27411 multiletter control sequences out of 15000+600000
- 586189 words of font info for 450 fonts, out of 8000000 for 9000
+ 586073 words of font info for 448 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  57i,13n,62p,1877b,321s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2023/texmf-dist/fonts/type1/pu
@@ -591,7 +588,7 @@ e/2023/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2023/tex
 mf-dist/fonts/type1/urw/times/utmbi8a.pfb></usr/local/texlive/2023/texmf-dist/f
 onts/type1/urw/times/utmr8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1
 /urw/times/utmri8a.pfb>
-Output written on research_paper.pdf (11 pages, 7036808 bytes).
+Output written on research_paper.pdf (11 pages, 7038049 bytes).
 PDF statistics:
  196 PDF objects out of 1000 (max. 8388607)
  112 compressed objects within 2 object streams

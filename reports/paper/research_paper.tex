@@ -470,7 +470,7 @@ When deployed operationally, the Physics-RAG architecture automates post-mortem 
 
 \begin{figure*}[t]
     \centering
-    \includegraphics[width=0.98\textwidth]{figure_anomaly_audits_2x2.png}
+    \includegraphics[width=0.70\textwidth]{figure_anomaly_audits_2x2.png}
     \caption{\textbf{Multi-Panel Parent Sequence Hydration Visualizations for Top Real-World Field Survey Anomaly Episodes Audited via Physics-RAG.} Continuous multi-channel hydrodynamics ($H_s$, $\text{TWL}$, and storm surge) centered on the matched storm apex ($t = 0$) diagnosing unmodeled physical processes across institutional field surveys:
     \textbf{(a)} USACE FRF Duck, NC: Antecedent berm stripping unbuffering the dune scarp.
     \textbf{(b)} Narrabeen-Collaroy, AUS: 2D embayment rotation and asymmetric radiation stress ($S_{xy} > 120\,\text{N/m}$).
@@ -480,19 +480,18 @@ When deployed operationally, the Physics-RAG architecture automates post-mortem 
 \end{figure*}
 
 \begin{itemize}
+    \setlength{\itemsep}{0.5pt}\setlength{\parskip}{0pt}
     \item \textbf{Case 1 (Infragravity Resonance, Torrey Pines):} In June 2015, RTK-GPS recorded severe erosion ($\Delta X = -9.80\,\text{m}$) \cite{ludka2015beach} while models predicted $+0.42\,\text{m}$ accretion ($H_s = 1.48\,\text{m}$). Sequence hydration revealed ultra-long swell ($T_p = 16.0\,\text{s}, s_0 = 0.0052$), amplifying infragravity surf-beat resonance into Sallenger Collision.
     \item \textbf{Case 2 (Embayment Rotation, Narrabeen):} In June 2016, Profile PF1 retreated $-16.11\,\text{m}$ \cite{turner2016multidecade} vs. $-4.25\,\text{m}$ predicted. Sequence hydration identified oblique radiation stress ($S_{xy} > 120\,\text{N/m}$ \cite{longuethiggins1964radiation}), diagnosing alongshore transport divergence ($\partial Q_y / \partial y$) rather than 1D cross-shore deficit.
     \item \textbf{Case 3 (Antecedent Berm Stripping, Duck):} A moderate October 2015 storm ($H_s = 2.70\,\text{m}$) cut $-6.62\,\text{m}$ \cite{birkemeier1985users} vs. $-1.15\,\text{m}$ predicted. Hydrating the 72-hour antecedent window revealed a storm 96 hours prior that stripped the subaerial berm, leaving the dune toe completely unbuffered.
     \item \textbf{Case 4 (Offshore Sequestration, Truc Vert):} In August 2014, fair weather produced $-8.45\,\text{m}$ erosion vs. $+1.10\,\text{m}$ predicted accretion. Multi-scale convolution traced the deficit to the 2013--2014 winter cluster, which locked nearshore sand into outer bars \cite{castelle2020planshape}.
 \end{itemize}
 
-\section{Broader Architectural Generalizability: Cyber-Physical Systems}
-\label{sec:cross_domain}
-While empirically instantiated here for coastal morphodynamics, the Physics-RAG architecture addresses universal vulnerabilities across continuous non-equilibrium physical media. Its mathematical primitives decouple domain-specific conservation invariants ($\mathcal{M}_{\text{inv}}$) from the domain-agnostic retrieval engine. This blueprint directly generalizes to safety-critical cyber-physical systems characterized by threshold kinetics and hysteresis: (i)~\textbf{Electrochemical Battery BMS}: mapping current-voltage telemetry to dimensionless Arrhenius groupings and overpotential ratios ($\mathbf{z}_{\text{battery}}$) \cite{ramadesigan2012battery}, where Directional Pareto filtering penalizes high C-rate pulse under-estimation and sequence hydration tracks capacity knee-point fade \cite{severson2019battery}; (ii)~\textbf{Aeromechanical Assets}: parameterizing turbine anemometry via Tip-Speed Ratios ($\lambda$) and thrust coefficients ($C_T$) \cite{porteagel2020wind} while CQR dynamically bounds aeroelastic deflection envelopes under non-stationary turbulence; and (iii)~\textbf{Low-Inertia Smart Grids}: resolving synthetic inertia deficits and frequency runaway bifurcations.
-
 \section{Discussion, SciML Design Principles \& Conclusion}
+\label{sec:discussion}
 Deploying generative foundation models to continuous physical systems requires anchoring retrieval and reasoning in first-principles conservation laws. Our findings establish four general SciML design principles:
 \begin{enumerate}
+    \setlength{\itemsep}{0.5pt}\setlength{\parskip}{0pt}
     \item \textbf{Invariant Manifolds Outperform Loss Regularizers in Field Settings:} In noisy observational environments, feature-guided invariant projections (Model C) achieve superior long-term representation tracking ($r = 0.574$, reaching $r = 0.839$) compared to unguided networks ($r = 0.539$) and PINN soft constraints ($r = 0.533$). Pre-computed physical invariants establish exact mappings, avoiding optimization stiffness from penalty barriers.
     \item \textbf{Hybrid Cascades Resolve Dual Temporal Pathologies:} Physical time series require a two-tier cascade: zero-copy relational SQL pre-filtering eliminates cross-decadal temporal drift, while asymmetric Directional Pareto ranking eliminates chronological blindness ($P_{\text{apex}}@5 = 0.6078$). Across $N = 100$ queries, the Hybrid Cascade achieves statistically significant gains over Pure Physics-RAG ($p = 0.0253$, bootstrap 95\% CI $[+0.0020, +0.1120]$) and preserves robust competency under adversarial tests ($P@5 = 0.3100$) where SQL collapses ($0.2150$).
     \item \textbf{Sequence Hydration Combats Markovian Memorylessness:} Point-in-time vector embeddings discard antecedent energy impulses required to predict threshold damage. Pointer hydration ($\pm 72\text{h}$) restores temporal continuity, enabling verified zero-hallucination failure diagnosis across field anomalies.
@@ -501,9 +500,23 @@ Deploying generative foundation models to continuous physical systems requires a
 
 By combining zero-copy columnar DuckDB, vectorized latent neighbors, and calibrated CQR quantile regressors, the entire system executes in under 15 milliseconds on commodity hardware, providing an open-source, scalable blueprint for operational hazard monitoring and forecasting across continuous cyber-physical systems.
 
+\subsection{Scalability and Future Domains}
+\label{sec:scalability_future_domains}
+While empirically validated across $175{,}392$ sensor-hours, coastal morphodynamics represents an initial proof-of-concept for a foundational Cyber-Physical AI architecture. Coastal systems embody extreme non-equilibrium physics: multi-scale turbulent transport, threshold kinetics, and deep temporal hysteresis. Having established certified zero-hallucination retrieval and conformal safety bounds in this adversarial domain, the underlying architecture translates directly to high-value industrial and clean-energy infrastructure:
+
+\begin{itemize}
+    \setlength{\itemsep}{0.5pt}\setlength{\parskip}{0pt}
+    \item \textbf{EV Battery Management Systems (BMS) \& Gigafactories:} Projecting high-frequency telemetry onto invariant electrochemical manifolds ($\mathbf{z}_{\text{battery}}$) \cite{ramadesigan2012battery}. Asymmetric Directional Pareto ranking prioritizes unmodeled overpotential spikes during ultra-fast charging, while sequence hydration ($\pm 72\text{h}$) tracks cumulative SEI growth to forecast capacity knee-point degradation \cite{severson2019battery} and arrest thermal runaway.
+    \item \textbf{Wind Turbines \& Clean Aeromechanical Assets:} Parameterizing high-frequency anemometry via Tip-Speed Ratios ($\lambda$), thrust coefficients ($C_T$), and turbulence scales \cite{porteagel2020wind}. CQR provides dynamic aeroelastic flutter envelopes, enabling real-time derating, wake steering optimization, and predictive gearbox maintenance.
+    \item \textbf{Low-Inertia Power Grids \& Synthetic Inertia:} As renewables displace mechanical rotational inertia, localized frequency runaway ($df/dt$, RoCoF) presents acute blackout risks. The cascade provides sub-15ms relational pre-filtering over grid topologies while conformal bounds certify dynamic spinning reserves.
+    \item \textbf{Industrial Process Chemistry \& Hydrogen Electrolysis:} Decoupling multi-phase Navier-Stokes and Butler-Volmer kinetics via scale-invariant $\Pi$-groups, enabling foundation models to audit dynamic membrane degradation and maximize green hydrogen yield under intermittent renewable power.
+\end{itemize}
+Decoupling conservation invariants ($\mathcal{M}_{\text{inv}}$) from a high-throughput retrieval and conformal engine establishes Physics-RAG as an extensible horizontal foundation model for certified autonomy across continuous physical systems.
+
 \begin{thebibliography}{00}
 \footnotesize
-\setlength{\itemsep}{0.2pt plus 0.2pt minus 0.1pt}
+\setlength{\itemsep}{0pt plus 0.1pt minus 0.1pt}
+\setlength{\parskip}{0pt}
 \bibitem{lewis2020rag} P.~Lewis, E.~Perez, A.~Piktus, F.~Petroni, V.~Karpukhin, N.~Goyal, H.~K{\"u}ttler, M.~Lewis, W.-t.~Yih, T.~Rockt{\"a}schel \textit{et~al.}, ``Retrieval-augmented generation for knowledge-intensive nlp tasks,'' \textit{Adv. Neural Inf. Process. Syst. (NeurIPS)}, vol.~33, pp. 9459--9474, 2020.
 \bibitem{karniadakis2021physics} G.~E. Karniadakis, I.~G. Kevrekidis, L.~Lu, P.~Perdikaris, S.~Wang, and L.~Yang, ``Physics-informed machine learning,'' \textit{Nat. Rev. Phys.}, vol.~3, no.~6, pp. 422--440, 2021.
 \bibitem{wright1984morphodynamic} L.~D. Wright and A.~D. Short, ``Morphodynamic variability of surf zones and beaches: A synthesis,'' \textit{Mar. Geol.}, vol.~56, no. 1--4, pp. 93--118, 1984.
@@ -550,20 +563,17 @@ In classical data assimilation theory \cite{charney1969osse,atlas1997osse}, an O
 \subsection{The $2 \times 2$ SciML Architectural Matrix}
 We benchmarked four distinct SciML paradigms across continuous 72-hour autonomous storm rollouts and multi-year out-of-sample test sets:
 \begin{itemize}
+    \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}
     \item \textbf{Model A (Pure Data-Driven):} Standard MLP mapping raw inputs ($H_s, T_p, \eta_{\text{surge}}, U_{10}$) via Mean Squared Error ($\mathcal{L}_{\text{MSE}}$).
-    \item \textbf{Model B (Loss-Guided / PINN):} Standard inputs regularized via an asymmetric physical soft-loss penalizing seaward accretion during severe wave action:
-    \begin{equation}
-    \mathcal{L}_{\text{PINN}} = \mathcal{L}_{\text{MSE}} + \lambda_{\text{physics}} \cdot \mathbb{E}\left[\max(0, \dot{X}_{\text{pred}})^2 \cdot \mathbb{I}_{\Upsilon > \Upsilon_{p80}}\right]
-    \label{eq:pinn_loss}
-    \end{equation}
+    \item \textbf{Model B (Loss-Guided / PINN):} Standard inputs regularized via an asymmetric physical soft-loss penalizing seaward accretion during severe wave action: $\mathcal{L}_{\text{PINN}} = \mathcal{L}_{\text{MSE}} + \lambda_{\text{physics}} \cdot \mathbb{E}\left[\max(0, \dot{X}_{\text{pred}})^2 \cdot \mathbb{I}_{\Upsilon > \Upsilon_{p80}}\right]$.
     \item \textbf{Model C (Feature-Guided):} Unconstrained MLP supplied with our 14D invariant manifold features ($\Upsilon^*, \Omega, \xi, \text{TWL}$).
-    \item \textbf{Model D (Dual-Guided):} Combines 14D invariant manifold inputs with the PINN asymmetric soft-loss penalty (\ref{eq:pinn_loss}).
+    \item \textbf{Model D (Dual-Guided):} Combines 14D invariant manifold inputs with the PINN asymmetric soft-loss penalty.
 \end{itemize}
 
 \begin{table}[htbp]
 \caption{SCIML ARCHITECTURAL MATRIX PERFORMANCE: DYNAMIC 72-HOUR STORM ROLLOUT \& MULTI-YEAR TEST SET}
 \label{tab:sciml_matrix}
-\begin{center}
+\centering
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{lccccccc}
 \toprule
@@ -577,12 +587,12 @@ Model A (Data-Driven)             & 0.368 & 0.311 & 0.236 & -0.183 & 0.503 & 0.5
 \multicolumn{8}{l}{$^\ast$Model C reaches $r = 0.720$ at Torrey Pines and $r = 0.839$ at Truc Vert.}
 \end{tabular}%
 }
-\end{center}
 \end{table}
 
 \subsection{The Fundamental Representation vs. Loss Trade-Off}
 As reported in Table~\ref{tab:sciml_matrix}, the OSSE benchmark exposes a profound trade-off in Scientific Machine Learning:
 \begin{itemize}
+    \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}
     \item \textbf{PINN Loss Guidance Stabilizes Acute Shock (Model B):} Model B achieves the lowest overall storm rollout RMSE ($0.342\,\text{m}$) and is the only architecture with a positive mean Brier Skill Score ($\text{BSS} = +0.108$) \cite{sutherland2004evaluating}. The asymmetric penalty successfully prevents the network from hallucinating fair-weather accretion during peak wave action.
     \item \textbf{Feature-Guided Invariants Dominate Multi-Year Correlation (Model C):} Model C achieves the highest multi-year out-of-sample correlation (Mean Test $r = 0.574$, reaching $r = 0.839$ at Truc Vert).
     \item \textbf{Dual Synergy (Model D):} Uniting both representations in Model D yields the lowest overall multi-site test RMSE ($0.509\,\text{m}$).
