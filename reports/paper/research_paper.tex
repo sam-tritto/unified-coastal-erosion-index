@@ -103,7 +103,7 @@ To eliminate site-specific heuristic branches, every observatory is parameterize
 where $\tan\beta$ is the intertidal foreshore beach slope, $D_{50}$ is median sediment grain diameter ($\text{m}$) dictating settling velocity $w_s(D_{50}, T)$ via Dietrich formulations \cite{dietrich1982settling}, $\text{TR}$ is mean spring astronomical tidal range ($\text{m}$), $\theta_{\text{shore}}$ is shore-normal azimuth (degrees relative to True North), $Z_{\text{crest}}$ is subaerial berm/dune crest elevation relative to MHW ($\text{m}$), and $\sigma_{\text{shelter}} \in [0, 1]$ is a directional wave sheltering coefficient.
 
 \subsubsection{The Unified Kinetic Erosion Index ($\Upsilon$)}
-Rather than feeding uncoupled sensor scalars to neural architectures, we formulate the Unified Kinetic Erosion Index ($\Upsilon$) as a closed-form dimensional mass-energy kinetic flux rate in SI units of $[\text{kg}/\text{s}]$:
+Rather than feeding uncoupled sensor scalars to neural architectures, we formulate the Unified Kinetic Erosion Index ($\Upsilon$, also designated across operational frameworks as the Unified Coastal Erosion Index or Unified Coastal Vulnerability Index) as a closed-form dimensional mass-energy kinetic flux rate in SI units of $[\text{kg}/\text{s}]$:
 \begin{multline}
 \Upsilon = \left( \frac{\rho_w g^{\frac{3}{2}}}{16} \frac{H_s^{\frac{5}{2}} T_p}{w_s(D_{50}, T)} \right) \cdot \Psi_{\text{tide}} \cdot \Psi_{\text{wind}} \\
 \cdot \left(1 + \frac{\max(0, \eta_{\text{surge}})}{H_s}\right)^2 \cdot \Phi_{\text{longshore}}

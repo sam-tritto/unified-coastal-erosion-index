@@ -13,6 +13,8 @@ A physics-informed foundation framework for multi-modal coastal hydrodynamics sy
 
 The **Unified Coastal Vulnerability Index ($\Upsilon_{\text{unified}}$)** is a universal, closed-form, semi-empirical physical formulation designed to quantify cross-shore storm erosion potential, wave-sediment kinetics, and total water level hazards across any global beach archetype without site-specific branching.
 
+> **Nomenclature Note:** Across our publications, codebase, and patent filings, the core formulation $\Upsilon$ is referred to interchangeably as the **Unified Coastal Vulnerability Index (UCVI)** (addressing asset risk and patent claims), the **Unified Kinetic Erosion Index (UKEI)** (in scientific hydrodynamic literature highlighting its $[kg/s]$ kinetic flux derivation), and the **Unified Coastal Erosion Index (UCEI)** (in software package and repository conventions). All three designate the identical physical formulation detailed below.
+
 Every coastal site is parameterized as a continuous point in an invariant 6-element geophysical parameter space:
 
 $$\mathbf{p}_{\text{site}} = \big[\tan\beta,\; D_{50},\; TR,\; \theta_{\text{shore}},\; Z_{\text{crest}},\; \sigma_{\text{shelter}}\big]$$
