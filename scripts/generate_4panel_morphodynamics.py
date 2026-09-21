@@ -46,10 +46,10 @@ def main():
 
     # Harmonious, domain-aligned site color palette (consistent across all subplots)
     site_palette = {
-        "duck_nc": "#1E40AF",          # Atlantic Ocean Blue (Barrier Island)
-        "narrabeen_aus": "#D97706",     # Pacific Terracotta / Warm Amber (Embayed Beach)
-        "torrey_pines_ca": "#059669",   # California Coastal Emerald (Pocket Beach)
-        "truc_vert_france": "#7C3AED",  # French Atlantic Amethyst (Macrotidal)
+        "duck_nc": "#7db8f8",          # Light Blue (Atlantic Barrier Island)
+        "narrabeen_aus": "#f4633a",     # Salmon (Pacific Embayed Beach)
+        "torrey_pines_ca": "#81a554",   # Sage Green (California Pocket Beach)
+        "truc_vert_france": "#8b7cbf",  # Lilac (French Macrotidal)
     }
     site_colors = [site_palette[s] for s in sites]
 
@@ -60,8 +60,8 @@ def main():
     axes[0, 0].set_xticklabels(site_labels, rotation=15, fontweight="bold")
     axes[0, 0].set_ylabel(r"Dean Number $\Omega = H_s / (w_s T_p)$", fontweight="bold")
     axes[0, 0].set_title("(A) Morphodynamic Regime Across Global Sites", fontweight="bold", fontsize=14)
-    axes[0, 0].axhline(1.0, color="#27ae60", linestyle="--", alpha=0.8, linewidth=1.5, label=r"Reflective ($\Omega < 1$)")
-    axes[0, 0].axhline(6.0, color="#e74c3c", linestyle="--", alpha=0.8, linewidth=1.5, label=r"Dissipative ($\Omega > 6$)")
+    axes[0, 0].axhline(1.0, color="#81a554", linestyle="--", alpha=0.8, linewidth=1.5, label=r"Reflective ($\Omega < 1$)")
+    axes[0, 0].axhline(6.0, color="#f4633a", linestyle="--", alpha=0.8, linewidth=1.5, label=r"Dissipative ($\Omega > 6$)")
     axes[0, 0].legend(loc="upper right", fontsize=10, frameon=True)
 
     # Panel B: Deep-Water Wave Steepness Distribution (s0)
@@ -71,7 +71,7 @@ def main():
     axes[0, 1].set_xticklabels(site_labels, rotation=15, fontweight="bold")
     axes[0, 1].set_ylabel(r"Wave Steepness $s_0 = H_s / L_0$", fontweight="bold")
     axes[0, 1].set_title("(B) Wave Steepness Across Sites", fontweight="bold", fontsize=14)
-    axes[0, 1].axhline(0.025, color="#c0392b", linestyle="--", linewidth=1.8, label=r"Crit Steepness $s_{0,\mathrm{crit}}=0.025$")
+    axes[0, 1].axhline(0.025, color="#f4633a", linestyle="--", linewidth=1.8, label=r"Crit Steepness $s_{0,\mathrm{crit}}=0.025$")
     axes[0, 1].legend(loc="upper right", fontsize=10, frameon=True)
 
     # Panel C: Tidal Dissipation & Energy Smearing Factor (Psi_tide)
@@ -82,8 +82,8 @@ def main():
     axes[1, 0].set_ylabel(r"Tidal Smearing Factor $\Psi_{\mathrm{tide}}$ [-]", fontweight="bold")
     axes[1, 0].set_title(r"(C) Tidal Dissipation & Energy Smearing ($\Psi_{tide}$)", fontweight="bold", fontsize=14)
     axes[1, 0].set_ylim(0.0, 1.05)
-    axes[1, 0].axhline(1.0, color="#27ae60", linestyle="--", alpha=0.8, linewidth=1.5, label=r"Microtidal Limit ($\Psi_{\mathrm{tide}} \to 1.0$)")
-    axes[1, 0].axhline(0.5, color="#e74c3c", linestyle=":", alpha=0.8, linewidth=1.5, label=r"Macrotidal Damping ($\Psi_{\mathrm{tide}} \leq 0.5$)")
+    axes[1, 0].axhline(1.0, color="#81a554", linestyle="--", alpha=0.8, linewidth=1.5, label=r"Microtidal Limit ($\Psi_{\mathrm{tide}} \to 1.0$)")
+    axes[1, 0].axhline(0.5, color="#f4633a", linestyle=":", alpha=0.8, linewidth=1.5, label=r"Macrotidal Damping ($\Psi_{\mathrm{tide}} \leq 0.5$)")
     axes[1, 0].legend(loc="lower left", fontsize=10, frameon=True)
 
     # Panel D: Scale-Invariant Collapse (Normalized Upsilon*)

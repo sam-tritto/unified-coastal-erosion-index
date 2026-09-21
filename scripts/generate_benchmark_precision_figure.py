@@ -21,14 +21,14 @@ def generate_figure_4():
     k_vals = [1, 5, 10, 20]
 
     # Project-Wide Cohesive Architectural Hierarchy Palette:
-    # - Proposed Hybrid: Deep Royal Cobalt Blue (#1D4ED8)
-    # - Pure Physics: Deep Sea Teal (#0D9488)
-    # - Raw-Data LLM: Neutral Slate Gray (#64748B)
-    # - Rule-Based SQL: Warm Technical Amber (#D97706)
+    # - Proposed Hybrid: Salmon (#f4633a)
+    # - Pure Physics: Sage Green (#81a554)
+    # - Raw-Data LLM: Lilac (#8b7cbf)
+    # - Rule-Based SQL: Light Orange (#f89c25)
     palette = {
         "Proposed: Hybrid Cascade Physics-RAG": {
             "label": "Proposed: Hybrid Cascade",
-            "color": "#1D4ED8",
+            "color": "#f4633a",
             "marker": "o",
             "markersize": 6.5,
             "linewidth": 2.4,
@@ -37,7 +37,7 @@ def generate_figure_4():
         },
         "Baseline 3: Pure Physics-RAG": {
             "label": "Baseline 3: Pure Physics",
-            "color": "#0D9488",
+            "color": "#81a554",
             "marker": "^",
             "markersize": 5.8,
             "linewidth": 1.6,
@@ -46,7 +46,7 @@ def generate_figure_4():
         },
         "Baseline 1: Raw-Data LLM-RAG": {
             "label": "Baseline 1: Raw LLM",
-            "color": "#64748B",
+            "color": "#8b7cbf",
             "marker": "D",
             "markersize": 5.0,
             "linewidth": 1.5,
@@ -55,7 +55,7 @@ def generate_figure_4():
         },
         "Baseline 2: Rule-Based SQL": {
             "label": "Baseline 2: Rule-Based SQL",
-            "color": "#D97706",
+            "color": "#f89c25",
             "marker": "s",
             "markersize": 5.2,
             "linewidth": 1.5,
@@ -101,7 +101,7 @@ def generate_figure_4():
             k_vals,
             curves["Baseline 1: Raw-Data LLM-RAG"],
             curves["Proposed: Hybrid Cascade Physics-RAG"],
-            color="#1D4ED8",
+            color="#f4633a",
             alpha=0.08,
             zorder=2,
             label="_nolegend_",
@@ -138,16 +138,16 @@ def generate_figure_4():
         xytext=(7.5, 0.493),
         arrowprops=dict(
             arrowstyle="->",
-            color="#1D4ED8",
+            color="#c2410c",
             lw=1.0,
             connectionstyle="arc3,rad=-0.15",
         ),
         fontsize=6.5,
         fontweight="bold",
-        color="#1E40AF",
+        color="#991b1b",
         ha="left",
         va="center",
-        bbox=dict(boxstyle="round,pad=0.25", facecolor="#EFF6FF", edgecolor="#BFDBFE", alpha=0.96, lw=0.6),
+        bbox=dict(boxstyle="round,pad=0.25", facecolor="#fff1f2", edgecolor="#fecdd3", alpha=0.96, lw=0.6),
         zorder=7,
     )
 

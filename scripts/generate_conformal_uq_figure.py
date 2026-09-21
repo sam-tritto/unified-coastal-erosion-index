@@ -115,11 +115,11 @@ def main():
     labels = [site_names[s].replace(" ", "\n") for s in sites] + ["Overall\nMulti-Site"]
     cov_vals = [site_coverages[s] for s in sites] + [overall_eval["empirical_coverage"] * 100.0]
     # Unified Project-Wide Site Palette:
-    # Duck (Navy), Narrabeen (Amber), Torrey Pines (Emerald), Truc Vert (Violet), Overall (Slate)
-    bar_colors = ["#1E40AF", "#D97706", "#059669", "#7C3AED", "#334155"]
+    # Duck (Light Blue), Narrabeen (Salmon), Torrey Pines (Sage Green), Truc Vert (Lilac), Overall (Light Orange)
+    bar_colors = ["#7db8f8", "#f4633a", "#81a554", "#8b7cbf", "#f89c25"]
 
     bars = ax_a.bar(x_pos, cov_vals, width=0.55, color=bar_colors, edgecolor="#1E293B", linewidth=0.7, zorder=3)
-    ax_a.axhline(90.0, color="#DC2626", linestyle="--", linewidth=1.5, label="Nominal 90% Target", zorder=4)
+    ax_a.axhline(90.0, color="#f4633a", linestyle="--", linewidth=1.5, label="Nominal 90% Target", zorder=4)
 
     for b in bars:
         h = b.get_height()
@@ -141,9 +141,9 @@ def main():
 
     # Plot wave height on twin axis
     ax_b_tw = ax_b.twinx()
-    l_hs = ax_b_tw.plot(t_hours, storm_segment["hs_m"].values, color="#2563EB", linestyle="--", linewidth=1.3, label=r"Wave Height $H_s$ (m)", zorder=2)
-    ax_b_tw.set_ylabel(r"Significant Wave Height $H_s$ (m)", color="#1E40AF", fontsize=8.5, fontweight="bold")
-    ax_b_tw.tick_params(axis="y", labelcolor="#1E40AF")
+    l_hs = ax_b_tw.plot(t_hours, storm_segment["hs_m"].values, color="#7db8f8", linestyle="--", linewidth=1.3, label=r"Wave Height $H_s$ (m)", zorder=2)
+    ax_b_tw.set_ylabel(r"Significant Wave Height $H_s$ (m)", color="#1d4ed8", fontsize=8.5, fontweight="bold")
+    ax_b_tw.tick_params(axis="y", labelcolor="#1d4ed8")
     ax_b_tw.set_ylim(0, max(storm_segment["hs_m"].values) * 1.35)
 
     # Plot CQR prediction interval
@@ -152,8 +152,8 @@ def main():
     y_hi = storm_preds["conformal_upper"].values
     y_true = storm_segment[target_morpho_col].values
 
-    ax_b.fill_between(t_hours, y_lo, y_hi, color="#EF4444", alpha=0.22, label=r"Conformal 90% Interval $C(x)$", zorder=3)
-    l_med = ax_b.plot(t_hours, y_med, color="#B91C1C", linewidth=1.5, label=r"Median $\hat{q}_{0.50}$", zorder=4)
+    ax_b.fill_between(t_hours, y_lo, y_hi, color="#f4633a", alpha=0.22, label=r"Conformal 90% Interval $C(x)$", zorder=3)
+    l_med = ax_b.plot(t_hours, y_med, color="#b91c1c", linewidth=1.5, label=r"Median $\hat{q}_{0.50}$", zorder=4)
     l_obs = ax_b.plot(t_hours, y_true, color="#0F172A", linewidth=1.2, linestyle=":", label=r"Observed $\Delta X$", zorder=5)
 
     ax_b.axvline(0, color="#64748B", linestyle="-.", linewidth=0.8, alpha=0.7)
@@ -167,7 +167,7 @@ def main():
     # Combine legends
     lines = l_med + l_obs + l_hs
     labs = [l.get_label() for l in lines] + [r"Conformal 90% Bounds $C(x)$"]
-    ax_b.legend(lines + [patches.Patch(facecolor="#EF4444", alpha=0.25, edgecolor="none")], labs, loc="upper left", fontsize=7.5, framealpha=0.92)
+    ax_b.legend(lines + [patches.Patch(facecolor="#f4633a", alpha=0.25, edgecolor="none")], labs, loc="upper left", fontsize=7.5, framealpha=0.92)
 
     # ----------------------------------------------------
     # Panel (c): LLM Decision-Grade Grounding Box
@@ -178,9 +178,9 @@ def main():
 
     # Draw card 1: Ungrounded Baseline RAG
     box1 = patches.FancyBboxPatch((0.02, 0.52), 0.96, 0.44, boxstyle="round,pad=0.03,rounding_size=0.03",
-                                  linewidth=1.0, edgecolor="#e74c3c", facecolor="#fdf2e9")
+                                  linewidth=1.0, edgecolor="#f4633a", facecolor="#fff1f2")
     ax_c.add_patch(box1)
-    ax_c.text(0.06, 0.90, "Standard AI Point-Estimate Retrieval (Brittle)", fontsize=8, fontweight="bold", color="#c0392b")
+    ax_c.text(0.06, 0.90, "Standard AI Point-Estimate Retrieval (Brittle)", fontsize=8, fontweight="bold", color="#991b1b")
     ax_c.text(0.06, 0.56,
               "- Point assertion: \"Scour will be exactly -1.08 m\"\n"
               "- Zero uncertainty bounds; Markovian memoryless\n"
@@ -190,9 +190,9 @@ def main():
 
     # Draw card 2: CQR Decision-Grade Physics-RAG
     box2 = patches.FancyBboxPatch((0.02, 0.02), 0.96, 0.46, boxstyle="round,pad=0.03,rounding_size=0.03",
-                                  linewidth=1.2, edgecolor="#27ae60", facecolor="#eafaf1")
+                                  linewidth=1.2, edgecolor="#81a554", facecolor="#f7fee7")
     ax_c.add_patch(box2)
-    ax_c.text(0.06, 0.42, "CQR-Grounded Physics-RAG (Certified)", fontsize=8, fontweight="bold", color="#1e8449")
+    ax_c.text(0.06, 0.42, "CQR-Grounded Physics-RAG (Certified)", fontsize=8, fontweight="bold", color="#276749")
     ax_c.text(0.06, 0.05,
               "=== Guaranteed Uncertainty Quantification ===\n"
               "- Conformal 90% Interval: [ -1.58 m, +0.02 m ]\n"

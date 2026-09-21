@@ -23,10 +23,10 @@ def generate_figure_5():
 
     # Architectural color mapping (identical to Fig 4)
     arch_color_map = {
-        "Baseline 1: Raw-Data LLM": "#64748B",
-        "Baseline 2: Flat SQL": "#D97706",
-        "Baseline 3: Pure Physics": "#0D9488",
-        "Proposed: Hybrid Cascade": "#1D4ED8",
+        "Baseline 1: Raw-Data LLM": "#8b7cbf",
+        "Baseline 2: Flat SQL": "#f89c25",
+        "Baseline 3: Pure Physics": "#81a554",
+        "Proposed: Hybrid Cascade": "#f4633a",
     }
 
     colors = [arch_color_map.get(a, "#334155") for a in df["Architecture"]]
