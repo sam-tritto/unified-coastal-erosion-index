@@ -163,7 +163,7 @@ s_0 = H_s / L_0
 where $\Omega = H_s / (w_s T_p)$ is the dimensionless Dean number \cite{wright1984morphodynamic}, $\xi = \tan\beta / \sqrt{H_s/L_0}$ is the Iribarren surf similarity parameter \cite{battjes1974surf}, $\text{TWL} = \eta_{\text{tide}} + \eta_{\text{surge}} + R_{2\%}$ is Total Water Level incorporating wave runup \cite{stockdon2006empirical}, and $\mathcal{I}_{\text{Sallenger}} \in [1, 4]$ parameterizes Sallenger storm impact regimes (Swash, Collision, Overwash, Inundation) \cite{sallenger2000storm}.
 
 \subsection{Conformalized Quantile Regression (CQR) Formulation}
-To provide finite-sample, distribution-free uncertainty guarantees for continuous physical hazards, we integrate Conformalized Quantile Regression (CQR) \cite{romano2019conformalized,vovk2005algorithmic}. For a user-specified miscoverage rate $\alpha \in (0, 1)$ (e.g., $\alpha = 0.10$ for a $90\%$ confidence envelope), we train conditional quantile regressors $\hat{q}_{\tau}(\mathbf{x})$ targeting the lower quantile $\tau_{\text{lo}} = \alpha / 2$, median $\tau_{\text{med}} = 0.50$, and upper quantile $\tau_{\text{hi}} = 1 - \alpha / 2$.
+To provide finite-sample, distribution-free uncertainty guarantees for continuous physical hazards, we integrate Conformalized Quantile Regression (CQR) \cite{vovk2005algorithmic,romano2019conformalized,angelopoulos2021gentle}. For a user-specified miscoverage rate $\alpha \in (0, 1)$ (e.g., $\alpha = 0.10$ for a $90\%$ confidence envelope), we train conditional quantile regressors $\hat{q}_{\tau}(\mathbf{x})$ targeting the lower quantile $\tau_{\text{lo}} = \alpha / 2$, median $\tau_{\text{med}} = 0.50$, and upper quantile $\tau_{\text{hi}} = 1 - \alpha / 2$.
 
 The estimators are trained by minimizing the asymmetric pinball (check) loss \cite{koenker1978regression}:
 \begin{equation}
@@ -212,7 +212,7 @@ P\left(Y_{n+1} \in C(\mathbf{x}_{n+1})\right) \ge 1 - \alpha
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.98\columnwidth]{figure_umap_2x2.png}
-    \caption{\textbf{Four-Panel 2D UMAP Projection of the 14D Invariant Latent Space ($N = 12{,}000$ Stratified Records).} 
+    \caption{\textbf{Four-Panel 2D UMAP Projection \cite{mcinnes2018umap} of the 14D Invariant Latent Space ($N = 12{,}000$ Stratified Records).} 
     \textbf{(a)} Morphodynamic state continuum colored by Dean number $\Omega$, displaying a continuous chromatic gradient from reflective steep profiles ($\Omega < 1$) to dissipative flat states ($\Omega > 7$).
     \textbf{(b)} Hydrodynamic kinetic energy continuum $\log_{10}\Upsilon$, showing baseline calm records clustering near the manifold core while extreme storm work projects into outer peripheral filaments.
     \textbf{(c)} Breaker dissipation regimes classified by Iribarren number $\xi$, showing topological separation between spilling ($\xi < 0.5$, cyan) and plunging ($\xi \ge 0.5$, pink) wave dissipation.
@@ -220,7 +220,7 @@ P\left(Y_{n+1} \in C(\mathbf{x}_{n+1})\right) \ge 1 - \alpha
     \label{fig:umap_4panel}
 \end{figure}
 
-The Two-Tier Hybrid Cascade Physics-RAG architecture couples columnar relational predicate pushdown with non-Euclidean manifold ranking, continuous sequence hydration, and conformal uncertainty quantification (Fig.~\ref{fig:physics_rag_architecture}). The pipeline systematically resolves cross-decadal manifold degeneracy (Tier~1), chronological blindness (Tier~2), Markovian memorylessness (Sequence Hydration), and ungrounded LLM hallucination (CQR Prompt Injection).
+The Two-Tier Hybrid Cascade Physics-RAG architecture couples columnar relational predicate pushdown with non-Euclidean manifold ranking via UMAP \cite{mcinnes2018umap}, continuous sequence hydration, and conformal uncertainty quantification (Fig.~\ref{fig:physics_rag_architecture}). The pipeline systematically resolves cross-decadal manifold degeneracy (Tier~1), chronological blindness (Tier~2), Markovian memorylessness (Sequence Hydration), and ungrounded LLM hallucination (CQR Prompt Injection).
 
 \subsection{Tier 1: Columnar Relational Pre-Filtering (DuckDB)}
 Natural language diagnostic queries contain explicit metadata constraints (e.g., \textit{"USACE FRF Duck, NC between October 2012 and March 2014"}). Metric vector stores scan the entire multi-decadal database, retrieving energetically similar analog states from irrelevant decades or geographic hemispheres. 
@@ -513,9 +513,12 @@ While empirically validated across $175{,}392$ sensor-hours, coastal morphodynam
 \end{itemize}
 Decoupling conservation invariants ($\mathcal{M}_{\text{inv}}$) from a high-throughput retrieval and conformal engine establishes Physics-RAG as an extensible horizontal foundation model for certified autonomy across continuous physical systems.
 
+\vspace{0.5em}
+\noindent\textbf{AI Usage Disclosure:} \footnotesize Generative AI models (Google Gemini, Anthropic Claude) were used for code prototyping, LaTeX typesetting, and editorial review. All theoretical derivations, physical formulations, empirical benchmarks, and scientific interpretations were independently conceived, verified, and directed solely by the author, who assumes full intellectual responsibility for this work.\normalsize
+
 \begin{thebibliography}{00}
-\footnotesize
-\setlength{\itemsep}{0pt plus 0.1pt minus 0.1pt}
+\fontsize{7.6pt}{8.8pt}\selectfont
+\setlength{\itemsep}{-0.6pt plus 0.1pt}
 \setlength{\parskip}{0pt}
 \bibitem{lewis2020rag} P.~Lewis, E.~Perez, A.~Piktus, F.~Petroni, V.~Karpukhin, N.~Goyal, H.~K{\"u}ttler, M.~Lewis, W.-t.~Yih, T.~Rockt{\"a}schel \textit{et~al.}, ``Retrieval-augmented generation for knowledge-intensive nlp tasks,'' \textit{Adv. Neural Inf. Process. Syst. (NeurIPS)}, vol.~33, pp. 9459--9474, 2020.
 \bibitem{karniadakis2021physics} G.~E. Karniadakis, I.~G. Kevrekidis, L.~Lu, P.~Perdikaris, S.~Wang, and L.~Yang, ``Physics-informed machine learning,'' \textit{Nat. Rev. Phys.}, vol.~3, no.~6, pp. 422--440, 2021.
@@ -529,7 +532,6 @@ Decoupling conservation invariants ($\mathcal{M}_{\text{inv}}$) from a high-thro
 \bibitem{dietrich1982settling} W.~E. Dietrich, ``Settling velocity of natural particles,'' \textit{Water Resour. Res.}, vol.~18, no.~6, pp. 1615--1626, 1982.
 \bibitem{longuethiggins1964radiation} M.~S. Longuet-Higgins and R.~W. Stewart, ``Radiation stresses in water waves; a physical discussion with applications,'' \textit{Deep Sea Res. Oceanogr. Abstr.}, vol.~11, no.~4, pp. 529--562, 1964.
 \bibitem{battjes1974surf} J.~A. Battjes, ``Surf similarity,'' in \textit{Proc. 14th Int. Conf. Coastal Eng.}, 1974, pp. 466--480.
-\bibitem{williams1959comparison} E.~J. Williams, ``The comparison of regression variables,'' \textit{J. R. Stat. Soc. Ser. B (Methodol.)}, vol.~21, no.~2, pp. 396--399, 1959.
 \bibitem{turner2016multidecade} I.~L. Turner, M.~D. Harley, A.~D. Short, J.~A. Simmons, M.~A. Bracs, M.~S. Phillips, and K.~D. Splinter, ``A multi-decade dataset of monthly to hourly beach profile surveys,'' \textit{Sci. Data}, vol.~3, p. 160024, 2016.
 \bibitem{ludka2015beach} B.~C. Ludka, T.~W. Gallien, S.~C. Crosby, and R.~T. Guza, ``Mid-latitude beach profile responses to extreme events and subsequent recovery,'' \textit{J. Geophys. Res. Earth Surf.}, vol. 120, no.~12, pp. 2512--2530, 2015.
 \bibitem{castelle2020planshape} B.~Castelle, L.~M. Bochev-van~der Burgh, S.~Bujan, and P.~Bonneton, ``Planshape and profile evolution of a high-energy macrotidal beach during an extreme winter,'' \textit{Geomorphology}, vol. 351, p. 107266, 2020.
@@ -563,7 +565,7 @@ In classical data assimilation theory \cite{charney1969osse,atlas1997osse}, an O
 \subsection{The $2 \times 2$ SciML Architectural Matrix}
 We benchmarked four distinct SciML paradigms across continuous 72-hour autonomous storm rollouts and multi-year out-of-sample test sets:
 \begin{itemize}
-    \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}
+    \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\topsep}{1pt}
     \item \textbf{Model A (Pure Data-Driven):} Standard MLP mapping raw inputs ($H_s, T_p, \eta_{\text{surge}}, U_{10}$) via Mean Squared Error ($\mathcal{L}_{\text{MSE}}$).
     \item \textbf{Model B (Loss-Guided / PINN):} Standard inputs regularized via an asymmetric physical soft-loss penalizing seaward accretion during severe wave action: $\mathcal{L}_{\text{PINN}} = \mathcal{L}_{\text{MSE}} + \lambda_{\text{physics}} \cdot \mathbb{E}\left[\max(0, \dot{X}_{\text{pred}})^2 \cdot \mathbb{I}_{\Upsilon > \Upsilon_{p80}}\right]$.
     \item \textbf{Model C (Feature-Guided):} Unconstrained MLP supplied with our 14D invariant manifold features ($\Upsilon^*, \Omega, \xi, \text{TWL}$).
@@ -592,10 +594,10 @@ Model A (Data-Driven)             & 0.368 & 0.311 & 0.236 & -0.183 & 0.503 & 0.5
 \subsection{The Fundamental Representation vs. Loss Trade-Off}
 As reported in Table~\ref{tab:sciml_matrix}, the OSSE benchmark exposes a profound trade-off in Scientific Machine Learning:
 \begin{itemize}
-    \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}
-    \item \textbf{PINN Loss Guidance Stabilizes Acute Shock (Model B):} Model B achieves the lowest overall storm rollout RMSE ($0.342\,\text{m}$) and is the only architecture with a positive mean Brier Skill Score ($\text{BSS} = +0.108$) \cite{sutherland2004evaluating}. The asymmetric penalty successfully prevents the network from hallucinating fair-weather accretion during peak wave action.
-    \item \textbf{Feature-Guided Invariants Dominate Multi-Year Correlation (Model C):} Model C achieves the highest multi-year out-of-sample correlation (Mean Test $r = 0.574$, reaching $r = 0.839$ at Truc Vert).
-    \item \textbf{Dual Synergy (Model D):} Uniting both representations in Model D yields the lowest overall multi-site test RMSE ($0.509\,\text{m}$).
+    \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\topsep}{1pt}
+    \item \textbf{PINN Loss Guidance Stabilizes Acute Shock (Model B):} Model B achieves lowest storm rollout RMSE ($0.342\,\text{m}$) and positive Brier Skill Score ($\text{BSS} = +0.108$) \cite{sutherland2004evaluating}, preventing unphysical accretion during severe wave power.
+    \item \textbf{Feature-Guided Invariants Dominate Multi-Year Correlation (Model C):} Model C achieves highest multi-year out-of-sample correlation (Mean Test $r = 0.574$, reaching $r = 0.839$ at Truc Vert).
+    \item \textbf{Dual Synergy (Model D):} Uniting both representations yields lowest overall multi-site test RMSE ($0.509\,\text{m}$).
 \end{itemize}
 
 \end{document}

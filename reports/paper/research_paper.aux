@@ -36,9 +36,12 @@
 \newlabel{eq:upsilon_star}{{7}{3}}
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {II-B}4}The 14-Dimensional State Manifold ($\mathbf  {z}_{\text  {physics}}$)}{3}{}\protected@file@percent }
 \newlabel{eq:14d_manifold}{{8}{3}}
-\citation{romano2019conformalized,vovk2005algorithmic}
+\citation{vovk2005algorithmic,romano2019conformalized,angelopoulos2021gentle}
 \citation{koenker1978regression}
 \citation{barber2023conformal}
+\citation{mcinnes2018umap}
+\citation{mcinnes2018umap}
+\citation{mcinnes2018umap}
 \citation{raasveldt2019duckdb}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-C}}Conformalized Quantile Regression (CQR) Formulation}{4}{}\protected@file@percent }
 \newlabel{eq:pinball_loss}{{9}{4}}
@@ -56,7 +59,7 @@
 \newlabel{eq:antecedent_impulse}{{17}{4}}
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {End-to-End System Architecture and Dataflow of the Two-Tier Hybrid Cascade Physics-RAG Framework.} \textbf  {(1)} Natural language operational queries are decoupled by the Hybrid Query Parser into structured columnar SQL predicates and a 14D target physical invariant vector $\mathbf  {z}_{\text  {target}}$. \textbf  {(2)} Tier\nobreakspace  {}1 executes sub-15-millisecond zero-copy predicate pushdown over columnar Parquet storage via DuckDB, pruning the multi-site golden window archive ($N = 175{,}392$ records) into an anchored spatiotemporal candidate subset $\mathcal  {C}_{\text  {filtered}}$, eliminating cross-decadal manifold degeneracy. \textbf  {(3)} Tier\nobreakspace  {}2 projects candidates into the 14D Buckingham $\pi $ invariant latent space, evaluating them via an asymmetric Directional Pareto ranking objective (Eq.\nobreakspace  {}\ref {eq:directional_pareto}) that penalizes sub-threshold calm states and rewards kinetic disequilibrium excess, eliminating chronological blindness and synchronizing to true hydrodynamic storm apexes ($t^*$). \textbf  {(4)} Top-$k$ target event timestamps trigger zero-copy pointer retrieval to hydrate continuous antecedent parent sequences ($\mathbf  {X}_{\text  {parent}} \in \mathbb  {R}^{145 \times 14}$, $\pm 72\text  { hours}$), capturing multi-channel wave steepening, the $26.5\times $ kinetic surge in $\Upsilon $, and Total Water Level confronting berm crests ($Z_{\text  {crest}}$), eliminating Markovian memorylessness. \textbf  {(5)} Retrieved states are evaluated by the Conformal Quantile Regressor, injecting certified prediction intervals $[c_{\text  {lo}}, c_{\text  {hi}}]$ and hydrograph volatility states into downstream LLM reasoning engines.}}{5}{}\protected@file@percent }
 \newlabel{fig:physics_rag_architecture}{{2}{5}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Four-Panel 2D UMAP Projection of the 14D Invariant Latent Space ($N = 12{,}000$ Stratified Records).} \textbf  {(a)} Morphodynamic state continuum colored by Dean number $\Omega $, displaying a continuous chromatic gradient from reflective steep profiles ($\Omega < 1$) to dissipative flat states ($\Omega > 7$). \textbf  {(b)} Hydrodynamic kinetic energy continuum $\log _{10}\Upsilon $, showing baseline calm records clustering near the manifold core while extreme storm work projects into outer peripheral filaments. \textbf  {(c)} Breaker dissipation regimes classified by Iribarren number $\xi $, showing topological separation between spilling ($\xi < 0.5$, cyan) and plunging ($\xi \ge 0.5$, pink) wave dissipation. \textbf  {(d)} Universal cross-site invariance: records from all four global observatories (Duck, Narrabeen, Torrey Pines, Truc Vert) interleave across identical topological branches, confirming cross-site physical similitude.}}{5}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Four-Panel 2D UMAP Projection \cite  {mcinnes2018umap} of the 14D Invariant Latent Space ($N = 12{,}000$ Stratified Records).} \textbf  {(a)} Morphodynamic state continuum colored by Dean number $\Omega $, displaying a continuous chromatic gradient from reflective steep profiles ($\Omega < 1$) to dissipative flat states ($\Omega > 7$). \textbf  {(b)} Hydrodynamic kinetic energy continuum $\log _{10}\Upsilon $, showing baseline calm records clustering near the manifold core while extreme storm work projects into outer peripheral filaments. \textbf  {(c)} Breaker dissipation regimes classified by Iribarren number $\xi $, showing topological separation between spilling ($\xi < 0.5$, cyan) and plunging ($\xi \ge 0.5$, pink) wave dissipation. \textbf  {(d)} Universal cross-site invariance: records from all four global observatories (Duck, Narrabeen, Torrey Pines, Truc Vert) interleave across identical topological branches, confirming cross-site physical similitude.}}{5}{}\protected@file@percent }
 \newlabel{fig:umap_4panel}{{3}{5}}
 \newlabel{eq:parent_tensor}{{18}{5}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Decision-Grade LLM Prompt Window Injection}{5}{}\protected@file@percent }
@@ -107,32 +110,31 @@
 \bibcite{lu2021deeponet}{8}
 \bibcite{buckingham1914physically}{9}
 \bibcite{dietrich1982settling}{10}
-\bibcite{longuethiggins1964radiation}{11}
 \@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces \textbf  {Multi-Panel Parent Sequence Hydration Visualizations for Top Real-World Field Survey Anomaly Episodes Audited via Physics-RAG.} Continuous multi-channel hydrodynamics ($H_s$, $\text  {TWL}$, and storm surge) centered on the matched storm apex ($t = 0$) diagnosing unmodeled physical processes across institutional field surveys: \textbf  {(a)} USACE FRF Duck, NC: Antecedent berm stripping unbuffering the dune scarp. \textbf  {(b)} Narrabeen-Collaroy, AUS: 2D embayment rotation and asymmetric radiation stress ($S_{xy} > 120\,\text  {N/m}$). \textbf  {(c)} Torrey Pines, CA: Long-period infragravity swash resonance ($T_p = 16.0\,\text  {s}$). \textbf  {(d)} Truc Vert, France: Post-storm sediment sequestration in offshore sandbars.}}{10}{}\protected@file@percent }
 \newlabel{fig:anomaly_audits}{{7}{10}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-A}}Scalability and Future Domains}{10}{}\protected@file@percent }
 \newlabel{sec:scalability_future_domains}{{\mbox  {VII-A}}{10}}
 \@writefile{toc}{\contentsline {section}{References}{10}{}\protected@file@percent }
+\bibcite{longuethiggins1964radiation}{11}
 \bibcite{battjes1974surf}{12}
-\bibcite{williams1959comparison}{13}
-\bibcite{turner2016multidecade}{14}
-\bibcite{ludka2015beach}{15}
-\bibcite{castelle2020planshape}{16}
-\bibcite{raasveldt2019duckdb}{17}
-\bibcite{mcinnes2018umap}{18}
-\bibcite{yates2009equilibrium}{19}
-\bibcite{sutherland2004evaluating}{20}
-\bibcite{severson2019battery}{21}
-\bibcite{ramadesigan2012battery}{22}
-\bibcite{porteagel2020wind}{23}
-\bibcite{vovk2005algorithmic}{24}
-\bibcite{romano2019conformalized}{25}
-\bibcite{angelopoulos2021gentle}{26}
-\bibcite{barber2023conformal}{27}
-\bibcite{gneiting2007strictly}{28}
-\bibcite{koenker1978regression}{29}
-\bibcite{charney1969osse}{30}
-\bibcite{atlas1997osse}{31}
+\bibcite{turner2016multidecade}{13}
+\bibcite{ludka2015beach}{14}
+\bibcite{castelle2020planshape}{15}
+\bibcite{raasveldt2019duckdb}{16}
+\bibcite{mcinnes2018umap}{17}
+\bibcite{yates2009equilibrium}{18}
+\bibcite{sutherland2004evaluating}{19}
+\bibcite{severson2019battery}{20}
+\bibcite{ramadesigan2012battery}{21}
+\bibcite{porteagel2020wind}{22}
+\bibcite{vovk2005algorithmic}{23}
+\bibcite{romano2019conformalized}{24}
+\bibcite{angelopoulos2021gentle}{25}
+\bibcite{barber2023conformal}{26}
+\bibcite{gneiting2007strictly}{27}
+\bibcite{koenker1978regression}{28}
+\bibcite{charney1969osse}{29}
+\bibcite{atlas1997osse}{30}
 \citation{atlas1997osse}
 \citation{yates2009equilibrium}
 \citation{charney1969osse,atlas1997osse}
