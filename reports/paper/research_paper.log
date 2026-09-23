@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  20 SEP 2026 20:15
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.5.29)  23 SEP 2026 05:52
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -445,14 +445,14 @@ Underfull \hbox (badness 2181) in paragraph at lines 41--43
 tent
  []
 
-<../figures//figure_morphodynamic_regimes_4panel.png, id=1, 1136.0844pt x 851.5
-815pt>
+<../figures//figure_morphodynamic_regimes_4panel.png, id=1, 1133.6754pt x 850.8
+588pt>
 File: ../figures//figure_morphodynamic_regimes_4panel.png Graphic file (type pn
 g)
 <use ../figures//figure_morphodynamic_regimes_4panel.png>
 Package pdftex.def Info: ../figures//figure_morphodynamic_regimes_4panel.png  u
 sed on input line 54.
-(pdftex.def)             Requested size: 239.39923pt x 179.4481pt.
+(pdftex.def)             Requested size: 239.39923pt x 179.67233pt.
 [1{/usr/local/texlive/2023/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/usr/l
 ocal/texlive/2023/texmf-dist/fonts/enc/dvips/base/8r.enc}
 
@@ -487,14 +487,14 @@ Package pdftex.def Info: ../figures//figure_umap_2x2.png  used on input line 21
 (pdftex.def)             Requested size: 246.95892pt x 211.42021pt.
  [4] [5 <../figures//figure_physics_rag_architecture.png> <../figures//figure_u
 map_2x2.png>]
-<../figures//figure_precision_at_k_single_column.png, id=53, 466.1415pt x 317.2
-653pt>
+<../figures//figure_precision_at_k_single_column.png, id=53, 252.7041pt x 190.5
+519pt>
 File: ../figures//figure_precision_at_k_single_column.png Graphic file (type pn
 g)
 <use ../figures//figure_precision_at_k_single_column.png>
 Package pdftex.def Info: ../figures//figure_precision_at_k_single_column.png  u
 sed on input line 278.
-(pdftex.def)             Requested size: 252.0pt x 171.5192pt.
+(pdftex.def)             Requested size: 252.0pt x 190.01932pt.
  [6 <../figures//figure_precision_at_k_single_column.png>]
 <../figures//figure_peak_impact_disequilibrium_advantage.png, id=58, 1438.173pt
  x 339.669pt>
@@ -588,7 +588,7 @@ e/2023/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2023/tex
 mf-dist/fonts/type1/urw/times/utmbi8a.pfb></usr/local/texlive/2023/texmf-dist/f
 onts/type1/urw/times/utmr8a.pfb></usr/local/texlive/2023/texmf-dist/fonts/type1
 /urw/times/utmri8a.pfb>
-Output written on research_paper.pdf (11 pages, 6947524 bytes).
+Output written on research_paper.pdf (11 pages, 6883407 bytes).
 PDF statistics:
  196 PDF objects out of 1000 (max. 8388607)
  112 compressed objects within 2 object streams

@@ -133,16 +133,16 @@ def generate_figure_4():
 
     # Highlight k=5 apex gain (+19.4% vs SQL baseline, P@5 = 0.480)
     ax.annotate(
-        "Apex Gain +19.4%\n(P@5 = 0.480)",
+        "Apex Gain +19.4% vs SQL\n(P@5 = 0.480)",
         xy=(5, 0.480),
-        xytext=(7.5, 0.493),
+        xytext=(7.0, 0.493),
         arrowprops=dict(
             arrowstyle="->",
             color="#c2410c",
             lw=1.0,
             connectionstyle="arc3,rad=-0.15",
         ),
-        fontsize=6.5,
+        fontsize=6.2,
         fontweight="bold",
         color="#991b1b",
         ha="left",
@@ -172,10 +172,12 @@ def generate_figure_4():
 
     plt.tight_layout()
     out_path = "reports/figures/figure_precision_at_k_single_column.png"
+    alt_out_path = "reports/figures/grand_4way_benchmark_comparison.png"
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
+    fig.savefig(alt_out_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
-    print(f"✓ Successfully generated {out_path}")
+    print(f"✓ Successfully generated {out_path} and {alt_out_path}")
 
 
 if __name__ == "__main__":
