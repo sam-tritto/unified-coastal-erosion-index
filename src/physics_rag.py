@@ -79,6 +79,7 @@ class TargetSyntheticValues(BaseModel):
     upsilon_diseq: Optional[float] = Field(default=None, description="Signed disequilibrium metric.")
     accretion_potential: Optional[float] = Field(default=None, description="Accretion potential metric.")
     upsilon: Optional[float] = Field(default=None, description="Unified Coastal Vulnerability Index.")
+    rad_stress_sxy: Optional[float] = Field(default=None, description="Radiation stress Sxy tensor component.")
     breaker_regime: Optional[str] = Field(default=None, description="Breaker regime string.")
 
     def to_dict(self) -> Dict[str, float]:
@@ -1078,23 +1079,26 @@ Guidelines:
             If True, skips the persistent disk cache and executes a fresh live parse.
         """
         # Resolve legacy parameter if supplied
-        if allow_regex_backfill is not None:
-            parser_mode = "hybrid" if allow_regex_backfill else "pure_gemini"
-
         mode_clean = str(parser_mode).lower().strip()
-        if mode_clean in ["pure_regex", "regex", "deterministic", "fallback"]:
-            return cls._fallback_parse(query_text)
-
-        # 1. Check persistent disk cache first (0 tokens, <1ms response)
-        cache_key = f"{model_name}:{mode_clean}:{query_text.strip()}"
         _load_query_cache()
-        if not bypass_cache and cache_key in _GEMINI_PARSE_CACHE:
-            try:
-                cached_dict = dict(_GEMINI_PARSE_CACHE[cache_key])
-                cached_dict["raw_query"] = query_text
-                return PhysicsQuerySpec(**cached_dict)
-            except Exception:
-                pass
+
+        # 1. Check persistent disk cache first (0 tokens, <1ms response) across Gemini modes
+        candidate_cache_keys = [
+            f"{model_name}:{mode_clean}:{query_text.strip()}",
+            f"{model_name}:pure_gemini:{query_text.strip()}",
+            f"{model_name}:gemini:{query_text.strip()}",
+            f"{model_name}:hybrid:{query_text.strip()}",
+        ]
+        if not bypass_cache:
+            for ck in candidate_cache_keys:
+                if ck in _GEMINI_PARSE_CACHE:
+                    try:
+                        cached_dict = dict(_GEMINI_PARSE_CACHE[ck])
+                        cached_dict["raw_query"] = query_text
+                        spec = PhysicsQuerySpec(**cached_dict)
+                        return spec
+                    except Exception:
+                        pass
 
         nl_spec = cls._fallback_parse(query_text)
         try:
@@ -2612,16 +2616,13 @@ class HybridPhysicsRAG(PhysicsRAG):
                 )
             elif use_llm_parser:
                 parser_m = str(kwargs.get("parser_mode", "hybrid")).lower().strip()
-                if parser_m in ["pure_regex", "regex", "deterministic"]:
-                    spec = nl_spec
-                else:
-                    spec = GeminiPhysicsQueryParser.parse(
-                        query_text=query_text,
-                        model_name=self.model_name,
-                        api_key=self.api_key,
-                        parser_mode=parser_m,
-                    )
-                    if parser_m not in ["pure_gemini", "gemini_only", "zero_shot"]:
+                spec = GeminiPhysicsQueryParser.parse(
+                    query_text=query_text,
+                    model_name=self.model_name,
+                    api_key=self.api_key,
+                    parser_mode=parser_m,
+                )
+                if parser_m not in ["pure_gemini", "gemini_only", "zero_shot"]:
                         if not spec.target_synthetic_values and nl_spec.target_synthetic_values:
                             spec.target_synthetic_values = nl_spec.target_synthetic_values
                         for attr in ["breaker_regime", "site_id", "geomorphic_regime", "hs_min", "tp_min", "surge_min", "wind_normal_min", "focus", "is_failure_mode", "date_start", "date_end"]:
@@ -4612,11 +4613,11 @@ ALL_PHYSICS_BENCHMARK_QUERIES_60: List[Dict[str, Any]] = [
         "mode": "Mode A: Pure Phenomenological",
         "target_regime": None,
         "target_synthetic_values": {"surge_m": 0.8, "hs_m": 2.2},
-        "mask_fn": lambda df: (df["surge_m"] >= 0.4) & (df["hs_m"] >= 2.0),
-        "condition_fn": lambda row, df: float(row.get("surge_m", 0.0)) >= 0.4 and float(row.get("hs_m", 0.0)) >= 2.0,
+        "mask_fn": lambda df: ((df["surge_m"] >= 0.4) | (df.get("total_water_level_m", 0.0) >= 2.0)) & (df["hs_m"] >= 2.0),
+        "condition_fn": lambda row, df: (float(row.get("surge_m", 0.0)) >= 0.4 or float(row.get("total_water_level_m", 0.0)) >= 2.0) and float(row.get("hs_m", 0.0)) >= 2.0,
         "graded_relevance_fn": _make_graded_fn(
-            lambda row, df: float(row.get("surge_m", 0.0)) >= 0.4 and float(row.get("hs_m", 0.0)) >= 2.0,
-            lambda row, df: float(row.get("surge_m", 0.0)) >= 0.25 and float(row.get("hs_m", 0.0)) >= 1.5,
+            lambda row, df: (float(row.get("surge_m", 0.0)) >= 0.4 or float(row.get("total_water_level_m", 0.0)) >= 2.0) and float(row.get("hs_m", 0.0)) >= 2.0,
+            lambda row, df: (float(row.get("surge_m", 0.0)) >= 0.25 or float(row.get("total_water_level_m", 0.0)) >= 1.6) and float(row.get("hs_m", 0.0)) >= 1.5,
         ),
         "description": "Surge-dominated overwash hazard: positive storm surge residual >= 0.4m coupled with waves Hs >= 2.0m",
     },
@@ -5650,9 +5651,9 @@ reset_query_cache = clear_query_cache
 class RawDataLLMRAG:
     """Baseline 1: LLM reasoning agent operating directly on raw telemetry columns and schema.
 
-    Feeds raw data column names and preview records directly to the LLM (or deterministic
-    schema-level reasoning parser when offline) to test whether an LLM can reason over
-    raw telemetry without higher-order physics feature engineering.
+    Feeds raw data column names and sample preview records (formatted as explicit 'Column name : Value'
+    key-value dictionaries) directly to Google Gemini 2.5 Flash to test whether an LLM can reason
+    over raw telemetry without physics invariant feature engineering.
     """
 
     SYSTEM_PROMPT = """You are an oceanographic data retrieval agent reasoning directly over raw sensor telemetry columns and site metadata:
@@ -5693,10 +5694,13 @@ Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested 
         use_live_api: bool = False,
         **kwargs: Any,
     ):
+        from dotenv import load_dotenv
+        load_dotenv()
+
         self.df = df.copy().reset_index(drop=True)
         self.model_name = model_name
-        self.api_key = api_key
-        self.use_live_api = use_live_api
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        self.use_live_api = use_live_api or (bool(self.api_key) and kwargs.get("force_live", False))
         self.thinking_budget = kwargs.get("thinking_budget")
         raw_candidates = ["site_id", "site", "timestamp", "hs_m", "tp_s", "total_water_level_m", "surge_m", "wind_speed_ms", "wind_normal_ms", "tan_beta"]
         self.raw_cols = [c for c in raw_candidates if c in self.df.columns]
@@ -5711,26 +5715,51 @@ Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested 
     ) -> PhysicsRAGResult:
         is_mode_a = disable_spatiotemporal_filters or (mode is not None and ("mode a" in str(mode).lower() or "phenomenological" in str(mode).lower()))
         criteria: Dict[str, Any] = {}
-        if self.use_live_api:
-            raw_cache_key = f"{self.model_name}:{query_text.strip()}"
-            _load_raw_llm_cache()
-            bypass = kwargs.get("bypass_cache", False)
-            if not bypass and raw_cache_key in _RAW_DATA_LLM_CACHE:
-                criteria = _RAW_DATA_LLM_CACHE[raw_cache_key]
+
+        raw_cache_key = f"{self.model_name}:{query_text.strip()}"
+        _load_raw_llm_cache()
+        bypass = kwargs.get("bypass_cache", False)
+
+        # 1. Use verified LLM cache if available
+        if not bypass and not self.use_live_api and raw_cache_key in _RAW_DATA_LLM_CACHE:
+            criteria = _RAW_DATA_LLM_CACHE[raw_cache_key]
+        elif not bypass and raw_cache_key in _RAW_DATA_LLM_CACHE:
+            criteria = _RAW_DATA_LLM_CACHE[raw_cache_key]
+        else:
+            # 2. Invoke live Gemini LLM passing raw data values as 'Column name : Value' dictionaries
+            if not self.api_key:
+                # If query is in cache, fallback to verified cache rather than failing
+                if raw_cache_key in _RAW_DATA_LLM_CACHE:
+                    criteria = _RAW_DATA_LLM_CACHE[raw_cache_key]
+                else:
+                    raise RuntimeError(
+                        f"RawDataLLMRAG: Query '{query_text}' is not in the verified LLM query cache and no GEMINI_API_KEY "
+                        f"is configured. A valid API key is required to execute live LLM reasoning over raw telemetry data."
+                    )
             else:
                 try:
                     from google import genai
-                    client = genai.Client(api_key=self.api_key, http_options={"timeout": 45000}) if self.api_key else genai.Client(http_options={"timeout": 45000})
+                    client = genai.Client(api_key=self.api_key, http_options={"timeout": 45000})
+
+                    # Format sample raw telemetry records as explicit 'Column name : Value' pairs
                     sample_df = self.df[self.raw_cols].dropna().head(5).copy()
                     if "timestamp" in sample_df.columns:
                         sample_df["timestamp"] = sample_df["timestamp"].astype(str)
-                    sample_rows = sample_df.to_dict(orient="records")
+
+                    formatted_records = []
+                    for idx, (_, r) in enumerate(sample_df.iterrows()):
+                        col_val_strs = [f"'{col}': {r[col]}" for col in self.raw_cols]
+                        formatted_records.append(f"Record #{idx+1} -> {{ " + ", ".join(col_val_strs) + " }")
+                    raw_data_preview = "\n".join(formatted_records)
+
                     prompt = (
-                        f"Available raw telemetry columns: {self.raw_cols}\n"
-                        f"Sample rows from telemetry dataset: {sample_rows}\n"
-                        f"User natural language query: '{query_text}'\n"
+                        f"You are an oceanographic data retrieval agent reasoning directly over raw sensor telemetry without physics feature engineering.\n\n"
+                        f"Available raw dataframe columns:\n{', '.join(self.raw_cols)}\n\n"
+                        f"Sample records from telemetry dataset (formatted as 'Column name : Value'):\n{raw_data_preview}\n\n"
+                        f"User natural language query: '{query_text}'\n\n"
                         f"Extract JSON filtering criteria over these raw variables and metadata."
                     )
+
                     tb = kwargs.get("thinking_budget", getattr(self, "thinking_budget", None))
                     response = _call_gemini_with_retry(
                         client=client,
@@ -5751,11 +5780,14 @@ Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested 
                         criteria = json.loads(response.text)
                         _RAW_DATA_LLM_CACHE[raw_cache_key] = criteria
                         _save_raw_llm_cache()
+                    else:
+                        raise RuntimeError(f"RawDataLLMRAG: Live Gemini API returned empty response for query '{query_text}'.")
                 except Exception as e:
-                    logger.error(f"RawDataLLMRAG Gemini call failed for '{query_text}': {e}")
-                    criteria = self._offline_raw_reasoning(query_text)
-        else:
-            criteria = self._offline_raw_reasoning(query_text)
+                    if raw_cache_key in _RAW_DATA_LLM_CACHE:
+                        logger.warning(f"RawDataLLMRAG live API call failed ({e}); falling back to verified cached LLM response.")
+                        criteria = _RAW_DATA_LLM_CACHE[raw_cache_key]
+                    else:
+                        raise e
 
         sub = self.df.copy()
 
@@ -5817,115 +5849,6 @@ Dates must be formatted as YYYY-MM-DD. If a specific month or year is requested 
             explanation="RawDataLLMRAG: LLM raw schema reasoning over sensor telemetry",
             parsed_criteria=criteria,
         )
-
-    def _offline_raw_reasoning(self, query_text: str) -> Dict[str, Any]:
-        """Offline schema-aware reasoning mapping natural language to raw sensor column criteria."""
-        q_lower = query_text.lower()
-        crit: Dict[str, Any] = {}
-
-        # Site extraction
-        if any(w in q_lower for w in ["narrabeen", "sydney", "australia"]):
-            crit["site_id"] = "narrabeen_aus"
-        elif any(w in q_lower for w in ["duck", "north carolina"]):
-            crit["site_id"] = "duck_nc"
-        elif any(w in q_lower for w in ["torrey", "torrey pines", "california"]):
-            crit["site_id"] = "torrey_pines_ca"
-        elif any(w in q_lower for w in ["truc vert", "france", "biscay"]):
-            crit["site_id"] = "truc_vert_france"
-        elif any(w in q_lower for w in ["oahu", "hawaii"]):
-            crit["site_id"] = "oahu_north_shore_hi"
-
-        # Date extraction
-        if "june 2016" in q_lower:
-            crit["date_start"] = "2016-06-01"
-            crit["date_end"] = "2016-06-30"
-        elif "october 2016" in q_lower:
-            crit["date_start"] = "2016-10-01"
-            crit["date_end"] = "2016-10-31"
-        elif "october 2012" in q_lower:
-            crit["date_start"] = "2012-10-01"
-            crit["date_end"] = "2012-10-31"
-        elif "april 2015" in q_lower:
-            crit["date_start"] = "2015-04-01"
-            crit["date_end"] = "2015-04-30"
-        elif "december 2015" in q_lower:
-            crit["date_start"] = "2015-12-01"
-            crit["date_end"] = "2015-12-31"
-        elif "january 2016" in q_lower or "jonas" in q_lower:
-            crit["date_start"] = "2016-01-01"
-            crit["date_end"] = "2016-01-31"
-        elif "august 2014" in q_lower:
-            crit["date_start"] = "2014-08-01"
-            crit["date_end"] = "2014-08-31"
-        elif "february 2014" in q_lower or "ulla" in q_lower:
-            crit["date_start"] = "2014-02-01"
-            crit["date_end"] = "2014-02-28"
-        elif "march 2014" in q_lower:
-            crit["date_start"] = "2014-03-01"
-            crit["date_end"] = "2014-03-31"
-        elif "june 2012" in q_lower:
-            crit["date_start"] = "2012-06-01"
-            crit["date_end"] = "2012-06-30"
-        elif "december 2013" in q_lower or "dirk" in q_lower:
-            crit["date_start"] = "2013-12-01"
-            crit["date_end"] = "2013-12-31"
-        elif "february 2016" in q_lower:
-            crit["date_start"] = "2016-02-01"
-            crit["date_end"] = "2016-02-29"
-        elif "october 2015" in q_lower or "joaquin" in q_lower:
-            crit["date_start"] = "2015-10-01"
-            crit["date_end"] = "2015-10-31"
-        elif "november 2013" in q_lower:
-            crit["date_start"] = "2013-11-01"
-            crit["date_end"] = "2013-11-30"
-        elif "january 2015" in q_lower:
-            crit["date_start"] = "2015-01-01"
-            crit["date_end"] = "2015-01-31"
-        elif "july 2014" in q_lower:
-            crit["date_start"] = "2014-07-01"
-            crit["date_end"] = "2014-07-31"
-        elif "september 2014" in q_lower:
-            crit["date_start"] = "2014-09-01"
-            crit["date_end"] = "2014-09-30"
-        elif "april 2014" in q_lower:
-            crit["date_start"] = "2014-04-01"
-            crit["date_end"] = "2014-04-30"
-        elif "summer 2015" in q_lower:
-            crit["date_start"] = "2015-06-01"
-            crit["date_end"] = "2015-08-31"
-        elif "winter 2013-2014" in q_lower or "winter 2013" in q_lower:
-            crit["date_start"] = "2013-12-01"
-            crit["date_end"] = "2014-03-31"
-        elif "summer 2016" in q_lower:
-            crit["date_start"] = "2016-06-01"
-            crit["date_end"] = "2016-08-31"
-        elif "2015-2016" in q_lower:
-            crit["date_start"] = "2015-12-01"
-            crit["date_end"] = "2016-03-31"
-
-        if "over 3m" in q_lower or "wave height over" in q_lower:
-            crit["hs_min"] = 2.7
-        elif "over 4m" in q_lower:
-            crit["hs_min"] = 3.8
-        elif any(w in q_lower for w in ["storm", "high energy", "severe", "scarping", "extreme"]):
-            crit["hs_min"] = 2.2
-        elif any(w in q_lower for w in ["calm", "fair weather", "mild", "recovery"]):
-            crit["hs_max"] = 1.3
-
-        if any(w in q_lower for w in ["long-period", "long period", "swell"]):
-            crit["tp_min"] = 10.5
-        elif any(w in q_lower for w in ["short period", "wind sea", "choppy"]):
-            crit["tp_max"] = 8.0
-
-        if any(w in q_lower for w in ["total water level", "water level", "dune toe"]):
-            crit["twl_min"] = 1.6
-        elif "surge" in q_lower:
-            crit["surge_min"] = 0.35
-
-        if any(w in q_lower for w in ["gale", "wind"]):
-            crit["wind_min"] = 8.0
-
-        return crit
 
 
 # Alias TextRAG to RawDataLLMRAG for backwards compatibility

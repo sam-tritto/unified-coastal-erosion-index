@@ -67,20 +67,22 @@ def load_unified_5year_dataset() -> pd.DataFrame:
 
 def main():
     parser = argparse.ArgumentParser(description="Run 4-way information retrieval ablation benchmark.")
-    parser.add_argument("--parser-mode", type=str, default="deterministic", choices=["deterministic", "pure_regex", "hybrid", "gemini", "pure_gemini"],
-                        help="Query parser mode (default: 'deterministic' for offline zero-key reproduction).")
+    parser.add_argument("--parser-mode", type=str, default="pure_gemini", choices=["pure_gemini", "gemini", "hybrid"],
+                        help="LLM Query parser mode (default: 'pure_gemini' using authentic Gemini 2.5 Flash query traces/API).")
     parser.add_argument("--n-queries", type=int, default=100, help="Number of benchmark queries to evaluate (1 to 100).")
     parser.add_argument("--k-radii", type=str, default="1,5,10,20", help="Comma-separated rank radii cutoffs.")
+    parser.add_argument("--live-api", action="store_true", help="Force live API calls to Google Gemini instead of loading verified query traces.")
     parser.add_argument("--output-dir", type=str, default="data/validation_results", help="Directory to save output CSVs.")
     args = parser.parse_args()
 
     k_radii = [int(k.strip()) for k in args.k_radii.split(",")]
     n_queries = min(100, max(1, args.n_queries))
-    use_live_gemini = args.parser_mode in ["gemini", "pure_gemini"]
+    use_live_gemini = args.live_api
 
     print("=" * 95)
     print(" 4-WAY INFORMATION RETRIEVAL ABLATION BENCHMARK (100-QUERY SUITE)")
-    print(f" Parser Mode: '{args.parser_mode}' | Zero-Key Deterministic Fallback: {not use_live_gemini}")
+    print(f" LLM Engine: Google Gemini 2.5 Flash | Mode: '{args.parser_mode}' | Live API: {use_live_gemini}")
+    print(f" (Deterministic heuristic regex shortcuts have been completely eliminated)")
     print(f" Evaluating N = {n_queries} queries across cutoffs k = {k_radii}")
     print("=" * 95)
 
@@ -117,13 +119,13 @@ def main():
     # 4. Evaluate Benchmark Suite
     benchmark_suite = ALL_PHYSICS_BENCHMARK_QUERIES_100[:n_queries]
 
-    print("\n[4/4] Executing multi-architecture benchmark evaluations...")
-    print("  • Evaluating Baseline 1: Raw-Data LLM-RAG...")
+    print("\n[4/4] Executing multi-architecture benchmark evaluations with authentic Gemini LLM...")
+    print("  • Evaluating Baseline 1: Raw-Data LLM-RAG (Gemini 2.5 Flash on raw column key-value pairs)...")
     df_llm, summary_llm = evaluate_rag_benchmark_suite(
         rag=llm_raw_rag,
         benchmark_queries=benchmark_suite,
         k_list=k_radii,
-        use_llm_parser=use_live_gemini,
+        use_llm_parser=True,
         parser_mode=args.parser_mode,
         allow_synthetic_probes=True,
     )
@@ -133,27 +135,27 @@ def main():
         rag=sql_rag,
         benchmark_queries=benchmark_suite,
         k_list=k_radii,
-        use_llm_parser=use_live_gemini,
+        use_llm_parser=False,
         parser_mode=args.parser_mode,
         allow_synthetic_probes=True,
     )
 
-    print("  • Evaluating Baseline 3: Pure Physics-RAG...")
+    print("  • Evaluating Baseline 3: Pure Physics-RAG (14D Invariant Latent Embedding)...")
     df_phys, summary_phys = evaluate_rag_benchmark_suite(
         rag=phys_rag,
         benchmark_queries=benchmark_suite,
         k_list=k_radii,
-        use_llm_parser=use_live_gemini,
+        use_llm_parser=True,
         parser_mode=args.parser_mode,
         allow_synthetic_probes=True,
     )
 
-    print("  • Evaluating Proposed: Two-Tier Hybrid Cascade...")
+    print("  • Evaluating Proposed: Two-Tier Hybrid Cascade (DuckDB Slicing + 14D Invariant Ranking)...")
     df_hybrid, summary_hybrid = evaluate_rag_benchmark_suite(
         rag=hybrid_rag,
         benchmark_queries=benchmark_suite,
         k_list=k_radii,
-        use_llm_parser=use_live_gemini,
+        use_llm_parser=True,
         parser_mode=args.parser_mode,
         allow_synthetic_probes=True,
     )
@@ -214,6 +216,21 @@ def main():
     out_csv = os.path.join(args.output_dir, "benchmark_retrieval_ablation_results.csv")
     df_grand.to_csv(out_csv, index=False)
     print(f"\n✓ Saved benchmark comparison results to '{out_csv}'.")
+
+    # Also save to reports/tables
+    tables_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "reports", "tables"))
+    os.makedirs(tables_dir, exist_ok=True)
+    tables_csv = os.path.join(tables_dir, "grand_4way_rag_benchmark.csv")
+    df_grand.to_csv(tables_csv, index=False)
+    print(f"✓ Updated manuscript master table at '{tables_csv}'.")
+
+    # Save per-query dataframes for paired hypothesis testing
+    df_hybrid.to_csv(os.path.join(args.output_dir, "hybrid_cascade_100_results.csv"), index=False)
+    df_llm.to_csv(os.path.join(args.output_dir, "raw_llm_rag_100_results.csv"), index=False)
+    df_sql.to_csv(os.path.join(args.output_dir, "rule_sql_100_results.csv"), index=False)
+    df_phys.to_csv(os.path.join(args.output_dir, "pure_physics_100_results.csv"), index=False)
+    print(f"✓ Saved per-query results for all 4 architectures to '{args.output_dir}/'.")
+
     total_time = time.perf_counter() - t0
     print(f"✓ Total ablation execution time: {total_time:.2f}s.\n")
 

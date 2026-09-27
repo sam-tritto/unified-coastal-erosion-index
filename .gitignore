@@ -28,8 +28,14 @@ data/cache/
 *.html
 *.parquet
 *.csv
+*.dat
 data/oahu_dissipation_check.png
 data/duck_sensors.parquet
+
+# Paper build artifacts
+reports/paper/*.aux
+reports/paper/*.log
+reports/paper/*.out
 
 # Patent application drafts, filings, and build artifacts
 reports/patent/provisional_patent_*
