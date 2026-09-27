@@ -13,7 +13,7 @@ A physics-informed foundation framework for multi-modal coastal hydrodynamics sy
 
 The **Unified Coastal Vulnerability Index ($\Upsilon_{\text{unified}}$)** is a universal, closed-form, semi-empirical physical formulation designed to quantify cross-shore storm erosion potential, wave-sediment kinetics, and total water level hazards across any global beach archetype without site-specific branching.
 
-> **Nomenclature Note:** Across our publications, codebase, and patent filings, the core formulation $\Upsilon$ is referred to interchangeably as the **Unified Coastal Vulnerability Index (UCVI)** (addressing asset risk and patent claims), the **Unified Kinetic Erosion Index (UKEI)** (in scientific hydrodynamic literature highlighting its $[kg/s]$ kinetic flux derivation), and the **Unified Coastal Erosion Index (UCEI)** (in software package and repository conventions). All three designate the identical physical formulation detailed below.
+> **Nomenclature & Theoretical Harmonization Note:** Across our publications, codebase (`src/physics.py`), and patent filings, the core formulation $\Upsilon$ is referred to interchangeably as the **Unified Coastal Vulnerability Index (UCVI)** (addressing asset risk and patent claims), the **Unified Kinetic Erosion Index (UKEI)** (in scientific hydrodynamic literature highlighting its $[kg/s]$ kinetic flux derivation), and the **Unified Coastal Erosion Index (UCEI)** (in software package and repository conventions). All three designate the identical physical formulation detailed below, mathematically identical to Equation (4) and the Appendix B Reconciliation Table of the research paper (*"Physics-RAG: Invariant Manifolds & Conformal Uncertainty"*).
 
 Every coastal site is parameterized as a continuous point in an invariant 6-element geophysical parameter space:
 
@@ -119,7 +119,7 @@ flowchart LR
    * Non-reef sandy coasts bypass attenuation ($\Psi_{\text{reef}} = 1.0, H_{\text{shore}} = H_0$).
 
 5. **Tidal Dissipation & Energy Smearing Factor ($\Psi_{\text{tide}}$):**
-   $$\Psi_{\text{tide}} = \frac{1}{1 + \frac{TR}{2 H_s}}$$
+   $$\Psi_{\text{tide}} = \frac{1}{1 + \frac{TR}{2 \max(0.5, H_s)}}$$
    * *Microtidal Limit ($TR \to 0$):* $\Psi_{\text{tide}} \to 1.0$ (concentrated berm attack, e.g. Duck, NC with $TR = 1.0\text{ m}, H_s = 4.0\text{ m} \implies \Psi_{\text{tide}} = 0.89$).
    * *Macrotidal Limit ($TR \gg H_s$):* $\Psi_{\text{tide}} \ll 1.0$ (energy diluted across wide intertidal sweep $W = TR / \tan\beta$, e.g. Truc Vert with $TR = 4.5\text{ m}, H_s = 3.0\text{ m} \implies \Psi_{\text{tide}} = 0.57$).
 
