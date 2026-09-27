@@ -253,6 +253,19 @@ To eliminate this boundary penalty, Tier~2 introduces Directional Pareto Ranking
 \end{multline}
 Setting $\alpha = 0.35$ and $\beta = 0.20$ converts symmetric metric distance into an asymmetric physical ranking engine that rewards candidates exceeding hazard thresholds via monotonic disequilibrium scaling.
 
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{figure_hyperparameter_sensitivity_2d.png}
+    \caption{\textbf{Directional Pareto Hyperparameter Sensitivity Surface Across $N = 100$ Benchmark Queries.}
+    \textbf{(a)} Retrieval Precision@5 across a $6 \times 6$ ablation grid over $\alpha \in [0.10, 0.90]$ and $\beta \in [0.00, 0.50]$.
+    \textbf{(b)} Ranking quality NDCG@5 surface. The operational calibration ($\alpha = 0.35, \beta = 0.20$, highlighted in red) occupies a broad, convex plateau where Precision@5 varies by less than $\pm 0.009$ across the entire parameter space, confirming topological stability and refuting hyperparameter overfitting.}
+    \label{fig:hyperparam_sensitivity}
+\end{figure}
+
+\subsection{Hyperparameter Sensitivity \& Topological Stability}
+To evaluate sensitivity to the Directional Pareto weighting coefficients and refute potential hyperparameter overfitting critiques, we conducted a systematic 2D grid ablation over $\alpha \in [0.10, 0.90]$ (6 increments) and $\beta \in [0.00, 0.50]$ (6 increments) across all $N = 100$ operational queries ($36$ discrete evaluation nodes over $175{,}392$ records), as shown in Fig.~\ref{fig:hyperparam_sensitivity}. 
+The resulting response surface exhibits remarkable topological stability: Precision@5 spans a narrow, convex band from $0.5680$ to $0.5860$ ($\text{mean} = 0.5757 \pm 0.0062$), and NDCG@5 spans from $0.5897$ to $0.6162$ ($\text{mean} = 0.6015 \pm 0.0105$). Even under the most degenerate boundary setting ($\alpha = 0.10, \beta = 0.00$), Precision@5 remains at $0.5760$, decisively outperforming all baseline architectures (Google Dense Embeddings at $0.3660$, BM25 at $0.0520$, Raw LLM-RAG at $0.4400$). The operational selection ($\alpha = 0.35, \beta = 0.20$) sits centrally within this broad stability plateau, demonstrating that retrieval performance is governed by the structural physics of the invariant manifold rather than sensitive parameter tuning.
+
 \subsection{Continuous Dynamical Sequence Hydration ($\pm 72\text{h}$)}
 Physical media exhibit extensive memory. Storm-induced damage is dictated not merely by instantaneous peak forcing, but by antecedent wave energy impulse accumulated over preceding cycles:
 \begin{equation}

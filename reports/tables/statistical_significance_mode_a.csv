@@ -1,0 +1,4 @@
+Metric,Physics-RAG,Rule-Based SQL,Delta,Paired t-test (1-tailed),Wilcoxon W (1-tailed),Significant (α=0.05)
+Precision@5,0.6600,0.5867,+0.0733,"t=0.800, p=0.2152","W=34.0, p=0.2451",False
+Precision@1,0.7000,0.5667,+0.1333,"t=1.278, p=0.1057","W=38.5, p=0.1030",False
+NDCG@5,0.7106,0.6134,+0.0973,"t=1.197, p=0.1204","W=53.0, p=0.1348",False

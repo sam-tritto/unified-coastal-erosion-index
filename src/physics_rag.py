@@ -2820,12 +2820,14 @@ class HybridPhysicsRAG(PhysicsRAG):
         # Channel 1: Cosine similarity
         cos_channel_scores = cand_sims
 
-        # Channel 2: Physical constraints + breaker regime match bonus
-        constraint_channel_scores = c_scores + 0.20 * reg_match
+        # Channel 2: Physical constraints + breaker regime match bonus (beta hyperparameter)
+        beta_reg = float(kwargs.get("beta", kwargs.get("regime_boost", getattr(self, "regime_boost", 0.20))))
+        constraint_channel_scores = c_scores + beta_reg * reg_match
 
-        # Channel 3: Direction-aware Upsilon disequilibrium + directional Pareto extreme signal
+        # Channel 3: Direction-aware Upsilon disequilibrium + directional Pareto extreme signal (alpha hyperparameter)
+        alpha_val = float(kwargs.get("alpha", getattr(self, "alpha", 0.35)))
         if has_directional_extreme and pareto_boost.max() > 0:
-            upsilon_channel_scores = ups_norm + pareto_boost
+            upsilon_channel_scores = (1.0 - alpha_val) * ups_norm + alpha_val * pareto_boost
         else:
             upsilon_channel_scores = s_ups
 
