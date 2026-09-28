@@ -1,7 +1,5 @@
-Architecture,Precision@1,Precision@5,Precision@10,Precision@20,NDCG@5,MRR,Regime Purity@5
-External Baseline: BM25 (Okapi),0.03,0.052,0.048,0.0495,0.0725,0.0633,0.076
-External Baseline: Google Embeddings (gemini-embedding-001),0.4,0.366,0.352,0.3415,0.4057,0.432,0.398
+Architecture,Precision@1,Precision@5,Precision@10,Precision@20,Mean NDCG@5,MRR,Regime Purity@5
 Baseline 1: Raw-Data LLM-RAG,0.44,0.44,0.434,0.4175,0.491,0.442,0.44
 Baseline 2: Rule-Based SQL,0.41,0.412,0.406,0.4035,0.4613,0.415,0.444
 Baseline 3: Pure Physics-RAG,0.15,0.144,0.14,0.139,0.2008,0.1628,0.164
-Proposed: Two-Tier Hybrid Cascade,0.57,0.568,0.573,0.563,0.597,0.5977,0.61
+Proposed: Two-Tier Hybrid Cascade,0.57,0.57,0.575,0.5655,0.5943,0.5972,0.612

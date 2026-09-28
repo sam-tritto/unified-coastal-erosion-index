@@ -25,8 +25,10 @@ def generate_figure_4():
     # - Pure Physics: Sage Green (#81a554)
     # - Raw-Data LLM: Lilac (#8b7cbf)
     # - Rule-Based SQL: Light Orange (#f89c25)
+    # - Google Dense Embeddings: Slate Blue (#4338ca)
+    # - BM25 Lexical: Dark Gray (#64748b)
     palette = {
-        "Proposed: Hybrid Cascade Physics-RAG": {
+        "Proposed: Hybrid Cascade": {
             "label": "Proposed: Hybrid Cascade",
             "color": "#f4633a",
             "marker": "o",
@@ -35,7 +37,7 @@ def generate_figure_4():
             "linestyle": "-",
             "zorder": 6,
         },
-        "Baseline 3: Pure Physics-RAG": {
+        "Baseline 3: Pure Physics": {
             "label": "Baseline 3: Pure Physics",
             "color": "#81a554",
             "marker": "^",
@@ -44,7 +46,7 @@ def generate_figure_4():
             "linestyle": "--",
             "zorder": 5,
         },
-        "Baseline 1: Raw-Data LLM-RAG": {
+        "Baseline 1: Raw LLM": {
             "label": "Baseline 1: Raw LLM",
             "color": "#8b7cbf",
             "marker": "D",
@@ -64,6 +66,14 @@ def generate_figure_4():
         },
     }
 
+    arch_map = {
+        "Proposed: Hybrid Cascade Physics-RAG": "Proposed: Hybrid Cascade",
+        "Proposed: Two-Tier Hybrid Cascade": "Proposed: Hybrid Cascade",
+        "Baseline 3: Pure Physics-RAG": "Baseline 3: Pure Physics",
+        "Baseline 1: Raw-Data LLM-RAG": "Baseline 1: Raw LLM",
+        "Baseline 2: Rule-Based SQL": "Baseline 2: Rule-Based SQL",
+    }
+
     # Setup publication typography
     plt.rcParams["font.family"] = "sans-serif"
     plt.rcParams["font.sans-serif"] = ["DejaVu Sans", "Arial", "Helvetica"]
@@ -74,11 +84,21 @@ def generate_figure_4():
     # Plot lines
     curves = {}
     for _, row in df.iterrows():
-        arch = row["Architecture"]
+        raw_arch = row["Architecture"]
+        arch = arch_map.get(raw_arch, raw_arch)
         cfg = palette.get(arch)
         if not cfg:
             continue
-        p_curve = [row[f"P@{k}"] for k in k_vals]
+        p_curve = []
+        for k in k_vals:
+            val = None
+            for col in [f"Precision@{k}", f"P@{k}"]:
+                if col in row:
+                    val = float(row[col])
+                    break
+            if val is None:
+                raise KeyError(f"Could not find Precision@{k} or P@{k} in columns: {list(row.index)}")
+            p_curve.append(val)
         curves[arch] = p_curve
         ax.plot(
             k_vals,
