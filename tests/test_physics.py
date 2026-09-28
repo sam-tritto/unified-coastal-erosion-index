@@ -351,6 +351,16 @@ def test_bayesian_temporal_holdout_and_prediction():
 
 
 def test_bayesian_benchmark_with_holdout_and_loo():
+    """Verify Bayesian model comparison across physical formulations using PSIS-LOO-CV.
+
+    Note on ArviZ Pareto k warnings (k > 0.5):
+    Under acute storm sequences (e.g. Hurricane Ian wave power / surge peaks), heavy-tailed
+    morphodynamic shocks induce high Pareto shape parameters (k > 0.5), indicating high
+    importance-weight variance in PSIS-LOO-CV. As documented in Section IV-E of the research
+    paper, this posterior sensitivity to episodic outliers highlights the structural limitation
+    of parametric Bayesian inference and scientifically motivates transitioning to distribution-free
+    Conformalized Quantile Regression (CQR).
+    """
     df = generate_frf_duck_hurricane_ian_dataset().iloc[:80]
     df_comp, traces = run_benchmark_model_comparison(
         df=df,
