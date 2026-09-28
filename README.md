@@ -31,13 +31,13 @@ where deepwater incident wave height $H_0$ is modulated across reef-fronted syst
 
 The master index $\Upsilon$ is a **kinetic sediment-forcing mass flux rate** carrying physical dimensions of **$[\text{kg}/\text{s}]$** (or $[\text{kg}\cdot\text{s}^{-1}]$):
 
-| Component | Mathematical Expression | Physical Dimensions | SI Units |
-| :--- | :--- | :--- | :--- |
-| **Prefactor ($C_0$)** | $\frac{\rho g^{3/2}}{16(2\pi)^{3/2}}$ | $[M \cdot L^{-1.5} \cdot T^{-3}]$ | $\text{kg} / (\text{m}^{1.5} \cdot \text{s}^3)$ |
-| **Beach Slope ($\tan\beta$)** | $\tan\beta$ | $[-]$ | Dimensionless |
-| **Wave-Sediment Core ($n=2.5$)** | $\frac{H_{\text{shore}}^{2.5} T_p}{w_s}$ | $[L^{2.5} \cdot T / (L \cdot T^{-1})] = [L^{1.5} \cdot T^2]$ | $\text{m}^{1.5} \cdot \text{s}^2$ |
-| **Product ($C_0 \cdot \tan\beta \cdot \text{Core}$)** | $C_0 \tan\beta \frac{H_{\text{shore}}^{2.5} T_p}{w_s}$ | $[M \cdot L^{-1.5} \cdot T^{-3}] \cdot [L^{1.5} \cdot T^2] = [M \cdot T^{-1}]$ | **$\text{kg} / \text{s}$** |
-| **Continuous Modulators ($\Psi_{\dots}, \text{TWL}$)** | $\Psi_{\text{tide}}, \Psi_{\text{phase}}, \Psi_{\text{dir}}, \Psi_{\text{wind}}, \text{TWL}_{\text{amp}}$ | $[-]$ | Dimensionless |
+| Component | Mathematical Expression | Physical Dimensions | SI Units | Numerical Value |
+| :--- | :--- | :--- | :--- | :--- |
+| **Prefactor ($C_0$)** | $\frac{\rho_w g^{3/2}}{16(2\pi)^{3/2}}$ | $[M \cdot L^{-1.5} \cdot T^{-3}]$ | $\text{kg} / (\text{m}^{1.5} \cdot \text{s}^3)$ | $\approx 124.96$ (or $199.11$ for submerged $\Delta\rho$) |
+| **Beach Slope ($\tan\beta$)** | $\tan\beta$ | $[-]$ | Dimensionless | Site-specific foreshore gradient |
+| **Wave-Sediment Core ($n=2.5$)** | $\frac{H_{\text{shore}}^{2.5} T_p}{w_s}$ | $[L^{2.5} \cdot T / (L \cdot T^{-1})] = [L^{1.5} \cdot T^2]$ | $\text{m}^{1.5} \cdot \text{s}^2$ | Dynamic settling kinetics $w_s(D_{50}, T)$ |
+| **Product ($C_0 \cdot \tan\beta \cdot \text{Core}$)** | $C_0 \tan\beta \frac{H_{\text{shore}}^{2.5} T_p}{w_s}$ | $[M \cdot L^{-1.5} \cdot T^{-3}] \cdot [L^{1.5} \cdot T^2] = [M \cdot T^{-1}]$ | **$\text{kg} / \text{s}$** | Instantaneous kinetic sediment-forcing work |
+| **Continuous Modulators ($\Psi_{\dots}, \text{TWL}$)** | $\Psi_{\text{tide}}, \Psi_{\text{phase}}, \Psi_{\text{dir}}, \Psi_{\text{wind}}, \text{TWL}_{\text{amp}}$ | $[-]$ | Dimensionless | Dynamic saturation-clamped scaling factors |
 
 ### Archetype Calibration Sensitivity & Dimensionless Index ($\Upsilon^*$)
 

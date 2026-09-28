@@ -115,7 +115,7 @@ Rather than feeding uncoupled sensor scalars to neural architectures, we formula
 \cdot \Psi_{\text{tide}} \cdot \Psi_{\text{phase}} \cdot \Psi_{\text{dir}} \cdot \Psi_{\text{wind}}
 \label{eq:upsilon_master}
 \end{multline}
-where $\rho_w = 1025\,\text{kg/m}^3$ is seawater density, $g = 9.81\,\text{m/s}^2$ is gravitational acceleration, $\tan\beta$ is the intertidal foreshore slope, and $w_s(D_{50}, T)$ accounts for temperature-dependent kinematic seawater viscosity $\nu(T)$ and dynamic sediment fall velocity \cite{dietrich1982settling,soulsby1997dynamics}. Deepwater linear wave theory establishes the dimensional prefactor $C_0 = \frac{\rho_w g^{3/2}}{16(2\pi)^{3/2}} \approx 72.82\,\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)$ from the group velocity $c_g = g T_p / (4\pi)$ and wave energy density $E = \frac{1}{16}\rho_w g H_s^2$. At the baseline kinematic exponent $n = 2.5$, the product $C_0 \tan\beta (H_s^{2.5} T_p / w_s)$ yields dimensions of $[\text{kg}/\text{s}]$, representing the instantaneous rate of kinetic sediment-forcing work delivered to the subaerial beach face.
+where $\rho_w = 1025\,\text{kg/m}^3$ is seawater density, $g = 9.81\,\text{m/s}^2$ is gravitational acceleration, $\tan\beta$ is the intertidal foreshore slope, and $w_s(D_{50}, T)$ accounts for temperature-dependent kinematic seawater viscosity $\nu(T)$ and dynamic sediment fall velocity \cite{dietrich1982settling,soulsby1997dynamics}. Linear wave theory establishes the dimensional prefactor $C_0 = \frac{\rho_w g^{3/2}}{16(2\pi)^{3/2}} \approx 124.96\,\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)$ (or $199.11\,\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)$ when referenced to submerged sediment density $\rho_s - \rho_w$, detailed in Appendix~\ref{sec:appendix_modulators}) from the deepwater group velocity $c_g = g T_p / (4\pi)$ and wave energy density $E = \frac{1}{16}\rho_w g H_s^2$. At the baseline kinematic exponent $n = 2.5$, the product $C_0 \tan\beta (H_s^{2.5} T_p / w_s)$ yields dimensions of $[\text{kg}/\text{s}]$, representing the instantaneous rate of kinetic sediment-forcing work delivered to the subaerial beach face.
 
 The continuous dimensionless modulators in (\ref{eq:upsilon_master}) govern physical regimes (with complete definitions and asymptotic limits detailed in Appendix~\ref{sec:appendix_modulators}):
 \begin{itemize}
@@ -588,6 +588,7 @@ Decoupling conservation invariants ($\mathcal{M}_{\text{inv}}$) from a high-thro
 \bibitem{gneiting2007strictly} T.~Gneiting and A.~E. Raftery, ``Strictly proper scoring rules, prediction, and estimation,'' \textit{J. Amer. Statist. Assoc.}, vol. 102, no. 477, pp. 359--378, 2007.
 \bibitem{koenker1978regression} R.~Koenker and G.~Bassett, ``Regression quantiles,'' \textit{Econometrica}, vol.~46, no.~1, pp. 33--50, 1978.
 \bibitem{charney1969osse} J.~G. Charney, M.~Halem, and R.~Jastrow, ``Use of incomplete historical data to infer the present state of the atmosphere,'' \textit{J. Atmos. Sci.}, vol.~26, no.~5, pp. 1160--1163, 1969.
+\bibitem{dean1973heuristic} R.~G.~Dean, ``Heuristic models of sand transport in the surf zone,'' in \textit{Proc. Conf. Eng. Dyn. Surf Zone}, Sydney, Australia, 1973, pp. 208--214.
 \bibitem{atlas1997osse} R.~Atlas, ``Atmospheric observations and experiments to assess their usefulness in data assimilation,'' \textit{J. Meteorol. Soc. Japan. Ser. II}, vol.~75, no.~1B, pp. 111--130, 1997.
 \end{thebibliography}
 
@@ -655,7 +656,7 @@ To provide complete mathematical and operational fidelity between the theoretica
 \toprule
 \textbf{Component} & \textbf{Symbol} & \textbf{SI Units} & \textbf{Operational Eq. (Paper \& Code)} & \textbf{README / Prior Draft Notation} & \textbf{Physical Mechanism \& Asymptotic Regimes} \\
 \midrule
-Dimensional Prefactor & $C_0$ & $\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)$ & $\frac{\rho_w g^{3/2}}{16 (2\pi)^{3/2}} \approx 72.82$ & $\frac{\rho_w g^{3/2}}{16}$ (shorthand) & Derived from linear deepwater wave power $P = \frac{\rho g^2}{64\pi} H_s^2 T_p$ normalized by $\sqrt{2\pi g}$; establishes $[\text{kg}/\text{s}]$ mass-energy flux rate. \\
+Dimensional Prefactor & $C_0$ & $\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)$ & $\frac{\rho_w g^{3/2}}{16 (2\pi)^{3/2}} \approx 124.96$ & $\frac{\rho_w g^{3/2}}{16}$ (or $199.1$ for $\Delta\rho$) & Derived from wave power $P_{\text{deep}} = \frac{\rho g^2}{64\pi} H_s^2 T_p$ normalized across shallow breaker zone; evaluates to $124.96$ with fluid $\rho_w = 1025$ or $199.11$ with buoyant sediment $\rho_s - \rho_w = 1633\,\text{kg/m}^3$. \\
 Wave-Sediment Core & $\mathcal{K}_{\text{core}}$ & $\text{m}^{1.5}\cdot\text{s}^2$ & $\tan\beta \frac{H_s^{2.5} T_p}{w_s(D_{50}, T)}$ & $\tan\beta \frac{H^n T_p}{w_s}$ with $n=2.5$ & Combines Dean-type suspension scaling with foreshore beach slope and Dietrich/Soulsby dynamic temperature-dependent settling velocity. \\
 Decoupled TWL Elevation & $\text{TWL}_{\text{amp}}$ & $[-]$ & $1 + \frac{\max(0, \eta_{\text{surge}})}{s_{\text{ref}}} + \frac{\max(0, R_{2\%})}{r_{\text{ref}}}$ & $\left(1 + \frac{\max(0, \eta_{\text{surge}})}{H_s}\right)^2$ & Decouples barometric/wind storm surge ($s_{\text{ref}} = 1.0\,\text{m}$) from infragravity wave runup ($r_{\text{ref}} = 2.0\,\text{m}$); guarantees monotonic TWL elevation bonus. \\
 Tidal Energy Smearing & $\Psi_{\text{tide}}$ & $[-]$ & $\left(1 + \frac{\text{TR}}{2 \max(0.5, H_s)}\right)^{-1}$ & $\left(1 + \frac{\text{TR}}{2 H_s}\right)^{-1}$ & Microtidal limit ($\text{TR} \to 0 \implies \Psi_{\text{tide}} \to 1.0$, concentrated berm attack); Macrotidal limit ($\text{TR} \gg H_s \implies \Psi_{\text{tide}} \ll 1.0$, 100m+ intertidal dissipation sweep). Strictly bounded in $[0, 1]$. \\
@@ -670,5 +671,35 @@ Scale-Invariant Normalized Flux & $\Upsilon^*$ & $[-]$ & $\Upsilon / \Upsilon_{\
 \end{tabular}%
 }
 \end{table*}
+
+\subsection{Algebraic Derivation, Sediment Buoyancy, and Dimensional Consistency of Prefactor $C_0$}
+The master formulation for $\Upsilon_0$ couples wave power dissipation with cross-shore sediment transport kinetics. In deep water, linear wave theory establishes the omnidirectional wave energy flux (power per unit crest length) as:
+\begin{equation}
+P_{\text{deep}} = E c_g = \left(\frac{1}{16}\rho_w g H_s^2\right) \left(\frac{g T_p}{4\pi}\right) = \frac{\rho_w g^2}{64\pi} H_s^2 T_p
+\end{equation}
+As waves shoal onto an intertidal beach profile of slope $\tan\beta$, nearshore radiation stress $S_{xx} = \frac{3}{16}\rho_w g H_s^2$ drives intense turbulent dissipation and suspended sediment mobilization. According to Dean's equilibrium beach profile mechanics \cite{dean1973heuristic}, the rate of sediment-forcing work scales inversely with the dynamic sediment settling velocity $w_s(D_{50}, T)$ and directly with foreshore gradient $\tan\beta$. Non-dimensionalizing the wave period via deepwater wavelength $L_0 = \frac{g T_p^2}{2\pi}$ and normalizing the group velocity across the dynamic breaker zone $c_b \approx \sqrt{g H_s}$ yields the instantaneous mass flux rate:
+\begin{equation}
+\Upsilon_0 = C_0 \tan\beta \frac{H_s^{5/2} T_p}{w_s}, \quad C_0 = \frac{\rho_w g^{3/2}}{16(2\pi)^{3/2}}
+\end{equation}
+Evaluating $C_0$ using standard seawater fluid density $\rho_w = 1025\,\text{kg/m}^3$ and gravitational acceleration $g = 9.81\,\text{m/s}^2$ yields:
+\begin{align}
+C_0 &= \frac{1025 \times 9.81^{3/2}}{16 (2\pi)^{3/2}} = \frac{1025 \times 30.7205}{16 \times 15.7496} \nonumber \\
+    &\approx 124.96\,\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)
+\end{align}
+If the prefactor is alternatively formulated using the submerged buoyant sediment density $(\rho_s - \rho_w)$ rather than fluid density $\rho_w$ (with quartz sand $\rho_s \approx 2658\,\text{kg/m}^3 \implies \Delta\rho \approx 1633\,\text{kg/m}^3$):
+\begin{align}
+C_{0,\text{sed}} &= \frac{(\rho_s - \rho_w) g^{3/2}}{16(2\pi)^{3/2}} = \frac{1633 \times 30.7205}{16 \times 15.7496} \nonumber \\
+                 &\approx 199.11\,\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)
+\end{align}
+Both expressions share the exact same SI physical dimensions:
+\begin{align}
+[C_0] &= [M][L]^{-3} \cdot ([L][T]^{-2})^{1.5} \nonumber \\
+      &= [M][L]^{-1.5}[T]^{-3} \implies \text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)
+\end{align}
+When multiplied by $\tan\beta \frac{H_s^{2.5} T_p}{w_s}$, the dimensions evaluate to:
+\begin{equation}
+[\Upsilon_0] = \left[\frac{\text{kg}}{\text{m}^{1.5}\cdot\text{s}^3}\right] \times \frac{[\text{m}^{2.5}][\text{s}]}{[\text{m}/\text{s}]} = [\text{kg}/\text{s}]
+\end{equation}
+confirming dimensional consistency as a sediment transport mass-energy rate. Crucially, because scale-invariant normalization divides $\Upsilon(t)$ by site reference capacity $\Upsilon_{\text{ref, site}} \propto C_0$, any constant scalar in $C_0$ cancels out identically in $\Upsilon^*(t)$, rendering the 14D invariant manifold $\mathbf{z}_{\text{physics}}$ and all downstream retrieval rankings strictly invariant to the choice between $124.96$ and $199.11$.
 
 \end{document}
