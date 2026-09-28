@@ -27,7 +27,7 @@
     "total_dataset_records": 175392,
     "total_ground_truth_support": 638045,
     "mean_support_per_query": 6380.4,
-    "validation_timestamp": "2026-09-28T18:51:17.261129+00:00",
+    "validation_timestamp": "2026-09-28T21:03:02.563939+00:00",
     "data_sources": [
       "duck_nc_sensors.parquet",
       "narrabeen_aus_sensors.parquet",
