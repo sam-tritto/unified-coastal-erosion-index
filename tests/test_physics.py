@@ -763,6 +763,35 @@ def test_instantaneous_tide_phase_factor():
     np.testing.assert_allclose(psi_series, expected_series, atol=1e-5)
 
 
+def test_tidal_inundation_factor_clipping():
+    """Verify exponential tidal inundation modulator Psi_tide(eta, Hs) strictly saturates
+    at numerical floor (0.1) and ceiling (10.0) under extreme surges and calm conditions."""
+    from src.physics import compute_tidal_inundation_factor, compute_tidal_inundation_modulator
+
+    # 1. Normal condition: eta = 0.5m, MHW = 0.0m, Hs = 1.0m -> exp(0.5/1.0) = exp(0.5) ~ 1.6487
+    val_norm = compute_tidal_inundation_factor(tide=0.5, mhw=0.0, hs=1.0)
+    np.testing.assert_allclose(val_norm, np.exp(0.5), rtol=1e-4)
+
+    # 2. Extreme hurricane storm surge: eta - MHW = +2.0m, Hs = 0.6m -> exp(2.0/0.6) = exp(3.33) ~ 28.0
+    # Must be safely capped at a_max = 10.0
+    val_surge = compute_tidal_inundation_factor(tide=2.0, mhw=0.0, hs=0.6, a_max=10.0)
+    assert val_surge == 10.0
+
+    # 3. Minimum wave floor: Hs = 0.2m (below 0.5m minimum floor) -> denominator is 0.5m
+    # eta - MHW = 3.0m -> raw exp(3.0/0.5) = exp(6.0) ~ 403.4 -> capped at 10.0
+    val_calm_surge = compute_tidal_inundation_factor(tide=3.0, mhw=0.0, hs=0.2, a_max=10.0)
+    assert val_calm_surge == 10.0
+
+    # 4. Extreme negative tide / drawdown: eta - MHW = -5.0m, Hs = 1.0m -> raw exp(-5.0) ~ 0.0067 -> floored at a_min = 0.1
+    val_drawdown = compute_tidal_inundation_factor(tide=-5.0, mhw=0.0, hs=1.0, a_min=0.1)
+    assert val_drawdown == 0.1
+
+    # 5. Alias equivalence
+    val_alias = compute_tidal_inundation_modulator(tide=2.0, mhw=0.0, hs=0.6, a_max=10.0)
+    assert val_alias == 10.0
+
+
+
 def test_tide_phase_gating_macrotidal_truc_vert():
     """Verify that Psi_phase eliminates false-positive erosion signals when huge waves occur
     at low tide on macrotidal beaches like Truc Vert (TR = 4.5m).

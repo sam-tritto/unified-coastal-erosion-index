@@ -703,6 +703,53 @@ compute_tide_phase_factor = compute_instantaneous_tide_phase_factor
 compute_tide_phase_gating = compute_instantaneous_tide_phase_factor
 
 
+def compute_tidal_inundation_factor(
+    tide: Union[float, np.ndarray],
+    mhw: float = 0.0,
+    hs: Union[float, np.ndarray] = 1.0,
+    a_min: float = 0.1,
+    a_max: float = 10.0,
+) -> Union[float, np.ndarray]:
+    """Compute exponential tidal inundation modulator with strict numerical clipping.
+
+    Psi_tide(eta, Hs) = clip(exp((eta - MHW) / max(0.5, Hs)), a_min=0.1, a_max=10.0)
+
+    Captures vertical water level excursion relative to Mean High Water (MHW) while
+    preventing denominator collapse via max(0.5, Hs) and bounding exponential magnification
+    via safe numerical clamping [a_min, a_max] during extreme hurricane surges or calm spring tides.
+
+    Parameters
+    ----------
+    tide : float or np.ndarray
+        Instantaneous astronomical tide elevation or water level eta (m).
+    mhw : float, default 0.0
+        Mean High Water datum elevation relative to MSL/reference (m).
+    hs : float or np.ndarray, default 1.0
+        Significant wave height (m).
+    a_min : float, default 0.1
+        Minimum numerical floor preventing complete attenuation.
+    a_max : float, default 10.0
+        Maximum numerical ceiling preventing unbounded exponential explosion.
+
+    Returns
+    -------
+    psi_tide : float or np.ndarray
+        Saturated tidal inundation modulator in [a_min, a_max].
+    """
+    eta_arr = np.asarray(tide, dtype=float)
+    hs_arr = np.maximum(np.asarray(hs, dtype=float), 0.5)
+    exponent = np.clip((eta_arr - float(mhw)) / hs_arr, -10.0, 10.0)
+    psi = np.clip(np.exp(exponent), float(a_min), float(a_max))
+
+    if np.isscalar(tide) and np.isscalar(hs):
+        return float(psi)
+    return psi
+
+
+compute_tidal_inundation_modulator = compute_tidal_inundation_factor
+
+
+
 def compute_directional_wave_factor(
     wave_dir_deg: Union[float, np.ndarray],
     shore_normal_deg: float,
