@@ -2757,14 +2757,16 @@ class HybridPhysicsRAG(PhysicsRAG):
 
             if effective_hs_min is not None and "hs_m" in self.df.columns:
                 hs_cand = self.df["hs_m"].values[candidate_indices]
-                hs_exc = np.maximum(0.0, hs_cand - effective_hs_min)
+                denom_hs = max(0.5, float(effective_hs_min))
+                hs_exc = np.tanh(np.maximum(0.0, (hs_cand - effective_hs_min) / denom_hs))
                 if hs_exc.max() > 0:
                     pareto_boost += hs_exc / hs_exc.max()
                     has_directional_extreme = True
 
             if spec.surge_min is not None and "surge_m" in self.df.columns:
                 s_cand = self.df["surge_m"].values[candidate_indices]
-                s_exc = np.maximum(0.0, s_cand - spec.surge_min)
+                denom_s = max(0.2, abs(float(spec.surge_min)))
+                s_exc = np.tanh(np.maximum(0.0, (s_cand - spec.surge_min) / denom_s))
                 if s_exc.max() > 0:
                     pareto_boost += s_exc / s_exc.max()
                     has_directional_extreme = True
@@ -2778,7 +2780,8 @@ class HybridPhysicsRAG(PhysicsRAG):
                         p_thresh = float(val) if val is not None else 50000.0
                     except (TypeError, ValueError):
                         p_thresh = 50000.0
-                    p_exc = np.maximum(0.0, p_cand - p_thresh)
+                    denom_p = max(5000.0, abs(p_thresh))
+                    p_exc = np.tanh(np.maximum(0.0, (p_cand - p_thresh) / denom_p))
                     if p_exc.max() > 0:
                         pareto_boost += p_exc / p_exc.max()
                         has_directional_extreme = True
@@ -2790,13 +2793,13 @@ class HybridPhysicsRAG(PhysicsRAG):
             # Constructive Pareto: reward calm low Hs (< 1.5m) and long-period swell (Tp > 10s)
             if "hs_m" in self.df.columns:
                 hs_cand = self.df["hs_m"].values[candidate_indices]
-                hs_calm = np.maximum(0.0, 1.5 - hs_cand)
+                hs_calm = np.tanh(np.maximum(0.0, (1.5 - hs_cand) / 1.5))
                 if hs_calm.max() > 0:
                     pareto_boost += hs_calm / hs_calm.max()
                     has_directional_extreme = True
             if "tp_s" in self.df.columns:
                 tp_cand = self.df["tp_s"].values[candidate_indices]
-                tp_swell = np.maximum(0.0, tp_cand - 10.0)
+                tp_swell = np.tanh(np.maximum(0.0, (tp_cand - 10.0) / 10.0))
                 if tp_swell.max() > 0:
                     pareto_boost += tp_swell / tp_swell.max()
                     has_directional_extreme = True

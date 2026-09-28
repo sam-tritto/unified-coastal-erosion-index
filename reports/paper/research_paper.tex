@@ -263,13 +263,13 @@ S_C(\mathbf{z}_i, \mathbf{z}_{\text{target}}) = \frac{\mathbf{z}_i \cdot \mathbf
 \end{equation}
 This creates a severe physical pathology: when searching for severe hazard states (e.g., $H_s \ge 4.0\,\text{m}$), symmetric metric search penalizes an extreme $5.5\,\text{m}$ wave more heavily than a sub-threshold $3.8\,\text{m}$ wave because the $5.5\,\text{m}$ state has greater geometric distance from the target vector.
 
-To eliminate this boundary penalty, Tier~2 introduces Directional Pareto Ranking:
+To eliminate this boundary penalty while guaranteeing that Pareto excess cannot asymptotically overpower bounded metric similarity ($S_C \in [-1, 1]$) under extreme storm shocks ($H_{s, i} \gg H_{s,\text{target}}$), Tier~2 introduces Directional Pareto Ranking with a saturating sub-linear activation via the hyperbolic tangent:
 \begin{multline}
 \mathcal{R}(\mathbf{z}_i) = (1 - \alpha) S_C(\mathbf{z}_i, \mathbf{z}_{\text{target}}) \\
-+ \alpha \operatorname{ReLU}\left(\frac{H_{s,i} - H_{s,\text{target}}}{H_{s,\text{target}}}\right) + \beta \max(0, \Delta\Upsilon_i^*)
++ \alpha \tanh\left(\left[\frac{H_{s,i} - H_{s,\text{target}}}{H_{s,\text{target}}}\right]_+\right) + \beta \tanh(\max(0, \Delta\Upsilon_i^*))
 \label{eq:directional_pareto}
 \end{multline}
-Setting $\alpha = 0.35$ and $\beta = 0.20$ converts symmetric metric distance into an asymmetric physical ranking engine that rewards candidates exceeding hazard thresholds via monotonic disequilibrium scaling.
+where $[x]_+ = \max(0, x)$. Setting $\alpha = 0.35$ and $\beta = 0.20$ converts symmetric metric distance into an asymmetric physical ranking engine that rewards candidates exceeding hazard thresholds: for moderate excesses ($x \ll 1$), $\tanh(x) \approx x$ preserves the linear Pareto gradient, while for catastrophic storm shocks ($x \gg 1$), $\tanh(x) \to 1.0$ smoothly saturates into $[0, 1)$, preventing unbounded wave height spikes from overpowering the 14D manifold geometry.
 
 \begin{figure}[t]
     \centering
