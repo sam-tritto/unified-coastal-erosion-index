@@ -328,6 +328,9 @@ To thoroughly stress-test physical retrieval under realistic and adversarial con
     \textit{Cat 8: Deliberate Ambiguity \& Intent Stress Tests} (Mode C, $N=20$: queries pairing contradictory phrases such as \textit{"calm swash accretion during hurricane storm surge"} or unobserved parameters); \textit{Cat 9: 3D Morphodynamic Pathologies \& 1D Failure Modes} (Mode D, $N=20$: alongshore rip scour, infragravity resonance, and rotational divergence where 1D equilibrium cross-shore physics breaks down).
 \end{itemize}
 
+\noindent \textbf{Deterministic Physical Ground Truth \& Adversarial Null Probes:}
+Ground-truth relevance across all $N = 100$ benchmark queries is defined by deterministic, falsifiable physical predicates evaluated directly over the $175{,}392$ sensor-hour telemetry archive (\texttt{scripts/validate\_benchmark\_predicates.py}), eliminating subjective human annotator variance. Across the master suite, $91$ out of $100$ queries possess verified empirical support (totaling $638{,}045$ qualifying sensor hours, averaging $6{,}380$ records per query). Crucially, exactly $9$ queries in Tier~3 (e.g., \texttt{QUERY\_077}: onshore gale winds $> 15\,\text{m/s}$ with micro-waves $H_s < 1.5\,\text{m}$; \texttt{QUERY\_063}: negative surge depression below $-0.3\,\text{m}$ during storm apex) are deliberate \textit{adversarial null-support probes} testing physically impossible or unobserved parameter combinations. Because their empirical support is mathematically zero ($S = 0$), any retrieved candidate yields $\text{Precision@k} = 0.0$ for all architectures. These probes are intentionally retained in the benchmark as an adversarial stress test to measure false-positive resistance and hallucination susceptibility when no physical analog exists.
+
 \begin{table*}[t]
 \caption{GRAND 4-WAY INFORMATION RETRIEVAL BENCHMARK ACROSS 100 MULTIMODAL OPERATIONAL \& ADVERSARIAL QUERIES}
 \label{tab:grand_benchmark}
