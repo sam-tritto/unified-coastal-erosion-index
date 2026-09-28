@@ -677,29 +677,42 @@ The master formulation for $\Upsilon_0$ couples wave power dissipation with cros
 \begin{equation}
 P_{\text{deep}} = E c_g = \left(\frac{1}{16}\rho_w g H_s^2\right) \left(\frac{g T_p}{4\pi}\right) = \frac{\rho_w g^2}{64\pi} H_s^2 T_p
 \end{equation}
-As waves shoal onto an intertidal beach profile of slope $\tan\beta$, nearshore radiation stress $S_{xx} = \frac{3}{16}\rho_w g H_s^2$ drives intense turbulent dissipation and suspended sediment mobilization. According to Dean's equilibrium beach profile mechanics \cite{dean1973heuristic}, the rate of sediment-forcing work scales inversely with the dynamic sediment settling velocity $w_s(D_{50}, T)$ and directly with foreshore gradient $\tan\beta$. Non-dimensionalizing the wave period via deepwater wavelength $L_0 = \frac{g T_p^2}{2\pi}$ and normalizing the group velocity across the dynamic breaker zone $c_b \approx \sqrt{g H_s}$ yields the instantaneous mass flux rate:
+As waves shoal onto an intertidal beach profile of slope $\tan\beta$, nearshore radiation stress $S_{xx} = \frac{3}{16}\rho_w g H_s^2$ drives intense turbulent dissipation and suspended sediment mobilization. According to Dean's equilibrium beach profile mechanics \cite{dean1973heuristic}, the rate of sediment-forcing work scales inversely with sediment settling velocity $w_s(D_{50}, T)$ and directly with foreshore gradient $\tan\beta$. Non-dimensionalizing the wave period via deepwater wavelength $L_0 = \frac{g T_p^2}{2\pi}$ and normalizing the group velocity across the dynamic breaker zone $c_b \approx \sqrt{g H_s}$ yields the instantaneous mass flux rate:
 \begin{equation}
-\Upsilon_0 = C_0 \tan\beta \frac{H_s^{5/2} T_p}{w_s}, \quad C_0 = \frac{\rho_w g^{3/2}}{16(2\pi)^{3/2}}
+\Upsilon_0 = C_0 \tan\beta \frac{H_s^{5/2} T_p}{w_s(D_{50}, T)}, \quad C_0 = \frac{\rho_w g^{3/2}}{16(2\pi)^{3/2}}
 \end{equation}
+
+\noindent\textbf{1. Fluid vs. Submerged Sediment Density Formulations:}
 Evaluating $C_0$ using standard seawater fluid density $\rho_w = 1025\,\text{kg/m}^3$ and gravitational acceleration $g = 9.81\,\text{m/s}^2$ yields:
 \begin{align}
 C_0 &= \frac{1025 \times 9.81^{3/2}}{16 (2\pi)^{3/2}} = \frac{1025 \times 30.7205}{16 \times 15.7496} \nonumber \\
     &\approx 124.96\,\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)
 \end{align}
-If the prefactor is alternatively formulated using the submerged buoyant sediment density $(\rho_s - \rho_w)$ rather than fluid density $\rho_w$ (with quartz sand $\rho_s \approx 2658\,\text{kg/m}^3 \implies \Delta\rho \approx 1633\,\text{kg/m}^3$):
+This is the exact numerical constant evaluated in \texttt{src/physics.py}. Alternatively, if the prefactor explicitly incorporates the submerged sediment density $\Delta\rho = \rho_s - \rho_w = (s - 1)\rho_w$ (with quartz sand $\rho_s \approx 2658\,\text{kg/m}^3$, relative submerged density $s - 1 = \frac{\rho_s - \rho_w}{\rho_w} \approx 1.593$, and $\Delta\rho \approx 1633\,\text{kg/m}^3$):
 \begin{align}
-C_{0,\text{sed}} &= \frac{(\rho_s - \rho_w) g^{3/2}}{16(2\pi)^{3/2}} = \frac{1633 \times 30.7205}{16 \times 15.7496} \nonumber \\
-                 &\approx 199.11\,\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)
+C_{0,\text{sed}} &= \frac{(\rho_s - \rho_w) g^{3/2}}{16(2\pi)^{3/2}} = (s - 1) C_0 \nonumber \\
+                 &= \frac{1633 \times 30.7205}{16 \times 15.7496} \approx 199.11\,\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)
 \end{align}
-Both expressions share the exact same SI physical dimensions:
+Both formulations share identical physical dimensions:
 \begin{align}
 [C_0] &= [M][L]^{-3} \cdot ([L][T]^{-2})^{1.5} \nonumber \\
       &= [M][L]^{-1.5}[T]^{-3} \implies \text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)
 \end{align}
-When multiplied by $\tan\beta \frac{H_s^{2.5} T_p}{w_s}$, the dimensions evaluate to:
+
+\noindent\textbf{2. Dimensional Verification with Dynamic Settling Velocity $w_s$:}
+Rather than normalizing by a static reference velocity $w_{s,\text{ref}}$, the wave-sediment core $\mathcal{K}_{\text{core}} = \tan\beta \frac{H_s^{2.5} T_p}{w_s(D_{50}, T)}$ dynamically incorporates Dietrich/Soulsby settling kinetics \cite{dietrich1982settling,soulsby1997dynamics}, capturing seasonal water temperature viscosity $\nu(T)$ and grain size $D_{50}$ in $[\text{m}/\text{s}]$. Multiplying $C_0$ by $\mathcal{K}_{\text{core}}$:
 \begin{equation}
-[\Upsilon_0] = \left[\frac{\text{kg}}{\text{m}^{1.5}\cdot\text{s}^3}\right] \times \frac{[\text{m}^{2.5}][\text{s}]}{[\text{m}/\text{s}]} = [\text{kg}/\text{s}]
+[\Upsilon_0] = \left[\frac{\text{kg}}{\text{m}^{1.5}\cdot\text{s}^3}\right] \times [-] \times \frac{[\text{m}^{2.5}][\text{s}]}{[\text{m}/\text{s}]} = [\text{kg}/\text{s}]
 \end{equation}
-confirming dimensional consistency as a sediment transport mass-energy rate. Crucially, because scale-invariant normalization divides $\Upsilon(t)$ by site reference capacity $\Upsilon_{\text{ref, site}} \propto C_0$, any constant scalar in $C_0$ cancels out identically in $\Upsilon^*(t)$, rendering the 14D invariant manifold $\mathbf{z}_{\text{physics}}$ and all downstream retrieval rankings strictly invariant to the choice between $124.96$ and $199.11$.
+confirming dimensional consistency as an instantaneous sediment-forcing mass flux rate $[\text{kg}/\text{s}]$.
+
+\noindent\textbf{3. Reconciliation with Historical Draft Notes ($199.1$ and $72.82$):}
+In earlier preliminary working notes, an alternate value of $72.82$ was cited based on deepwater wave power $P_{\text{deep}} = \frac{\rho g^2}{64\pi}$ divided by a shallow-water wave celerity scale $\sqrt{g}$, while the value $199.1\,\text{kg}\cdot\text{m}^{-1/2}\cdot\text{s}^{-2}$ was noted when substituting submerged sediment density $\Delta\rho = 1633\,\text{kg/m}^3$ under an alternative non-dimensionalization of settling velocity. The operational codebase (\texttt{src/physics.py}) rigorously standardizes on $C_0 = \frac{\rho_w g^{3/2}}{16(2\pi)^{3/2}} \approx 124.96\,\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)$.
+
+Crucially, because scale-invariant dimensional collapse normalizes $\Upsilon(t)$ by the site reference capacity $\Upsilon_{\text{ref, site}} \propto C_0$:
+\begin{equation}
+\Upsilon^*(t) = \frac{\Upsilon(t)}{\Upsilon_{\text{ref, site}}} = \frac{C_0 \tan\beta \frac{H_s^{2.5} T_p}{w_s} \prod \Psi_k}{C_0 \tan\beta_{\text{site}} \frac{\overline{H}_{s,\text{site}}^{2.5} \overline{T}_{p,\text{site}}}{w_{s,\text{site}}}}
+\end{equation}
+any constant scalar factor in $C_0$ cancels out identically in the numerator and denominator ($\Upsilon^*(t) \equiv \Upsilon_0(t) / \Upsilon_{0,\text{ref}}$). Consequently, the 14D invariant manifold $\mathbf{z}_{\text{physics}}$, the Directional Pareto ranking, and all downstream retrieval scores $\mathcal{R}(\mathbf{z}_i)$ are mathematically and numerically invariant to the choice between $124.96$ and $199.11$.
 
 \end{document}
