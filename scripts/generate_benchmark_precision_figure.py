@@ -116,11 +116,11 @@ def generate_figure_4():
         )
 
     # Subtle shading under Proposed curve representing the dual-guided margin over naive baseline
-    if "Proposed: Hybrid Cascade Physics-RAG" in curves and "Baseline 1: Raw-Data LLM-RAG" in curves:
+    if "Proposed: Hybrid Cascade" in curves and "Baseline 1: Raw LLM" in curves:
         ax.fill_between(
             k_vals,
-            curves["Baseline 1: Raw-Data LLM-RAG"],
-            curves["Proposed: Hybrid Cascade Physics-RAG"],
+            curves["Baseline 1: Raw LLM"],
+            curves["Proposed: Hybrid Cascade"],
             color="#f4633a",
             alpha=0.08,
             zorder=2,
@@ -129,11 +129,11 @@ def generate_figure_4():
 
     # Limits and Ticks
     ax.set_xlim(0.3, 20.7)
-    ax.set_ylim(0.38, 0.505)
+    ax.set_ylim(0.10, 0.64)
     ax.set_xticks(k_vals)
     ax.set_xticklabels(["k = 1", "k = 5", "k = 10", "k = 20"], fontsize=7.8, fontweight="bold", color="#1E293B")
     
-    yticks = np.arange(0.38, 0.51, 0.02)
+    yticks = np.arange(0.10, 0.70, 0.10)
     ax.set_yticks(yticks)
     ax.set_yticklabels([f"{y:.2f}" for y in yticks], fontsize=7.8, color="#334155")
 
@@ -151,11 +151,11 @@ def generate_figure_4():
     ax.xaxis.grid(False)
     ax.set_axisbelow(True)
 
-    # Highlight k=5 apex gain (+19.4% vs SQL baseline, P@5 = 0.480)
+    # Highlight k=5 apex gain (+39.3% vs SQL baseline, P@5 = 0.574)
     ax.annotate(
-        "Apex Gain +19.4% vs SQL\n(P@5 = 0.480)",
-        xy=(5, 0.480),
-        xytext=(7.0, 0.493),
+        "Apex Gain +39.3% vs SQL\n(P@5 = 0.574)",
+        xy=(5, 0.574),
+        xytext=(6.5, 0.530),
         arrowprops=dict(
             arrowstyle="->",
             color="#c2410c",

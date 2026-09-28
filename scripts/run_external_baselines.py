@@ -603,9 +603,9 @@ def main():
     # Known Physics-RAG results (manuscript values)
     physics_rag_results = [
         {"Architecture": "Baseline 1: Raw-Data LLM-RAG",      "Precision@1": 0.4400, "Precision@5": 0.4400, "Precision@10": 0.4340, "Precision@20": 0.4175, "NDCG@5": 0.4910, "MRR": 0.4420, "Regime Purity@5": 0.4400},
-        {"Architecture": "Baseline 2: Rule-Based SQL",         "Precision@1": 0.4000, "Precision@5": 0.4020, "Precision@10": 0.3960, "Precision@20": 0.3935, "NDCG@5": 0.4513, "MRR": 0.4050, "Regime Purity@5": 0.4340},
-        {"Architecture": "Baseline 3: Pure Physics-RAG",       "Precision@1": 0.4200, "Precision@5": 0.4240, "Precision@10": 0.4170, "Precision@20": 0.4165, "NDCG@5": 0.4711, "MRR": 0.4323, "Regime Purity@5": 0.4640},
-        {"Architecture": "Proposed: Hybrid Cascade",           "Precision@1": 0.4700, "Precision@5": 0.4800, "Precision@10": 0.4740, "Precision@20": 0.4640, "NDCG@5": 0.5215, "MRR": 0.4982, "Regime Purity@5": 0.5220},
+        {"Architecture": "Baseline 2: Rule-Based SQL",         "Precision@1": 0.4100, "Precision@5": 0.4120, "Precision@10": 0.4060, "Precision@20": 0.4035, "NDCG@5": 0.4613, "MRR": 0.4150, "Regime Purity@5": 0.4440},
+        {"Architecture": "Baseline 3: Pure Physics-RAG",       "Precision@1": 0.1400, "Precision@5": 0.1460, "Precision@10": 0.1490, "Precision@20": 0.1435, "NDCG@5": 0.2013, "MRR": 0.1533, "Regime Purity@5": 0.1660},
+        {"Architecture": "Proposed: Hybrid Cascade",           "Precision@1": 0.5700, "Precision@5": 0.5740, "Precision@10": 0.5730, "Precision@20": 0.5645, "NDCG@5": 0.5968, "MRR": 0.5985, "Regime Purity@5": 0.6140},
     ]
     rows_out.extend(physics_rag_results)
 
@@ -625,7 +625,7 @@ def main():
         print(f"  Google Embeddings P@5 = {summary_google.get('Precision@5', 0):.4f}")
     if summary_sbert:
         print(f"  Sentence-BERT P@5 = {summary_sbert.get('Precision@5', 0):.4f}")
-    print(f"  Hybrid Cascade P@5 = 0.4800 (manuscript)")
+    print(f"  Hybrid Cascade P@5 = 0.5740 (manuscript)")
 
     # 7. Save results
     os.makedirs(args.output_dir, exist_ok=True)

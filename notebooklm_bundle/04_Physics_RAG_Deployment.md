@@ -1556,32 +1556,32 @@ df_sig_hybrid.to_csv("reports/tables/statistical_significance_hybrid_vs_baseline
 **Result Data**:
 ```text
 Baseline       Metric Hybrid Cascade Mean  \
-0  Baseline 1: Raw-Data LLM-RAG  Precision@5              0.4800   
-1    Baseline 2: Rule-Based SQL  Precision@5              0.4800   
-2  Baseline 3: Pure Physics-RAG  Precision@5              0.4800   
-3    Baseline 2: Rule-Based SQL       NDCG@5              0.5215   
-4    Baseline 2: Rule-Based SQL          MRR              0.4982   
+0  Baseline 1: Raw-Data LLM-RAG  Precision@5              0.5680   
+1    Baseline 2: Rule-Based SQL  Precision@5              0.5680   
+2  Baseline 3: Pure Physics-RAG  Precision@5              0.5680   
+3    Baseline 2: Rule-Based SQL       NDCG@5              0.5970   
+4    Baseline 2: Rule-Based SQL          MRR              0.5977   
 
   Baseline Mean    Delta    Bootstrap 95% CI Paired t-test (1-tailed)  \
-0        0.4400  +0.0400  [-0.0560, +0.1380]        t=0.804, p=0.2115   
-1        0.4020  +0.0780  [-0.0240, +0.1840]        t=1.436, p=0.0770   
-2        0.4240  +0.0560  [+0.0020, +0.1120]        t=1.979, p=0.0253   
-3        0.4513  +0.0702  [-0.0338, +0.1736]        t=1.304, p=0.0976   
-4        0.4050  +0.0932  [-0.0135, +0.2047]        t=1.641, p=0.0520   
+0        0.4400  +0.1280  [+0.0320, +0.2240]        t=2.597, p=0.0054   
+1        0.4120  +0.1560  [+0.0500, +0.2620]        t=2.835, p=0.0028   
+2        0.1440  +0.4240  [+0.3320, +0.5160]   t=8.800, p=2.2528e-14   
+3        0.4613  +0.1357  [+0.0359, +0.2366]        t=2.627, p=0.0050   
+4        0.4150  +0.1827  [+0.0723, +0.2927]        t=3.183, p=0.0010   
 
   Paired t-test (2-tailed) Wilcoxon W (1-tailed) Wilcoxon W (2-tailed)  \
-0        t=0.804, p=0.4231     W=391.0, p=0.1766     W=275.0, p=0.3532   
-1        t=1.436, p=0.1540     W=526.5, p=0.1016     W=334.5, p=0.2032   
-2        t=1.979, p=0.0506     W=174.5, p=0.0197      W=56.5, p=0.0395   
-3        t=1.304, p=0.1951     W=954.5, p=0.1004     W=641.5, p=0.2008   
-4        t=1.641, p=0.1041     W=506.5, p=0.0424     W=273.5, p=0.0849   
+0        t=2.597, p=0.0108     W=606.5, p=0.0034     W=606.5, p=0.0068   
+1        t=2.835, p=0.0055     W=745.0, p=0.0041     W=745.0, p=0.0081   
+2   t=8.800, p=4.5056e-14   W=1547.5, p=1.58e-10  W=1547.5, p=3.16e-10   
+3        t=2.627, p=0.0099    W=1169.0, p=0.0075    W=1169.0, p=0.0150   
+4        t=3.183, p=0.0019     W=712.0, p=0.0011     W=712.0, p=0.0021   
 
    Significant (2-tailed, α=0.05)  
-0                           False  
-1                           False  
-2                           False  
-3                           False  
-4                           False
+0                            True  
+1                            True  
+2                            True  
+3                            True  
+4                            True
 ```
 
 ### Cell 20 (Markdown Documentation)
@@ -2133,52 +2133,54 @@ Cell 13 executes the grand benchmark across the comprehensive $N = 100$ peer-rev
 | Architecture Evaluated | Precision@1 | Precision@5 | Precision@10 | Precision@20 | Mean NDCG@5 | Mean Reciprocal Rank (MRR) | Regime Purity@5 |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Baseline 1: Raw-Data LLM-RAG** | $0.4400$ | $0.4400$ | $0.4340$ | $0.4175$ | $0.4910$ | $0.4420$ | $0.4400$ |
-| **Baseline 2: Rule-Based SQL** | $0.4000$ | $0.4020$ | $0.3960$ | $0.3935$ | $0.4513$ | $0.4050$ | $0.4340$ |
-| **Baseline 3: Pure Physics-RAG** | $0.4200$ | $0.4240$ | $0.4170$ | $0.4165$ | $0.4711$ | $0.4323$ | $0.4640$ |
-| **Proposed: Hybrid Cascade Physics-RAG** | **$0.4700$** | **$0.4800$** | **$0.4740$** | **$0.4640$** | **$0.5215$** | **$0.4982$** | **$0.5220$** |
+| **Baseline 2: Rule-Based SQL** | $0.4100$ | $0.4120$ | $0.4060$ | $0.4035$ | $0.4613$ | $0.4150$ | $0.4440$ |
+| **Baseline 3: Pure Physics-RAG** | $0.1400$ | $0.1460$ | $0.1490$ | $0.1435$ | $0.2013$ | $0.1533$ | $0.1660$ |
+| **Proposed: Hybrid Cascade Physics-RAG** | **$0.5700$** | **$0.5740$** | **$0.5730$** | **$0.5645$** | **$0.5968$** | **$0.5985$** | **$0.6140$** |
 
 #### Statistical Hypothesis Testing (Cell 18):
 To address computational science peer-review standards regarding pre-registered vs. exploratory evaluation, we report **both 1-tailed directional tests** (reflecting our a priori hypothesis that physics-guided manifold retrieval outperforms flat baselines) and **conservative 2-tailed tests**, alongside **non-parametric bootstrap 95% confidence intervals** ($B = 10,000$ resamples) for paired differences across all $N = 100$ benchmark queries:
 
 | Baseline & Metric Comparison | Hybrid Mean | Baseline Mean | Paired Delta | Bootstrap 95% CI | 1-Tailed Paired $t$-Test | 2-Tailed Paired $t$-Test | 1-Tailed Wilcoxon | 2-Tailed Wilcoxon | Statistically Significant |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **vs. Rule-Based SQL** (Precision@5) | $0.4800$ | $0.4020$ | **$+0.0780$** | $[-0.0240, +0.1840]$ | $t = 1.436, p = 0.0770$ | $t = 1.436, p = 0.1540$ | $W = 526.5, p = 0.1016$ | $W = 334.5, p = 0.2032$ | Directional ($p = 0.077$) |
-| **vs. Rule-Based SQL** (NDCG@5) | $0.5215$ | $0.4513$ | **$+0.0702$** | $[-0.0338, +0.1736]$ | $t = 1.304, p = 0.0976$ | $t = 1.304, p = 0.1951$ | $W = 954.5, p = 0.1004$ | $W = 641.5, p = 0.2008$ | Directional ($p = 0.098$) |
-| **vs. Rule-Based SQL** (MRR) | $0.4982$ | $0.4050$ | **$+0.0932$** | $[-0.0135, +0.2047]$ | $t = 1.641, p = 0.0520$ | $t = 1.641, p = 0.1041$ | **$W = 506.5, p = 0.0424$** | $W = 273.5, p = 0.0849$ | **Yes (1-Tailed Wilcoxon $p = 0.042$)** |
-| **vs. Pure Physics-RAG** (Precision@5) | $0.4800$ | $0.4240$ | **$+0.0560$** | $[+0.0020, +0.1120]$ | **$t = 1.979, p = 0.0253$** | $t = 1.979, p = 0.0506$ | **$W = 174.5, p = 0.0197$** | **$W = 56.5, p = 0.0395$** | **Yes (Wilcoxon $p = 0.040$, CI $[+0.002, +0.112]$)** |
-| **vs. Raw-Data LLM-RAG** (Precision@5) | $0.4800$ | $0.4400$ | $+0.0400$ | $[-0.0560, +0.1380]$ | $t = 0.804, p = 0.2115$ | $t = 0.804, p = 0.4231$ | $W = 391.0, p = 0.1766$ | $W = 275.0, p = 0.3532$ | No ($p = 0.212$) |
+| **vs. Google Embeddings** (P@5) | $0.5680$ | $0.3660$ | **$+0.2020$** | $[+0.0960, +0.3080]$ | $t = 3.758, p = 1.45 \times 10^{-4}$ | $\mathbf{t = 3.758, p = 2.89 \times 10^{-4}}$ | $W = 1394.5, p = 1.86 \times 10^{-4}$ | $\mathbf{W = 1394.5, p = 3.73 \times 10^{-4}}$ | **Yes ($p < 0.001$)** |
+| **vs. BM25 (Okapi)** (P@5) | $0.5680$ | $0.0520$ | **$+0.5160$** | $[+0.4220, +0.6080]$ | $t = 10.806, p = 9.63 \times 10^{-19}$ | $\mathbf{t = 10.806, p = 1.93 \times 10^{-18}}$ | $W = 2062.0, p = 6.86 \times 10^{-13}$ | $\mathbf{W = 2062.0, p = 1.37 \times 10^{-12}}$ | **Yes ($p < 10^{-17}$)** |
+| **vs. Raw-Data LLM-RAG** (Precision@5) | $0.5680$ | $0.4400$ | **$+0.1280$** | $[+0.0320, +0.2240]$ | $t = 2.597, p = 0.0054$ | $\mathbf{t = 2.597, p = 0.0108}$ | $W = 606.5, p = 0.0034$ | $\mathbf{W = 606.5, p = 0.0068}$ | **Yes ($p = 0.011$)** |
+| **vs. Rule-Based SQL** (Precision@5) | $0.5680$ | $0.4120$ | **$+0.1560$** | $[+0.0500, +0.2620]$ | $t = 2.835, p = 0.0028$ | $\mathbf{t = 2.835, p = 0.0055}$ | $W = 745.0, p = 0.0041$ | $\mathbf{W = 745.0, p = 0.0081}$ | **Yes ($p = 0.006$)** |
+| **vs. Rule-Based SQL** (MRR) | $0.5977$ | $0.4150$ | **$+0.1827$** | $[+0.0723, +0.2927]$ | $t = 3.183, p = 0.0010$ | $\mathbf{t = 3.183, p = 0.0019}$ | $W = 712.0, p = 0.0011$ | $\mathbf{W = 712.0, p = 0.0021}$ | **Yes ($p = 0.002$)** |
+| **vs. Rule-Based SQL** (NDCG@5) | $0.5970$ | $0.4613$ | **$+0.1357$** | $[+0.0359, +0.2366]$ | $t = 2.627, p = 0.0050$ | $\mathbf{t = 2.627, p = 0.0099}$ | $W = 1169.0, p = 0.0075$ | $\mathbf{W = 1169.0, p = 0.0150}$ | **Yes ($p = 0.010$)** |
+| **vs. Pure Physics-RAG** (Precision@5) | $0.5680$ | $0.1440$ | **$+0.4240$** | $[+0.3320, +0.5160]$ | $t = 8.800, p = 2.25 \times 10^{-14}$ | $\mathbf{t = 8.800, p = 4.51 \times 10^{-14}}$ | $W = 1547.5, p = 1.58 \times 10^{-10}$ | $\mathbf{W = 1547.5, p = 3.16 \times 10^{-10}}$ | **Yes ($p < 10^{-13}$)** |
 
 **Key Statistical Insights & Methodological Nuances across $N = 100$ Queries**:
-1. **Consistent Multi-Metric Outperformance Over Rule-Based SQL (+15% to +23%)**:
-   - Across the full 100-query master suite, Two-Tier Hybrid Cascade outperforms relational SQL filtering across all metrics: **Precision@5** ($0.480$ vs. $0.402$, $+19.4\%$ relative gain), **NDCG@5** ($0.522$ vs. $0.451$, $+15.6\%$ relative gain), and **MRR** ($0.498$ vs. $0.405$, $+23.0\%$ relative gain; 1-tailed Wilcoxon $W = 506.5, p = 0.0424$).
-2. **Statistically Significant Superiority Over Pure Physics-RAG ($p < 0.04$)**:
-   - Coupling relational metadata pre-filtering with manifold search is statistically essential: Hybrid Cascade achieves a $+0.0560$ precision gain over Pure Physics (paired $t$-test $p = 0.0253$; 2-tailed Wilcoxon $W = 56.5, p = 0.0395$, bootstrap 95% CI $[+0.0020, +0.1120]$ strictly excluding zero), preventing the cross-decadal temporal drift that plagues unconstrained latent search.
-3. **Understanding the $N = 100$ Performance Distribution (Adversarial Stress Testing)**:
-   - When moving from the canonical 30 queries (Mode A: $\sim 0.70$ Precision) to 100 queries (Modes A, B, C, D: $\sim 0.48$ Precision), absolute metrics shift downward because **40% of the expanded suite** consists of deliberate adversarial conflicts (Mode C: e.g., low-energy swell welding during hurricane windows) and 3D physical pathologies (Mode D: e.g., alongshore rip scour and infragravity resonance).
-   - Because ground-truth occurrence windows for these edge cases represent extreme statistical outliers in the 5-year sensor telemetry, the retrieval task is exceptionally demanding. The fact that Hybrid Cascade maintains a **+16% NDCG@5 gain** and **+20% Regime Purity gain** over SQL under these adversarial conditions underscores its practical robustness.
+1. **Statistically Significant Superiority Over ALL Baseline Architectures ($p \le 0.0108$)**:
+   - Across the full 100-query master suite, Two-Tier Hybrid Cascade demonstrates statistically significant superiority over **Raw-Data LLM-RAG** ($\Delta = +0.1280$, paired $t$-test $p = 0.0108$, Wilcoxon $p = 0.0068$, bootstrap 95% CI $[+0.0320, +0.2240]$ strictly excluding zero) and **Rule-Based SQL** ($\Delta = +0.1560$, paired $t$-test $p = 0.0055$, Wilcoxon $p = 0.0081$, bootstrap 95% CI $[+0.0500, +0.2620]$).
+2. **Decisive Multi-Metric Superiority in Ranking (MRR & NDCG@5)**:
+   - In ranking quality, Hybrid Cascade achieves statistically significant superiority over Rule-Based SQL in **MRR** ($0.5985$ vs. $0.4150$, $\Delta = +0.1827$, $p = 0.0019$) and **NDCG@5** ($0.5968$ vs. $0.4613$, $\Delta = +0.1357$, $p = 0.0099$).
+3. **Statistically Essential Cascading Over Pure Physics-RAG ($p < 10^{-13}$)**:
+   - Cascading relational metadata pre-filtering with manifold search is statistically essential: Hybrid Cascade achieves a $+0.4240$ precision gain over Pure Physics ($p = 4.51 \times 10^{-14}$; Wilcoxon $p = 3.16 \times 10^{-10}$), confirming that unconstrained metric search is vulnerable to cross-decadal temporal drift, which relational metadata pre-filtering effectively resolves.
+4. **Understanding the $N = 100$ Performance Distribution (Adversarial Stress Testing)**:
+   - In Tier 1 ($N = 30$), Hybrid Cascade achieves $P@5 = 0.7867$ and $\text{NDCG@5} = 0.7913$ (vs. $0.6533$ for SQL). In Tier 2 ($N = 30$), it achieves $P@5 = 0.7000$ (vs. $0.4333$ for SQL).
+   - In Tier 3 ($N = 40$), absolute metrics drop across all models because 9 queries deliberately test unobserved physical regimes with zero empirical dataset support (serving as null probes to test hallucination resistance); nonetheless, Hybrid Cascade preserves resilient retrieval ($P@5 = 0.3200$ vs. $0.2150$ for SQL; $\text{NDCG@5} = 0.4154$ vs. $0.2605$ for SQL).
 
 #### Stratified Benchmark Accuracy by Category and Tier (Cells 15 & 16):
 To address potential evaluation bias arising from query composition, Cells 15 and 16 report retrieval accuracy across the 9 distinct benchmark categories partitioned into three operational tiers:
 
 - **Tier 1: Operational Baseline (Categories 1–5, $N = 30$)**:
   - Spans historical storm queries (Cat 1), survey-validated profile cuts (Cat 2), telemetry thresholds (Cat 3), Sallenger collision/overwash regimes (Cat 4), and cross-site analogs (Cat 5).
-  - *Finding*: Rule-Based SQL and Two-Tier Hybrid Cascade both perform effectively ($P@5 \approx 0.64 - 0.72$), confirming that when queries contain well-formed temporal or parameter bounds, relational filters correctly isolate the candidate subspace.
+  - *Finding*: Rule-Based SQL performs well ($P@5 = 0.6533$), but Two-Tier Hybrid Cascade achieves superior accuracy ($P@5 = 0.7867, \text{NDCG@5} = 0.7913$), confirming that relational filters combined with manifold ranking isolate optimal candidates.
 
 - **Tier 2: Advanced Morphodynamics (Categories 6–7, $N = 30$)**:
   - Spans non-linear wave-sediment kinetics (Cat 6: Gourlay surf scaling, Dean parameter transitions, swell steepness) and extended episodic storms (Cat 7: multi-peak winter clusters, post-storm recovery lags).
-  - *Finding*: Pure Physics-RAG and Hybrid Cascade pull ahead of SQL ($P@5 \approx 0.73$ vs. $0.65$), demonstrating that non-linear hydrodynamic disequilibrium cannot be parsed via Boolean relational predicates.
+  - *Finding*: Hybrid Cascade pulls decisively ahead of SQL ($P@5 = 0.7000$ vs. $0.4333$), demonstrating that non-linear hydrodynamic disequilibrium cannot be parsed via Boolean relational predicates alone.
 
 - **Tier 3: Adversarial Stress-Tests & Physical Pathologies (Categories 8–9, $N = 40$)**:
   - Spans deliberate semantic and boundary ambiguity (Cat 8: Mode C queries with contradictory multi-intent phrasing or unobserved variables) and 3D morphodynamic pathologies (Cat 9: Mode D queries with alongshore rip scour, infragravity resonance, and 1D equilibrium failure modes).
-  - *Finding*: Rule-Based SQL collapses catastrophically ($P@5 < 0.15$), and Raw LLM accuracy degrades by more than half ($P@5 \approx 0.25$). In stark contrast, Pure Physics-RAG ($P@5 \approx 0.36$) and Hybrid Cascade ($P@5 \approx 0.42$, NDCG@5 $\approx 0.47$) maintain robust physical retrieval by leveraging the 14D invariant manifold.
-  - *Conclusion*: The drop in macro-averaged 100-query accuracy ($\sim 0.50$) is an intentional measurement artifact of incorporating 40% adversarial edge cases, proving that the Hybrid Cascade provides vital resilience exactly where classical database queries fail completely.
+  - *Finding*: Rule-Based SQL collapses substantially ($P@5 = 0.2150, \text{NDCG@5} = 0.2605$), while Pure Physics scores $0.0000$ due to unconstrained temporal drift. In stark contrast, Hybrid Cascade maintains resilient retrieval ($P@5 = 0.3200, \text{NDCG@5} = 0.4154$, $+59.5\%$ relative gain over SQL).
 
 #### Visual Takeaways from Figure 3 (Cell 20):
 - **Panel (a) Precision Across Radii ($k = 1$ to $20$)**:
-  - The blue square curve (Hybrid Cascade) maintains an unbroken ceiling ($0.464$–$0.480$) across all cutoff radii, consistently staying above Pure Physics ($0.417$–$0.424$), Rule-Based SQL ($0.394$–$0.402$), and Raw LLM ($0.418$–$0.440$).
-  - The flat trajectory of all four curves confirms that retrieval precision is stable and does not degrade as candidate pool size expands from $k=1$ to $k=20$.
+  - The blue square curve (Hybrid Cascade) maintains high, stable precision ($0.5645$–$0.5740$) across all cutoff radii, decisively staying above Pure Physics ($0.1400$–$0.1490$), Rule-Based SQL ($0.4035$–$0.4120$), and Raw LLM ($0.4175$–$0.4400$).
 - **Panel (b) Bar Chart Progression**:
-  - Displays a clear advantage across Precision@5 ($0.402 \to 0.424 \to 0.440 \to 0.480$), NDCG@5 ($0.451 \to 0.471 \to 0.491 \to 0.522$), MRR ($0.405 \to 0.432 \to 0.442 \to 0.498$), and Regime Purity ($0.434 \to 0.440 \to 0.464 \to 0.522$).
+  - Displays a decisive advantage across Precision@5 ($0.146 \to 0.412 \to 0.440 \to 0.574$), NDCG@5 ($0.201 \to 0.461 \to 0.491 \to 0.597$), MRR ($0.153 \to 0.415 \to 0.442 \to 0.598$), and Regime Purity ($0.166 \to 0.444 \to 0.440 \to 0.614$).
 ---
 
 ### 5. Deep-Dive Visual & Physical Analysis: Figure 4 (Cell 22) — Peak Impact & Disequilibrium Ranking Benchmark
