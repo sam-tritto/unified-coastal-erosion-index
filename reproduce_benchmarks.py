@@ -86,15 +86,15 @@ def run_pairwise_stats(
 def load_table_i() -> pd.DataFrame:
     """Load Table I: Grand Information Retrieval Benchmark across 100 Queries and 6 Architectures."""
     csv_paths = [
-        os.path.join(DATA_DIR, "validation_results", "external_baselines_comparison.csv"),
         os.path.join(TABLES_DIR, "grand_4way_rag_benchmark.csv"),
         os.path.join(DATA_DIR, "validation_results", "benchmark_retrieval_ablation_results.csv"),
+        os.path.join(DATA_DIR, "validation_results", "external_baselines_comparison.csv"),
     ]
     for path in csv_paths:
         if os.path.exists(path):
             df = pd.read_csv(path)
             # Normalize column formatting
-            for col in ["Precision@1", "Precision@5", "Precision@10", "Precision@20", "NDCG@5", "MRR", "Regime Purity@5"]:
+            for col in ["Precision@1", "Precision@5", "Precision@10", "Precision@20", "NDCG@5", "Mean NDCG@5", "MRR", "Regime Purity@5"]:
                 if col in df.columns:
                     df[col] = df[col].apply(lambda v: f"{float(v):.4f}" if pd.notnull(v) and str(v) != "" else "N/A")
             return df
