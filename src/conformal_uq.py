@@ -185,15 +185,19 @@ class ConformalizedQuantileRegressor:
         self.q_conformal: float = 0.0
         self.calibration_scores: Optional[np.ndarray] = None
         self.is_calibrated: bool = False
+        self.feature_medians_: Optional[pd.Series] = None
 
-    def _prepare_features(self, df: pd.DataFrame) -> Tuple[np.ndarray, List[str]]:
-        """Extract and clean feature matrix from DataFrame."""
+    def _prepare_features(self, df: pd.DataFrame, is_train: bool = False) -> Tuple[np.ndarray, List[str]]:
+        """Extract and clean feature matrix from DataFrame, strictly preventing median leakage."""
         available_cols = [c for c in self.feature_cols if c in df.columns]
         if not available_cols:
             raise ValueError(f"None of the required feature columns {self.feature_cols} exist in DataFrame.")
 
         X = df[available_cols].copy()
-        X = X.fillna(X.median(numeric_only=True)).fillna(0.0).values
+        if is_train or self.feature_medians_ is None:
+            self.feature_medians_ = X.median(numeric_only=True)
+        
+        X = X.fillna(self.feature_medians_).fillna(0.0).values
         return X, available_cols
 
     def fit(self, train_df: pd.DataFrame, target_col: Optional[str] = None) -> "ConformalizedQuantileRegressor":
@@ -204,7 +208,7 @@ class ConformalizedQuantileRegressor:
         if self.target_col not in train_df.columns:
             raise ValueError(f"Target column '{self.target_col}' not found in training DataFrame.")
 
-        X, used_cols = self._prepare_features(train_df)
+        X, used_cols = self._prepare_features(train_df, is_train=True)
         self.feature_cols = used_cols
         y = train_df[self.target_col].fillna(0.0).values
 

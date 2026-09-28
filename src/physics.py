@@ -641,7 +641,7 @@ def compute_tidal_smearing_factor(
     """
     tr_arr = np.maximum(np.asarray(tide_range_m, dtype=float), 0.0)
     hs_arr = np.maximum(np.asarray(hs, dtype=float), 0.05)
-    psi = 1.0 / (1.0 + (tr_arr / (2.0 * hs_arr)))
+    psi = np.clip(1.0 / (1.0 + (tr_arr / (2.0 * hs_arr))), 0.0, 1.0)
     if np.isscalar(tide_range_m) and np.isscalar(hs):
         return float(psi)
     return psi
@@ -690,9 +690,9 @@ def compute_instantaneous_tide_phase_factor(
     safe_semi = np.where(is_micro, 1.0, semi_amp)
     norm_tide = np.where(is_micro, 0.0, (tide_arr - float(msl_m)) / safe_semi)
 
-    # Base bracket: [ (eta - MSL)/(TR/2) + 1 ] clipped at 0.0
+    # Base bracket: [ (eta - MSL)/(TR/2) + 1 ] clipped at 0.0, with safe upper ceiling [0, 10.0]
     base_bracket = np.maximum(0.0, norm_tide + 1.0)
-    psi = base_bracket ** float(p)
+    psi = np.clip(base_bracket ** float(p), 0.0, 10.0)
 
     if np.isscalar(tide) and np.isscalar(tide_range_m):
         return float(psi)
@@ -2767,11 +2767,13 @@ def compute_unified_coastal_vulnerability_index(
     prefactor = (rho * (g ** 1.5)) / (16.0 * (tau ** 1.5))
     wave_sed_core = ( (np.maximum(hs_eff, 0.01) ** n_exp) * np.maximum(tp_arr, 0.1) ) / ws
     
-    # 10. Decoupled Non-Dimensional TWL Amplification Factor
-    twl_amplification = (
+    # 10. Decoupled Non-Dimensional TWL Amplification Factor (with safe upper ceiling)
+    twl_amplification = np.clip(
         1.0
         + np.maximum(surge_arr / max(s_ref, 1e-3), 0.0)
-        + np.maximum(r_2 / max(r_ref, 1e-3), 0.0)
+        + np.maximum(r_2 / max(r_ref, 1e-3), 0.0),
+        1.0,
+        20.0
     )
     
     # 11. Projected Asymmetric Wind Stress Amplification Factor

@@ -65,12 +65,9 @@ def load_stratified_chronological_splits() -> Tuple[pd.DataFrame, pd.DataFrame, 
     site_test_dfs = {}
     for s in SITES:
         sub = df_global[df_global["site"] == s].sort_values("timestamp")
-        n_s = len(sub)
-        n_tr = int(n_s * 0.60)
-        n_ca = int(n_s * 0.20)
-        tr = sub.iloc[:n_tr]
-        ca = sub.iloc[n_tr:n_tr + n_ca]
-        te = sub.iloc[n_tr + n_ca:]
+        tr = sub[sub["timestamp"].dt.year <= 2014]
+        ca = sub[sub["timestamp"].dt.year == 2015]
+        te = sub[sub["timestamp"].dt.year == 2016]
         train_parts.append(tr)
         cal_parts.append(ca)
         test_parts.append(te)

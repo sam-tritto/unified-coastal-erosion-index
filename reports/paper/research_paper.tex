@@ -449,7 +449,9 @@ Evaluating retrieved wave power and temporal synchronization reveals the critica
 \end{figure*}
 
 \subsection{Multi-Site Stratified Empirical Validation}
-To evaluate the Conformalized Quantile Regression engine under real-world non-exchangeable conditions, we executed out-of-sample validation across the entire 2016 holdout split spanning $N = 35{,}084$ contiguous hourly records across all four global archetypes (Table~\ref{tab:cqr_validation}, Fig.~\ref{fig:conformal_uq}a).
+To evaluate the Conformalized Quantile Regression engine under real-world conditions, we executed out-of-sample validation across the entire 2016 holdout split spanning $N = 35{,}084$ contiguous hourly records across all four global archetypes (Table~\ref{tab:cqr_validation}, Fig.~\ref{fig:conformal_uq}a). 
+While classical split conformal prediction theory guarantees marginal finite-sample validity ($\mathbb{P}(Y_{n+1} \in \mathcal{C}(X_{n+1})) \ge 1 - \alpha$) under data exchangeability, real-world coastal hydrodynamic telemetry exhibits temporal autocorrelation and non-stationary seasonal drifts that violate strict exchangeability \cite{barber2023conformal}. 
+Nevertheless, our causal chronological partitioning (training on 2012--2014, calibrating on 2015, and testing on 2016) demonstrates empirical out-of-sample coverage of $91.2\%$, exceeding the nominal $90.0\%$ target while preserving high local conditional fidelity across both calm swash regimes and catastrophic storm surges.
 
 \begin{table}[htbp]
 \caption{CONFORMALIZED QUANTILE REGRESSION (CQR): OUT-OF-SAMPLE VALIDATION \& DYNAMIC VOLATILITY ADAPTATION}
@@ -596,6 +598,8 @@ Decoupling conservation invariants ($\mathcal{M}_{\text{inv}}$) from a high-thro
 
 \subsection{OSSE Benchmark Formulation}
 To evaluate neural architectures without observational sparsity ($N = 1,228$ discrete surveys) or unmeasured lateral fluxes, we formulated an Observing System Simulation Experiment (OSSE) \cite{atlas1997osse}: (i)~\textbf{Hydrodynamic Boundary Forcing}: 100\% authentic multi-year institutional sensor records (2012--2016 golden window, $N = 43,848$ contiguous hours per site) capturing authentic storm sequencing, peak wave power, and surge dynamics; and (ii)~\textbf{Closed Synthetic Nature Run}: continuous reference trajectory generated via a non-linear wave-energy equilibrium differential operator \cite{yates2009equilibrium} driven by real wave energy flux plus synthetic measurement noise ($\sigma = 0.25\,\text{m}$).
+
+Importantly, this constitutes a \emph{fraternal twin} rather than an \emph{identical twin} OSSE framework: whereas the synthetic nature run is governed by an empirical equilibrium differential operator subjected to additive Gaussian observation noise, the candidate neural architectures possess no structural or parametric knowledge of this underlying ODE, operating purely on high-dimensional raw hydrodynamics or non-linear invariant dimensionless groups under unconstrained multi-layer perceptron parameterizations.
 
 In classical data assimilation theory \cite{charney1969osse,atlas1997osse}, an OSSE nature run establishes an \emph{analytically knowable reference frame} to stress-test whether architectures accumulate compounding drift over 72-hour autonomous storm rollouts and whether asymmetric soft-penalties ($\mathcal{L}_{\text{PINN}}$) suppress unphysical fair-weather accretion during peak wave power.
 
