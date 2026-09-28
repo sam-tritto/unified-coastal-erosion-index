@@ -1,5 +1,5 @@
 Architecture,Precision@1,Precision@5,Precision@10,Precision@20,Mean NDCG@5,MRR,Regime Purity@5
 Baseline 1: Raw-Data LLM-RAG,0.44,0.44,0.434,0.4175,0.491,0.442,0.44
 Baseline 2: Rule-Based SQL,0.41,0.412,0.406,0.4035,0.4613,0.415,0.444
-Baseline 3: Pure Physics-RAG,0.15,0.144,0.14,0.139,0.2008,0.1628,0.164
-Proposed: Two-Tier Hybrid Cascade,0.57,0.57,0.575,0.5655,0.5943,0.5972,0.612
+Baseline 3: Pure Physics-RAG,0.14,0.146,0.149,0.1435,0.2013,0.1533,0.166
+Proposed: Two-Tier Hybrid Cascade,0.57,0.574,0.573,0.5645,0.5968,0.5985,0.614

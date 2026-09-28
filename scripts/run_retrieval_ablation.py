@@ -92,12 +92,12 @@ def main():
     df_global = load_unified_5year_dataset()
     print(f"  ✓ Ingested {len(df_global):,} contiguous hourly records across {len(SITES)} global archetypes.")
 
-    # 2. Extract 14D Invariant Feature Matrix
-    print("\n[2/4] Extracting 14D physics-anchored invariant feature matrix...")
     X_physics, physics_feat_names = build_physics_anchored_feature_matrix(df_global)
-    robust_scaler = RobustScaler().fit(X_physics)
+    # Causal Splitting: Fit scaler strictly on training split (2012-2014) to eliminate test distribution leakage
+    train_mask = df_global["timestamp"].dt.year <= 2014 if "timestamp" in df_global.columns else np.ones(len(df_global), dtype=bool)
+    robust_scaler = RobustScaler().fit(X_physics[train_mask])
     X_physics_scaled = robust_scaler.transform(X_physics)
-    print(f"  ✓ 14D Invariant Matrix: {X_physics_scaled.shape[0]:,} records x {X_physics_scaled.shape[1]} dimensions.")
+    print(f"  ✓ 14D Invariant Matrix: {X_physics_scaled.shape[0]:,} records x {X_physics_scaled.shape[1]} dimensions (Scaler fitted on N={train_mask.sum():,} train records).")
 
     # 3. Instantiate RAG Engines
     print("\n[3/4] Initializing candidate retrieval architectures...")

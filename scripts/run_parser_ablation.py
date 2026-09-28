@@ -231,7 +231,9 @@ for site_key, ppath in parquet_paths.items():
 if data_frames:
     df_global = pd.concat(data_frames, ignore_index=True)
     X_physics, physics_feat_names = build_physics_anchored_feature_matrix(df_global)
-    robust_scaler = RobustScaler().fit(X_physics)
+    # Causal Splitting: Fit scaler strictly on training split (2012-2014) to eliminate test distribution leakage
+    train_mask = df_global["timestamp"].dt.year <= 2014 if "timestamp" in df_global.columns else np.ones(len(df_global), dtype=bool)
+    robust_scaler = RobustScaler().fit(X_physics[train_mask])
     X_scaled = robust_scaler.transform(X_physics)
 
     phys_rag = PhysicsRAG(

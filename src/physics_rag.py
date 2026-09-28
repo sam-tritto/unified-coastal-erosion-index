@@ -1685,7 +1685,19 @@ class PhysicsRAG:
                     X_raw, _ = build_physics_anchored_feature_matrix(self.df)
                 scaler_type = self.scaler_meta.get("scaler_type", "robust")
                 scaler_obj = RobustScaler() if scaler_type == "robust" else StandardScaler()
-                scaler_obj.fit(X_raw)
+                # Causal Splitting: Fit scaler strictly on training split (2012-2014) to prevent test leakage
+                if "timestamp" in self.df.columns:
+                    try:
+                        ts_series = pd.to_datetime(self.df["timestamp"], utc=True)
+                        train_mask = (ts_series.dt.year <= 2014).values
+                        if train_mask.sum() > 0:
+                            scaler_obj.fit(X_raw[train_mask])
+                        else:
+                            scaler_obj.fit(X_raw)
+                    except Exception:
+                        scaler_obj.fit(X_raw)
+                else:
+                    scaler_obj.fit(X_raw)
                 self.scaler = scaler_obj
                 self.scaler_meta["scaler"] = scaler_obj
             except Exception:
