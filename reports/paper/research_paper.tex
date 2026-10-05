@@ -181,7 +181,7 @@ s_0 = H_s / L_0
 \end{bmatrix}^T
 \label{eq:14d_manifold}
 \end{equation}
-where $\Omega = H_s / (w_s T_p)$ is the dimensionless Dean number \cite{wright1984morphodynamic}, $\xi = \tan\beta / \sqrt{H_s/L_0}$ is the Iribarren surf similarity parameter \cite{battjes1974surf}, $\text{TWL} = \eta_{\text{tide}} + \eta_{\text{surge}} + R_{2\%}$ is Total Water Level incorporating wave runup \cite{stockdon2006empirical}, and $\mathcal{I}_{\text{Sallenger}} \in [1, 4]$ parameterizes Sallenger storm impact regimes (Swash, Collision, Overwash, Inundation) \cite{sallenger2000storm}.
+where $\Omega = H_s / (w_s T_p)$ is the dimensionless Dean number \cite{wright1984morphodynamic}, $\xi = \tan\beta / \sqrt{H_s/L_0}$ is the Iribarren surf similarity parameter \cite{battjes1974surf}, $\text{TWL} = \eta_{\text{tide}} + \eta_{\text{surge}} + R_{2\%}$ is Total Water Level incorporating wave runup \cite{stockdon2006empirical}, and $\mathcal{I}_{\text{Sallenger}} \in [1, 4]$ parameterizes Sallenger storm impact regimes (Swash, Collision, Overwash, Inundation) \cite{sallenger2000storm} (the complete operational equations, units, and physical mechanics across all 14 dimensions are summarized in Table~\ref{tab:14d_manifold_table}).
 
 \subsection{Conformalized Quantile Regression (CQR) Formulation}
 To provide finite-sample, distribution-free uncertainty guarantees for continuous physical hazards, we integrate Conformalized Quantile Regression (CQR) \cite{vovk2005algorithmic,romano2019conformalized,angelopoulos2021gentle}. For a user-specified miscoverage rate $\alpha \in (0, 1)$ (e.g., $\alpha = 0.10$ for a $90\%$ confidence envelope), we train conditional quantile regressors $\hat{q}_{\tau}(\mathbf{x})$ targeting the lower quantile $\tau_{\text{lo}} = \alpha / 2$, median $\tau_{\text{med}} = 0.50$, and upper quantile $\tau_{\text{hi}} = 1 - \alpha / 2$.
@@ -658,10 +658,10 @@ As reported in Table~\ref{tab:sciml_matrix}, the OSSE benchmark exposes a profou
     \item \textbf{Dual Synergy (Model D):} Uniting both representations yields lowest overall multi-site test RMSE ($0.509\,\text{m}$).
 \end{itemize}
 
-\section{Harmonized Notation \& Continuous Modulators of the Unified Index ($\Upsilon$)}
+\section{Harmonized Notation \& Continuous Modulators of the Unified Index ($\Upsilon$) and 14D State Manifold ($\mathbf{z}_{\text{physics}}$)}
 \label{sec:appendix_modulators}
 
-To provide complete mathematical and operational fidelity, Table~\ref{tab:reconciliation_table} presents the definitive operational equations, units, physical mechanisms, and asymptotic regimes across all continuous components of $\Upsilon$.
+To provide complete mathematical and operational fidelity, Table~\ref{tab:reconciliation_table} compiles the definitive operational equations, units, physical mechanisms, and asymptotic regimes across all continuous modulators of the Unified Index ($\Upsilon$), while Table~\ref{tab:14d_manifold_table} details the operational formulations, physical mechanisms, and asymptotic regimes for each dimension of the 14-dimensional invariant state manifold ($\mathbf{z}_{\text{physics}}$), including the Iribarren surf similarity parameter ($\xi$).
 
 \begin{table*}[t]
 \caption{SYSTEMATIC COMPILATION OF OPERATIONAL EQUATIONS, UNITS, AND ASYMPTOTIC REGIMES FOR ALL COMPONENTS OF THE UNIFIED INDEX ($\Upsilon$)}
@@ -672,17 +672,45 @@ To provide complete mathematical and operational fidelity, Table~\ref{tab:reconc
 \toprule
 \textbf{Component} & \textbf{Symbol} & \textbf{SI Units} & \textbf{Operational Eq.} & \textbf{Physical Mechanism \& Asymptotic Regimes} \\
 \midrule
-Dimensional Prefactor & $C_0$ & $\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)$ & $\frac{\rho_w g^{3/2}}{16 (2\pi)^{3/2}} \approx 124.96$ & Derived from wave power $P_{\text{deep}} = \frac{\rho g^2}{64\pi} H_s^2 T_p$ normalized across shallow breaker zone; evaluates to $124.96$ with fluid $\rho_w = 1025$ or $199.11$ with buoyant sediment $\rho_s - \rho_w = 1633\,\text{kg/m}^3$. \\
+Dimensional Prefactor & $C_0$ & $\text{kg}/(\text{m}^{1.5}\cdot\text{s}^3)$ & $\frac{\rho_w g^{3/2}}{16 (2\pi)^{3/2}} \approx 124.96$ & Derived from deepwater wave energy flux $P_{\text{deep}} = \frac{\rho g^2}{64\pi} H_s^2 T_p$ normalized across shallow breaker zone; evaluates to $124.96$ with seawater $\rho_w = 1025\,\text{kg/m}^3$ or $199.11$ with submerged quartz density $\rho_s - \rho_w = 1633\,\text{kg/m}^3$. \\
 Wave-Sediment Core & $\mathcal{K}_{\text{core}}$ & $\text{m}^{1.5}\cdot\text{s}^2$ & $\tan\beta \frac{H_s^{2.5} T_p}{w_s(D_{50}, T)}$ & Combines Dean-type suspension scaling with foreshore beach slope and Dietrich/Soulsby dynamic temperature-dependent settling velocity. \\
 Decoupled TWL Elevation & $\text{TWL}_{\text{amp}}$ & $[-]$ & $1 + \frac{\max(0, \eta_{\text{surge}})}{s_{\text{ref}}} + \frac{\max(0, R_{2\%})}{r_{\text{ref}}}$ & Decouples barometric/wind storm surge ($s_{\text{ref}} = 1.0\,\text{m}$) from infragravity wave runup ($r_{\text{ref}} = 2.0\,\text{m}$); guarantees monotonic TWL elevation bonus. \\
 Tidal Energy Smearing & $\Psi_{\text{tide}}$ & $[-]$ & $\left(1 + \frac{\text{TR}}{2 \max(0.5, H_s)}\right)^{-1}$ & Microtidal limit ($\text{TR} \to 0 \implies \Psi_{\text{tide}} \to 1.0$, concentrated berm attack); Macrotidal limit ($\text{TR} \gg H_s \implies \Psi_{\text{tide}} \ll 1.0$, 100m+ intertidal dissipation sweep). Strictly bounded in $[0, 1]$. \\
 High-Tide Energy Gating & $\Psi_{\text{phase}}$ & $[-]$ & $\min\left(10, \left[\frac{\eta_{\text{tide}} - \text{MSL}}{\text{TR}/2} + 1\right]^p\right)$ & Concentrates wave power during high tide ($\Psi_{\text{phase}} \to 2^p$); extinguishes upper-beach work during low tide ($\Psi_{\text{phase}} \to 0$); clamped at $a_{\max}=10.0$ to eliminate surge explosion. \\
 Directional Wave Alignment & $\Psi_{\text{dir}}$ & $[-]$ & $\max\left(0, \cos(\theta_{\text{wave}} - \theta_{\text{shore}})\right)^2$ & Matches shore-normal radiation stress component $S_{xx} \propto E \cos^2\theta_{\text{rel}}$; rectifies sheltered/offshore wave directions ($|\theta_{\text{rel}}| \ge 90^\circ$) to zero. \\
-Asymmetric Wind Stress & $\Psi_{\text{wind}}$ & $[-]$ & $1 + \min\left(c_{\text{on}}\left(\frac{W_a}{W_{\text{ref}}}\right)^2, w_b\right)$ & Onshore winds ($W_a \ge 0$, $c_{\text{on}}=1.0$) force setup and crest destabilization; offshore winds ($W_a < 0$, $c_{\text{off}}=0.5$) flatten wave steepness with attenuated impact. \\
+Asymmetric Wind Stress & $\Psi_{\text{wind}}$ & $[-]$ & $1 + \operatorname{sgn}(W_a)\min\left(c\left(\frac{|W_a|}{W_{\text{ref}}}\right)^2, w_b\right)$ & Onshore winds ($W_a \ge 0$, $c_{\text{on}}=1.0$) force setup and crest destabilization; offshore winds ($W_a < 0$, $c_{\text{off}}=0.5$) flatten wave steepness with attenuated impact. \\
 Alongshore Transport Divergence & $\Phi_{\text{longshore}}$ & $[-]$ & $\sin\left(2(\theta_{\text{wave}} - \theta_{\text{shore}})\right)$ & Oblique radiation stress $S_{xy}$ driving alongshore transport divergence; couples into 2D embayment rotation $\Delta X_{\text{net}}$ and 14D state manifold $\mathbf{z}_{\text{physics}}$. \\
 Reef Dissipation Filter & $\Psi_{\text{reef}}$ & $[-]$ & $\min\left(1, \frac{\gamma_b h_r(t)}{H_0}\right) \exp\left(-\frac{c_f W_r}{h_r(t)}\right)$ & Depth-limited breaking at reef crest ($K_c$) and turbulent bore friction over coral flats ($K_f$) across reef-fronted archetypes ($h_r = 0 \implies \Psi_{\text{reef}} = 0$). \\
 Critical Shear Activation & $\Upsilon_{\text{excess}}$ & $\text{kg}/\text{s}$ & $\max\left(0, \Upsilon - \Upsilon_{\text{crit}}(\tan\beta, D_{50})\right)$ & Shields/Soulsby incipient sediment motion threshold: $\Upsilon_{\text{crit}} = \Upsilon_{\text{crit},0} (D_{50}/D_{\text{ref}})^a (\tan\beta/\tan\beta_{\text{ref}})^b$; filters fair-weather noise. \\
 Scale-Invariant Normalized Flux & $\Upsilon^*$ & $[-]$ & $\Upsilon / \Upsilon_{\text{ref, site}}$ & Normalizes dimensional $[\text{kg}/\text{s}]$ flux by annual mean site capacity $\Upsilon_{\text{ref}}$, collapsing all global archetypes to a universal distribution ($\Upsilon^* \approx 1.0$). \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\begin{table*}[t]
+\caption{SYSTEMATIC COMPILATION OF OPERATIONAL FORMULATIONS, UNITS, AND ASYMPTOTIC REGIMES FOR THE 14-DIMENSIONAL PHYSICAL INVARIANT STATE MANIFOLD ($\mathbf{z}_{\text{physics}}$)}
+\label{tab:14d_manifold_table}
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccp{5.5cm}p{9.0cm}}
+\toprule
+\textbf{Manifold Dimension} & \textbf{Symbol} & \textbf{SI Units} & \textbf{Operational Eq.} & \textbf{Physical Mechanism \& Asymptotic Regimes} \\
+\midrule
+$z_1$: Log Kinetic Energy Flux & $\log_{10}(\Upsilon + 1)$ & $[-]$ & $\log_{10}\left(\Upsilon + 1\right)$ & Log-transformed kinetic mass flux compressing 4 orders of magnitude of wave-surge-tide work into linear scale. \\
+$z_2$: Log Dean Parameter & $\log_{10}(\Omega)$ & $[-]$ & $\log_{10}\left(\frac{H_s}{w_s(D_{50}, T) T_p}\right)$ & Dimensionless fall velocity governing morphodynamic beach profile state: reflective steep beach ($\Omega < 1.0$) vs. dissipative bar ($\Omega > 6.0$). \\
+$z_3$: Iribarren Number & $\xi$ & $[-]$ & $\frac{\tan\beta}{\sqrt{H_s / L_0}} = \frac{\tan\beta \sqrt{g}}{\sqrt{2\pi H_s}/T_p}$ & Surf similarity parameter governing breaker dissipation regimes: spilling ($\xi < 0.5$), plunging ($0.5 \le \xi < 1.0$), collapsing/surging ($\xi \ge 1.0$). \\
+$z_4$: Relative Water Level & $\text{TWL} / Z_{\text{crest}}$ & $[-]$ & $\frac{\eta_{\text{tide}} + \eta_{\text{surge}} + R_{2\%}}{Z_{\text{crest}}}$ & Dynamic water level (including infragravity swash $R_{2\%}$) normalized by dune crest; values $> 1.0$ indicate overwash or catastrophic inundation. \\
+$z_5$: Sallenger Storm Regime & $\mathcal{I}_{\text{Sallenger}}$ & $[-]$ & Categorical index $\in \{1, 2, 3, 4\}$ & Discrete Sallenger impact regimes: 1 (Swash), 2 (Collision), 3 (Overwash), 4 (Inundation), parameterizing dune toe gouging. \\
+$z_6$: Alongshore Divergence & $\Phi_{\text{longshore}}$ & $[-]$ & $\sin\left(2(\theta_{\text{wave}} - \theta_{\text{shore}})\right)$ & Oblique radiation stress $S_{xy}$ driving alongshore transport gradients and headland beach rotation across bounded embayments. \\
+$z_7$: Cross-Shore Radiation Stress & $\tilde{S}_{xx}$ & $[-]$ & $S_{xx} / (\rho_w g H_s^2) \approx \frac{1}{16}(1 + \cos^2\theta_{\text{rel}})$ & Dimensionless shore-normal radiation stress driving wave setup, surf zone set-down, and undertow return currents. \\
+$z_8$: Shear Radiation Stress & $\tilde{S}_{xy}$ & $[-]$ & $S_{xy} / (\rho_w g H_s^2) \approx \frac{1}{32}\sin(2\theta_{\text{rel}})$ & Dimensionless cross-shore flux of alongshore momentum driving surf zone longshore current acceleration and rip cells. \\
+$z_9$: Tidal Energy Smearing & $\Psi_{\text{tide}}$ & $[-]$ & $\left(1 + \frac{\text{TR}}{2\max(0.5, H_s)}\right)^{-1}$ & Attenuates acute foreshore work across wide macrotidal sweeps ($\Psi_{\text{tide}} \to 0.2$) vs. microtidal focuses ($\Psi_{\text{tide}} \to 1.0$). \\
+$z_{10}$: Asymmetric Wind Stress & $\Psi_{\text{wind}}$ & $[-]$ & $1 + \operatorname{sgn}(W_a)\min\left(c\left(\frac{|W_a|}{W_{\text{ref}}}\right)^2, w_b\right)$ & Modulates breaker steepness and spray setup under onshore ($W_a \ge 0$, $c_{\text{on}}=1.0$) vs. offshore ($W_a < 0$, $c_{\text{off}}=0.5$) winds. \\
+$z_{11}$: Disequilibrium Anomaly & $\Delta\Upsilon^*$ & $[-]$ & $(\Upsilon(t) - \Upsilon_{\text{eq, site}}) / \Upsilon_{\text{crit, site}}$ & Instantaneous kinetic departure from multi-year site equilibrium; positive excursions trigger acute volumetric scarping. \\
+$z_{12}$: Dissipation Fraction & $\tilde{P}_{\text{dissip}}$ & $[-]$ & $\Delta P_{\text{dissip}} / P_{\text{total}} = 1 - \Psi_{\text{reef}}$ & Fraction of incident wave power dissipated over bathymetric reefs, barrier shoals, and dissipative surf zones. \\
+$z_{13}$: Storm Cumulative Work & $\log_{10}(E_{\text{work}}+1)$ & $[-]$ & $\log_{10}\left(\int_{t_0}^t \Upsilon_{\text{excess}}(t')\,dt' + 1\right)$ & Time-integrated kinetic energy delivered across consecutive storm hours; captures multi-storm cluster fatigue and hysteresis. \\
+$z_{14}$: Deepwater Wave Steepness & $s_0$ & $[-]$ & $H_s / L_0 = \frac{2\pi H_s}{g T_p^2}$ & Fundamental wave geometry separating erosive, steep young sea waves ($s_0 > 0.04$) from reflective, long-period swell ($s_0 < 0.015$). \\
 \bottomrule
 \end{tabular}%
 }
