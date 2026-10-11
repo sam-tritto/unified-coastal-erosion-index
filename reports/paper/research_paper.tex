@@ -9,6 +9,18 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{microtype}
+\usepackage{url}
+\usepackage[
+    colorlinks=true,
+    linkcolor=blue!75!black,
+    citecolor=blue!75!black,
+    urlcolor=blue!75!black,
+    bookmarks=true,
+    pdfstartview={FitH},
+    pdfauthor={Sam Tritto},
+    pdftitle={Physics-RAG: Invariant Latent Manifolds, Conformal Uncertainty Quantification, and Hierarchical Cascade Retrieval for Continuous Physical Systems},
+    pdfkeywords={Scientific Machine Learning, Retrieval-Augmented Generation, Conformal Prediction, Uncertainty Quantification, Physics-Informed Neural Networks, Latent Manifolds, Dynamical Systems, Coastal Morphodynamics}
+]{hyperref}
 
 \graphicspath{{../figures/}{figures/}}
 
@@ -20,10 +32,10 @@
 \title{Physics-RAG: Invariant Latent Manifolds, Conformal Uncertainty Quantification, and Hierarchical Cascade Retrieval for Continuous Physical Systems}
 
 \author{Sam~Tritto%
-\thanks{Manuscript submitted September 2026. S. Tritto is with OneStone LLC, Richmond, VA, USA (e-mail: mr.sam.tritto@gmail.com). Code and benchmarks are openly accessible at https://github.com/sam-tritto/unified-coastal-erosion-index.}%
+\thanks{This work has been submitted to the IEEE for possible publication. Copyright may be transferred without notice. Preprint posted October 2026. S. Tritto is with OneStone LLC, Richmond, VA, USA (e-mail: mr.sam.tritto@gmail.com). Code, data, and benchmarks are openly accessible at \url{https://github.com/sam-tritto/unified-coastal-erosion-index}.}%
 }
 
-\markboth{IEEE Transactions on Neural Networks and Learning Systems,~Vol.~XX, No.~XX,~2026}%
+\markboth{Preprint submitted to TechRxiv / IEEE,~October~2026}%
 {Tritto: Physics-RAG: Invariant Latent Manifolds and Conformal Uncertainty Quantification}
 
 \maketitle
@@ -105,7 +117,7 @@ To eliminate site-specific heuristic branches, every observatory is parameterize
 \end{equation}
 where $\tan\beta$ is the intertidal foreshore beach slope, $D_{50}$ is median sediment grain diameter ($\text{m}$) dictating settling velocity $w_s(D_{50}, T)$ via Dietrich formulations \cite{dietrich1982settling}, $\text{TR}$ is mean spring astronomical tidal range ($\text{m}$), $\theta_{\text{shore}}$ is shore-normal azimuth (degrees relative to True North), $Z_{\text{crest}}$ is subaerial berm/dune crest elevation relative to MHW ($\text{m}$), and $\sigma_{\text{shelter}} \in [0, 1]$ is a directional wave sheltering coefficient.
 
-\subsubsection{The Unified Kinetic Erosion Index ($\Upsilon$)}
+\subsubsection{The Unified Kinetic Erosion Index \texorpdfstring{($\Upsilon$)}{(Upsilon)}}
 Rather than feeding uncoupled sensor scalars to neural architectures, we formulate the Unified Kinetic Erosion Index ($\Upsilon$, designated across operational frameworks and software distributions as the Unified Coastal Erosion Index or Unified Coastal Vulnerability Index) as a closed-form dimensional mass-energy kinetic flux rate in SI units of $[\text{kg}/\text{s}]$:
 \begin{multline}
 \Upsilon = \left( \frac{\rho_w g^{\frac{3}{2}}}{16 (2\pi)^{\frac{3}{2}}} \tan\beta \frac{H_s^n T_p}{w_s(D_{50}, T)} \right) \\
@@ -160,7 +172,7 @@ Across global archetypes, raw baseline kinetic forcing varies by over an order o
 \end{equation}
 As shown in Fig.~\ref{fig:morphodynamic_regimes}d, this normalization achieves an exact scale-invariant collapse: all four global archetypes align to a universal dimensionless distribution centered at $\Upsilon^* \approx 1.0$ (IQR $\in [0.2, 1.2]$).
 
-\subsubsection{The 14-Dimensional State Manifold ($\mathbf{z}_{\text{physics}}$)}
+\subsubsection{The 14-Dimensional State Manifold \texorpdfstring{($\mathbf{z}_{\text{physics}}$)}{(z-physics)}}
 Each hourly observation across the multi-site golden window ($N = 175,392$ hours) is projected into a continuous 14-dimensional state vector $\mathbf{z}_{\text{physics}} \in \mathbb{R}^{14}$:
 \begin{equation}
 \mathbf{z}_{\text{physics}} = \begin{bmatrix} 
@@ -284,7 +296,7 @@ where $[x]_+ = \max(0, x)$. Setting $\alpha = 0.35$ and $\beta = 0.20$ converts 
 To evaluate sensitivity to the Directional Pareto weighting coefficients and refute potential hyperparameter overfitting critiques, we conducted a systematic 2D grid ablation over $\alpha \in [0.10, 0.90]$ (6 increments) and $\beta \in [0.00, 0.50]$ (6 increments) across all $N = 100$ operational queries ($36$ discrete evaluation nodes over $175{,}392$ records), as shown in Fig.~\ref{fig:hyperparam_sensitivity}. 
 The resulting response surface exhibits remarkable topological stability: Precision@5 spans a narrow, convex band from $0.5680$ to $0.5860$ ($\text{mean} = 0.5757 \pm 0.0062$), and NDCG@5 spans from $0.5897$ to $0.6162$ ($\text{mean} = 0.6015 \pm 0.0105$). Even under the most degenerate boundary setting ($\alpha = 0.10, \beta = 0.00$), Precision@5 remains at $0.5760$, decisively outperforming all baseline architectures (Google Dense Embeddings at $0.3660$, BM25 at $0.0520$, Raw LLM-RAG at $0.4400$). The operational selection ($\alpha = 0.35, \beta = 0.20$) sits centrally within this broad stability plateau, demonstrating that retrieval performance is governed by the structural physics of the invariant manifold rather than sensitive parameter tuning.
 
-\subsection{Continuous Dynamical Sequence Hydration ($\pm 72\text{h}$)}
+\subsection{Continuous Dynamical Sequence Hydration \texorpdfstring{($\pm 72\text{h}$)}{(+/- 72h)}}
 Physical media exhibit extensive memory. Storm-induced damage is dictated not merely by instantaneous peak forcing, but by antecedent wave energy impulse accumulated over preceding cycles:
 \begin{equation}
 E_{\text{impulse}} = \int_{t_0 - 72\text{h}}^{t_0} \max\left(0,\, \Upsilon(t) - \Upsilon_{\text{crit}}\right) \, dt
@@ -442,7 +454,7 @@ Evaluating retrieved wave power and temporal synchronization reveals the critica
     \item \textbf{Nearshore Dissipation vs. Offshore Over-Retrieval:} Baseline 1 (Raw LLM) and Baseline 2 (SQL) retrieve astronomical wave power ($178.3\,\text{kW/m}$ and $150.8\,\text{kW/m}$) by indiscriminately selecting deepwater buoy spikes without accounting for surf-zone breaker limits. The Hybrid Cascade isolates verified nearshore dissipated wave power ($69.8\,\text{kW/m}$) that directly drives subaerial dune scarping.
 \end{itemize}
 
-\subsection{Bayesian Invariant Baseline Diagnostics: Heavy Tails ($k > 0.5$) and Motivation for CQR}
+\subsection{Bayesian Invariant Baseline Diagnostics: Heavy Tails \texorpdfstring{($k > 0.5$)}{(k > 0.5)} and Motivation for CQR}
 \label{sec:bayesian_loo_breakdown}
 Prior to formulating distribution-free Conformal Prediction, we benchmarked parametric Bayesian formulations of the unified index ($\Upsilon$) using Markov Chain Monte Carlo (MCMC) sampling via the No-U-Turn Sampler (NUTS) to estimate parameter posteriors and evaluate out-of-sample predictive accuracy via Pareto-Smoothed Importance Sampling Leave-One-Out Cross-Validation (PSIS-LOO-CV) \cite{vehtari2017practical}. While Bayesian $\Upsilon$ baselines achieve stable chain convergence under modal wave conditions ($\hat{R} < 1.05$, effective sample sizes $\text{ESS} > 1{,}000$), ArviZ PSIS-LOO diagnostics systematically flag estimated Pareto shape parameters exceeding the reliability threshold ($k > 0.5$, with peak values $k > 0.7$) during extreme nor'easter cutoffs and severe hurricane storm-surge spikes.
 
@@ -498,7 +510,7 @@ Interval Winkler Score \cite{gneiting2007strictly} & \textbf{0.1523} & High Effi
 
 The empirical multi-site coverage of \textbf{$91.2\%$} comfortably meets and exceeds the nominal $90.0\%$ target on the unseen 2016 holdout split ($N = 35{,}084$). While continuous dynamical time-series violate strict exchangeability due to temporal autocorrelation and inter-annual climate anomalies (e.g., the 2015--2016 Pacific El Niño), this result demonstrates that causal chronological calibration provides robust distribution-free empirical coverage under real-world non-stationary distribution drift, consistent with the theoretical non-exchangeability framework of Barber et al. \cite{barber2023conformal}. Furthermore, the near-zero conformal calibration adjustment ($Q_{1-\alpha} = -0.0001\,\text{m}$) confirms that our multi-quantile pinball loss models were well-calibrated prior to conformalization. Crucially, the median prediction interval width collapses to \textbf{$0.0369\,\text{m}$ ($3.7\,\text{cm}$)}, demonstrating that during modal coastal conditions, uncertainty bounds achieve centimeter-scale precision rather than defaulting to loose, uninformative bounds.
 
-\subsection{Dynamic Volatility Adaptation ($314.5\times$ Expansion)}
+\subsection{Dynamic Volatility Adaptation \texorpdfstring{($314.5\times$ Expansion)}{(314.5x Expansion)}}
 In contrast to static homoscedastic error bands (e.g., $\pm 1.96\sigma$), the pinball loss model inherently adapts to local hydrograph forcing, dynamically stretching and shrinking prediction intervals based on real-time wave power flux impulse and storm surge elevation (Table~\ref{tab:cqr_validation}b, Fig.~\ref{fig:conformal_uq}b).
 
 During fair-weather swash conditions, the prediction interval contracts to $[+0.042\,\text{m}, +0.060\,\text{m}]$ (width $1.8\,\text{cm}$), correctly signaling constructive berm welding with high certainty. When struck by an extreme storm surge ($H_s = 7.52\,\text{m}$), the prediction interval undergoes a \textbf{$314.5\times$ dynamic expansion} to $[-5.633\,\text{m}, +0.029\,\text{m}]$ (width $5.662\,\text{m}$), capturing catastrophic tail risk and severe dune cut without under-estimating hazard exposure.
@@ -620,7 +632,7 @@ In geoscientific data assimilation, an ``identical twin'' experiment occurs when
     \item \textbf{Decoupled External Empirical Validation:} Continuous 72-hour closed-loop rollouts are restricted to theoretical operator stress-testing; external, non-identical empirical validation is independently provided by the $N = 1{,}228$ real-world in-situ field profile surveys at Duck, NC and across all four global archetypes (Section~IV).
 \end{enumerate}
 
-\subsection{The $2 \times 2$ SciML Architectural Matrix}
+\subsection{The \texorpdfstring{$2 \times 2$}{2x2} SciML Architectural Matrix}
 We benchmarked four distinct SciML paradigms across continuous 72-hour autonomous storm rollouts and multi-year out-of-sample test sets:
 \begin{itemize}
     \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\topsep}{1pt}
@@ -658,7 +670,7 @@ As reported in Table~\ref{tab:sciml_matrix}, the OSSE benchmark exposes a profou
     \item \textbf{Dual Synergy (Model D):} Uniting both representations yields lowest overall multi-site test RMSE ($0.509\,\text{m}$).
 \end{itemize}
 
-\section{Harmonized Notation \& Continuous Modulators of the Unified Index ($\Upsilon$) and 14D State Manifold ($\mathbf{z}_{\text{physics}}$)}
+\section{Harmonized Notation \& Continuous Modulators of the Unified Index \texorpdfstring{($\Upsilon$)}{(Upsilon)} and 14D State Manifold \texorpdfstring{($\mathbf{z}_{\text{physics}}$)}{(z-physics)}}
 \label{sec:appendix_modulators}
 
 To provide complete mathematical and operational fidelity, Table~\ref{tab:reconciliation_table} compiles the definitive operational equations, units, physical mechanisms, and asymptotic regimes across all continuous modulators of the Unified Index ($\Upsilon$), while Table~\ref{tab:14d_manifold_table} details the operational formulations, physical mechanisms, and asymptotic regimes for each dimension of the 14-dimensional invariant state manifold ($\mathbf{z}_{\text{physics}}$), including the Iribarren surf similarity parameter ($\xi$).
@@ -716,7 +728,7 @@ $z_{14}$: Deepwater Wave Steepness & $s_0$ & $[-]$ & $H_s / L_0 = \frac{2\pi H_s
 }
 \end{table*}
 
-\subsection{Algebraic Derivation, Sediment Buoyancy, and Dimensional Consistency of Prefactor $C_0$}
+\subsection{Algebraic Derivation, Sediment Buoyancy, and Dimensional Consistency of Prefactor \texorpdfstring{$C_0$}{C0}}
 The master formulation for $\Upsilon_0$ couples wave power dissipation with cross-shore sediment transport kinetics. In deep water, linear wave theory establishes the omnidirectional wave energy flux (power per unit crest length) as:
 \begin{equation}
 P_{\text{deep}} = E c_g = \left(\frac{1}{16}\rho_w g H_s^2\right) \left(\frac{g T_p}{4\pi}\right) = \frac{\rho_w g^2}{64\pi} H_s^2 T_p

@@ -1,0 +1,40 @@
+{
+  "title": "Physics-RAG: Invariant Latent Manifolds, Conformal Uncertainty Quantification, and Hierarchical Cascade Retrieval for Continuous Physical Systems",
+  "upload_type": "publication",
+  "publication_type": "preprint",
+  "description": "<p>Standard Retrieval-Augmented Generation (RAG) and dense vector search frameworks rely on unconstrained text embeddings that frequently yield physically inconsistent retrievals when applied to continuous physical systems. In environments governed by non-linear conservation laws, linguistic proximity precipitates the <i>Semantic-Physical Disconnect</i>: models retrieve states that share superficial textual descriptions but differ fundamentally in dimensional scale, phase boundaries, or non-equilibrium thresholds. Furthermore, database querying encounters a dual failure mode: relational queries suffer from <i>chronological blindness</i> (defaulting to calm pre-storm onset hours rather than dynamic apexes), whereas unconstrained metric vector search suffers from <i>cross-decadal manifold degeneracy</i> (matching scale-invariant dimensionless numbers across disparate epochs and losing synoptic meteorological context). Moreover, standard surrogate models output brittle point predictions lacking distribution-free uncertainty guarantees, leaving downstream foundation models susceptible to unquantified uncertainty during acute physical shocks.</p><p>To resolve these failure modes, we propose the <b>Two-Tier Hybrid Cascade Physics-RAG</b> architecture augmented with <b>Conformalized Quantile Regression (CQR)</b>. Our framework projects heterogeneous multi-modal telemetries into a scale-invariant, 14-dimensional physical manifold derived from first-principles conservation laws and dimensional similitude. Retrieval is executed through a two-tier cascade: Tier 1 performs sub-15-millisecond zero-copy columnar relational pre-filtering via DuckDB to enforce spatial, temporal, and hard boundary constraints, while Tier 2 executes non-Euclidean manifold ranking governed by an asymmetric <i>Directional Pareto</i> objective that prioritizes physical disequilibrium excess over symmetric geometric proximity. To combat Markovian memorylessness, the architecture hydrates continuous parent sequences (&plusmn;72 hours). Crucially, we integrate a distribution-free Conformal Prediction engine calibrated via multi-site stratified chronological splits, generating finite-sample valid prediction intervals that dynamically expand and contract with hydrograph volatility.</p><p>We evaluate this architecture across an empirical proving ground of extreme coastal morphodynamics spanning 175,392 contiguous hourly hydrodynamic sensor records and N = 1,228 authentic in-situ topographic profile surveys across four contrasting global archetypes (USACE FRF Duck, NC; UNSW WRL Narrabeen, Australia; SIO Torrey Pines, CA; and Univ. Bordeaux Truc Vert, France). On a comprehensive N = 100 query benchmark evaluated against deterministic physical ground-truth predicates, the Two-Tier Hybrid Cascade achieves statistically significant performance gains over both standard external baselines (Okapi BM25: P@5 = 0.052, p = 1.93e-18; Google Dense Embeddings: P@5 = 0.366, p = 0.00029) and internal ablation variants (P@5 = 0.574, NDCG@5 = 0.597, MRR = 0.598, Regime Purity = 0.614). Out-of-sample CQR validation across N = 35,084 records achieves 91.2% empirical coverage for a 90.0% target with 314.5x dynamic interval adaptation (0.018 m to 5.662 m). To rigorously evaluate continuous SciML surrogate rollouts without observational survey intermittency, we formulate an Observing System Simulation Experiment (OSSE) synthetic nature run driven by authentic multi-year boundary forcing; we demonstrate that invariant manifold features dominate multi-year correlation (r = 0.574, reaching r = 0.839) while PINN soft-loss regularization stabilizes acute storm shocks (RMSE = 0.342 m), explicitly distinguishing synthetic continuous-operator verification from real-world in-situ field survey validation. Finally, we outline how these invariant-guided retrieval principles extend conceptually to other continuous cyber-physical systems.</p>",
+  "creators": [
+    {
+      "name": "Tritto, Sam",
+      "affiliation": "OneStone LLC",
+      "email": "mr.sam.tritto@gmail.com"
+    }
+  ],
+  "keywords": [
+    "Scientific Machine Learning",
+    "Retrieval-Augmented Generation",
+    "Conformal Prediction",
+    "Uncertainty Quantification",
+    "Physics-Informed Neural Networks",
+    "Latent Manifolds",
+    "Dynamical Systems",
+    "Coastal Morphodynamics",
+    "Cyber-Physical Systems",
+    "DuckDB"
+  ],
+  "license": "CC-BY-4.0",
+  "access_right": "open",
+  "communities": [
+    {
+      "identifier": "zenodo"
+    }
+  ],
+  "related_identifiers": [
+    {
+      "scheme": "url",
+      "identifier": "https://github.com/sam-tritto/unified-coastal-erosion-index",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    }
+  ]
+}
