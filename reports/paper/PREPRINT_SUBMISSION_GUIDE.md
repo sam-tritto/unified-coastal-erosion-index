@@ -1,4 +1,4 @@
-# TechRxiv & Zenodo Preprint Submission Kit
+# engrXiv & Zenodo Preprint Submission Kit
 **Manuscript Title:** *Physics-RAG: Invariant Latent Manifolds, Conformal Uncertainty Quantification, and Hierarchical Cascade Retrieval for Continuous Physical Systems*  
 **Author:** Sam Tritto (OneStone LLC, Richmond, VA, USA)  
 **Primary Repository:** [https://github.com/sam-tritto/unified-coastal-erosion-index](https://github.com/sam-tritto/unified-coastal-erosion-index)  
@@ -11,32 +11,31 @@
 > **CONFIRMED PATENT STATUS: SAFE TO PUBLISH PREPRINT**  
 > - **USPTO Provisional Application:** Electronic filing confirmed via official USPTO Payment Receipt on **October 10, 2026** (`reports/patent/USPTO Reciept.pdf`).  
 > - **Priority Date:** October 10, 2026.  
-> - **Implication:** Because the priority date is legally established prior to preprint posting, public dissemination on TechRxiv or Zenodo does **NOT** forfeit novel prior art rights under 35 U.S.C. 102 / 119(e) or the Paris Convention.  
+> - **Implication:** Because the priority date is legally established prior to preprint posting, public dissemination on engrXiv, TechRxiv, or Zenodo does **NOT** forfeit novel prior art rights under 35 U.S.C. 102 / 119(e) or the Paris Convention.  
 > - **Statutory Deadline:** The 12-month conversion window to file the formal Non-Provisional Utility Patent (and PCT international applications) expires on **October 10, 2027**.
 
 ---
 
 ## 2. Platform Comparison & Strategic Recommendation
 
-| Dimension | **TechRxiv** (IEEE Preprint Server) | **Zenodo** (CERN / OpenAIRE) |
+| Dimension | **engrXiv** (Open Engineering Archive) | **Zenodo** (CERN / OpenAIRE) |
 | :--- | :--- | :--- |
-| **Primary Scope** | Engineering, Computer Science, SciML, Physical AI | General Open Science, Datasets, Software, Preprints |
-| **Audience** | IEEE community, SciML & AI researchers, oceanographers | Global scientific community, open-data enthusiasts |
-| **DOI Provider** | Crossref (`10.36227/techrxiv...`) | DataCite (`10.5281/zenodo...`) |
-| **Formatting Fit** | Perfect fit for `IEEEtran` double-column LaTeX layout | Accepts any format / arbitrary files |
+| **Primary Scope** | All Engineering Disciplines, SciML, Geotechnical, Environmental | General Open Science, Datasets, Software, Preprints |
+| **Audience** | Global engineering community, open-science researchers | Global scientific community, open-data enthusiasts |
+| **DOI Provider** | Crossref (`10.31224/...`) | DataCite (`10.5281/zenodo...`) |
+| **Formatting Fit** | Perfect fit for standard double-column IEEEtran PDFs | Accepts any format / arbitrary files |
 | **GitHub Integration** | Manual upload of PDF | Native release archiving via GitHub webhooks |
-| **Screening Speed** | Moderated (typically 1–3 business days) | Immediate publication (instant DOI) |
+| **Screening Speed** | Moderated (typically 1–2 business days) | Immediate publication (instant DOI) |
 
 ### Recommended Action Plan:
-1. **Submit the Paper PDF to TechRxiv:** TechRxiv provides maximum prestige and alignment for IEEE Transactions (`TNNLS`), establishing pre-print provenance within the IEEE indexing ecosystem.
+1. **Submit the Paper PDF to engrXiv:** engrXiv provides open-access engineering reach, minting a persistent Crossref DOI.
 2. **Archive the Code/Benchmark on Zenodo:** Create a GitHub Release (`v1.0.0`) synced to Zenodo to obtain a persistent Software DOI for the codebase, which can then be cited in both the paper and README.
-3. *(Optional)* Mirror the preprint PDF onto Zenodo under community `zenodo` for maximum multi-network visibility.
 
 ---
 
-## 3. TechRxiv Submission Metadata (Ready to Copy-Paste)
+## 3. engrXiv Submission Metadata (Ready to Copy-Paste)
 
-### Portal URL: [https://www.techrxiv.org](https://www.techrxiv.org)
+### Portal URL: [https://engrxiv.org](https://engrxiv.org) (or [https://osf.io/preprints/engrxiv](https://osf.io/preprints/engrxiv))
 
 #### Submission Fields:
 - **Title:**  
@@ -108,7 +107,7 @@ We evaluate this architecture across an empirical proving ground of extreme coas
 @article{tritto2026physicsrag,
   author    = {Tritto, Sam},
   title     = {Physics-RAG: Invariant Latent Manifolds, Conformal Uncertainty Quantification, and Hierarchical Cascade Retrieval for Continuous Physical Systems},
-  journal   = {TechRxiv Preprint},
+  journal   = {engrXiv Preprint},
   year      = {2026},
   doi       = {<INSERT_MINTED_DOI_HERE>},
   url       = {https://github.com/sam-tritto/unified-coastal-erosion-index}
