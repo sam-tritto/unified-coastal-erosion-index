@@ -294,6 +294,8 @@ class ConformalizedQuantileRegressor:
         tgt = target_col or self.target_col
         if tgt not in cal_df.columns:
             raise ValueError(f"Target column '{tgt}' not found in calibration DataFrame.")
+        if len(cal_df) == 0:
+            raise ValueError("Calibration DataFrame cannot be empty.")
 
         X_cal, _ = self._prepare_features(cal_df)
         y_cal = cal_df[tgt].fillna(0.0).values
@@ -368,6 +370,16 @@ class ConformalizedQuantileRegressor:
             raise ValueError(f"Target column '{tgt}' missing from test DataFrame.")
 
         y_true = test_df[tgt].fillna(0.0).values
+        if len(y_true) == 0:
+            return {
+                "nominal_coverage": self.target_coverage,
+                "empirical_coverage": float("nan"),
+                "mean_interval_width": float("nan"),
+                "median_interval_width": float("nan"),
+                "winkler_score": float("nan"),
+                "q_conformal": self.q_conformal,
+                "n_test": 0,
+            }
         pred_df = self.predict_conformal_interval(test_df)
 
         c_lo = pred_df["conformal_lower"].values

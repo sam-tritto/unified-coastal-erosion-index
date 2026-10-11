@@ -361,7 +361,7 @@ def compute_settling_velocity_soulsby(
         Settling velocity in m/s (~0.038 m/s in cold winter vs ~0.052 m/s in warm summer).
     """
     s = rho_sed / rho_water
-    d50_arr = np.asarray(d50_m, dtype=float)
+    d50_arr = np.maximum(np.asarray(d50_m, dtype=float), 1e-6)
     
     if water_temp_c is not None:
         nu_eff = compute_kinematic_viscosity_seawater(water_temp_c)

@@ -203,19 +203,19 @@ def load_table_iii() -> pd.DataFrame:
     master_rows = [
         {"Evaluation Tier": "Tier 1: Baseline Operational", "Query Count (N)": 30, "Architecture Evaluated": "Baseline 1: Raw-Data LLM-RAG", "Precision@1": "0.6000", "Precision@5": "0.6067", "NDCG@5": "0.6589", "MRR": "0.6067"},
         {"Evaluation Tier": "Tier 1: Baseline Operational", "Query Count (N)": 30, "Architecture Evaluated": "Baseline 2: Rule-Based SQL", "Precision@1": "0.6333", "Precision@5": "0.6533", "NDCG@5": "0.6961", "MRR": "0.6500"},
-        {"Evaluation Tier": "Tier 1: Baseline Operational", "Query Count (N)": 30, "Architecture Evaluated": "Baseline 3: Pure Physics-RAG", "Precision@1": "0.3333", "Precision@5": "0.3333", "NDCG@5": "0.3710", "MRR": "0.3611"},
+        {"Evaluation Tier": "Tier 1: Baseline Operational", "Query Count (N)": 30, "Architecture Evaluated": "Baseline 3: Pure Physics-RAG", "Precision@1": "0.5667", "Precision@5": "0.6467", "NDCG@5": "0.5972", "MRR": "0.6278"},
         {"Evaluation Tier": "Tier 1: Baseline Operational", "Query Count (N)": 30, "Architecture Evaluated": "Proposed: Hybrid Cascade", "Precision@1": "0.8000", "Precision@5": "0.7867", "NDCG@5": "0.7913", "MRR": "0.8133"},
         {"Evaluation Tier": "Tier 2: Advanced Morphodynamics", "Query Count (N)": 30, "Architecture Evaluated": "Baseline 1: Raw-Data LLM-RAG", "Precision@1": "0.5000", "Precision@5": "0.5000", "NDCG@5": "0.5579", "MRR": "0.5000"},
         {"Evaluation Tier": "Tier 2: Advanced Morphodynamics", "Query Count (N)": 30, "Architecture Evaluated": "Baseline 2: Rule-Based SQL", "Precision@1": "0.4333", "Precision@5": "0.4333", "NDCG@5": "0.4942", "MRR": "0.4333"},
-        {"Evaluation Tier": "Tier 2: Advanced Morphodynamics", "Query Count (N)": 30, "Architecture Evaluated": "Baseline 3: Pure Physics-RAG", "Precision@1": "0.1333", "Precision@5": "0.1533", "NDCG@5": "0.2086", "MRR": "0.1500"},
+        {"Evaluation Tier": "Tier 2: Advanced Morphodynamics", "Query Count (N)": 30, "Architecture Evaluated": "Baseline 3: Pure Physics-RAG", "Precision@1": "0.5667", "Precision@5": "0.5667", "NDCG@5": "0.5975", "MRR": "0.5667"},
         {"Evaluation Tier": "Tier 2: Advanced Morphodynamics", "Query Count (N)": 30, "Architecture Evaluated": "Proposed: Hybrid Cascade", "Precision@1": "0.7000", "Precision@5": "0.7000", "NDCG@5": "0.6442", "MRR": "0.7150"},
         {"Evaluation Tier": "Tier 3: Adversarial Stress-Tests", "Query Count (N)": 40, "Architecture Evaluated": "Baseline 1: Raw-Data LLM-RAG", "Precision@1": "0.2750", "Precision@5": "0.2700", "NDCG@5": "0.3149", "MRR": "0.2750"},
         {"Evaluation Tier": "Tier 3: Adversarial Stress-Tests", "Query Count (N)": 40, "Architecture Evaluated": "Baseline 2: Rule-Based SQL", "Precision@1": "0.2250", "Precision@5": "0.2150", "NDCG@5": "0.2605", "MRR": "0.2250"},
-        {"Evaluation Tier": "Tier 3: Adversarial Stress-Tests", "Query Count (N)": 40, "Architecture Evaluated": "Baseline 3: Pure Physics-RAG", "Precision@1": "0.0000", "Precision@5": "0.0000", "NDCG@5": "0.0686", "MRR": "0.0000"},
+        {"Evaluation Tier": "Tier 3: Adversarial Stress-Tests", "Query Count (N)": 40, "Architecture Evaluated": "Baseline 3: Pure Physics-RAG", "Precision@1": "0.2250", "Precision@5": "0.2300", "NDCG@5": "0.3761", "MRR": "0.2425"},
         {"Evaluation Tier": "Tier 3: Adversarial Stress-Tests", "Query Count (N)": 40, "Architecture Evaluated": "Proposed: Hybrid Cascade", "Precision@1": "0.3000", "Precision@5": "0.3200", "NDCG@5": "0.4154", "MRR": "0.3500"},
         {"Evaluation Tier": "Overall Master Suite", "Query Count (N)": 100, "Architecture Evaluated": "Baseline 1: Raw-Data LLM-RAG", "Precision@1": "0.4400", "Precision@5": "0.4400", "NDCG@5": "0.4910", "MRR": "0.4420"},
         {"Evaluation Tier": "Overall Master Suite", "Query Count (N)": 100, "Architecture Evaluated": "Baseline 2: Rule-Based SQL", "Precision@1": "0.4100", "Precision@5": "0.4120", "NDCG@5": "0.4613", "MRR": "0.4150"},
-        {"Evaluation Tier": "Overall Master Suite", "Query Count (N)": 100, "Architecture Evaluated": "Baseline 3: Pure Physics-RAG", "Precision@1": "0.1400", "Precision@5": "0.1460", "NDCG@5": "0.2013", "MRR": "0.1533"},
+        {"Evaluation Tier": "Overall Master Suite", "Query Count (N)": 100, "Architecture Evaluated": "Baseline 3: Pure Physics-RAG", "Precision@1": "0.4300", "Precision@5": "0.4560", "NDCG@5": "0.5089", "MRR": "0.4553"},
         {"Evaluation Tier": "Overall Master Suite", "Query Count (N)": 100, "Architecture Evaluated": "Proposed: Hybrid Cascade", "Precision@1": "0.5700", "Precision@5": "0.5740", "NDCG@5": "0.5968", "MRR": "0.5985"},
     ]
     return pd.DataFrame(master_rows)

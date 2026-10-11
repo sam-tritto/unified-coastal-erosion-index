@@ -15,7 +15,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.preprocessing import RobustScaler, StandardScaler
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
 try:
     from src.models import evaluate_model_performance
@@ -33,11 +33,13 @@ class CoastalMLP(nn.Module):
     def __init__(
         self,
         input_dim: int,
-        hidden_dims: List[int] = [64, 32],
+        hidden_dims: Optional[List[int]] = None,
         dropout: float = 0.15,
         activation: str = "relu",
     ):
         super().__init__()
+        if hidden_dims is None:
+            hidden_dims = [64, 32]
         layers: List[nn.Module] = []
         in_dim = input_dim
 
@@ -282,7 +284,12 @@ def create_sliding_window_dataset(
 
     x_seq_arr = np.array(x_seq, dtype=np.float32)
     y_seq_arr = np.array(y_seq, dtype=np.float32)
-    time_seq_arr = pd.DatetimeIndex(time_seq)
+    if isinstance(df_proc.index, pd.DatetimeIndex):
+        time_seq_arr = pd.DatetimeIndex(time_seq)
+    elif "timestamp" in df_proc.columns:
+        time_seq_arr = pd.to_datetime(df_proc["timestamp"].iloc[lookback:].values)
+    else:
+        time_seq_arr = pd.Index(time_seq)
 
     eff_split = max(1, split_idx - lookback)
 
@@ -374,6 +381,8 @@ def train_neural_model(
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     """Compute RMSE, R2, and BSS metrics between true and predicted shoreline arrays."""
     min_len = min(len(y_true), len(y_pred))
+    if min_len == 0:
+        return {"rmse": float("nan"), "r2": float("nan"), "bss": float("nan")}
     y_t = y_true[:min_len]
     y_p = y_pred[:min_len]
 

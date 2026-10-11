@@ -1089,6 +1089,7 @@ Guidelines:
             f"{model_name}:gemini:{query_text.strip()}",
             f"{model_name}:hybrid:{query_text.strip()}",
         ]
+        cache_key = candidate_cache_keys[0]
         if not bypass_cache:
             for ck in candidate_cache_keys:
                 if ck in _GEMINI_PARSE_CACHE:
@@ -1957,9 +1958,27 @@ class PhysicsRAG:
             if np.any(mask & regime_mask):
                 mask = mask & regime_mask
 
-        # Fallback if filters are overly restrictive (return all candidates)
+        # Fallback if filters are overly restrictive (preserve spatiotemporal filters if available)
         if not np.any(mask):
-            mask = np.ones(len(self.df), dtype=bool)
+            spatio_mask = np.ones(len(self.df), dtype=bool)
+            if not disable_spatiotemporal_filters:
+                if (spec.date_start or spec.date_end) and "timestamp" in self.df.columns:
+                    try:
+                        ts = pd.to_datetime(self.df["timestamp"], utc=True)
+                        if spec.date_start:
+                            spatio_mask = spatio_mask & (ts >= pd.to_datetime(spec.date_start, utc=True)).values
+                        if spec.date_end:
+                            spatio_mask = spatio_mask & (ts <= pd.to_datetime(spec.date_end, utc=True)).values
+                    except Exception:
+                        pass
+                if spec.site_id and site_col:
+                    site_m = (self.df[site_col].astype(str).str.lower() == spec.site_id.lower()).values
+                    if np.any(site_m):
+                        spatio_mask = spatio_mask & site_m
+            if np.any(spatio_mask) and not np.all(spatio_mask):
+                mask = spatio_mask
+            else:
+                mask = np.ones(len(self.df), dtype=bool)
 
         return mask
 
@@ -2076,13 +2095,7 @@ class PhysicsRAG:
 
         # 1. Parse natural language into structured physical intent
         if spec is None:
-            if target_synthetic_values is not None:
-                spec = PhysicsQuerySpec(
-                    raw_query=query_text,
-                    intent_summary=f"Target parameter query for '{query_text}'",
-                    target_synthetic_values=target_synthetic_values,
-                )
-            elif use_llm_parser:
+            if use_llm_parser:
                 parser_m = kwargs.get("parser_mode", "hybrid")
                 tb = kwargs.get("thinking_budget", getattr(self, "thinking_budget", None))
                 bypass = kwargs.get("bypass_cache", False)
@@ -2096,6 +2109,11 @@ class PhysicsRAG:
                 )
             else:
                 spec = GeminiPhysicsQueryParser._fallback_parse(query_text)
+
+            if target_synthetic_values is not None:
+                spec.target_synthetic_values = target_synthetic_values
+        elif target_synthetic_values is not None and spec.target_synthetic_values is None:
+            spec.target_synthetic_values = target_synthetic_values
 
         # 2. Build target query embedding vector
         query_vec = self._build_query_vector(spec)
@@ -2211,7 +2229,7 @@ class PhysicsRAG:
     def evaluate_benchmark(
         self,
         benchmark_queries: Optional[List[Dict[str, Any]]] = None,
-        k_list: List[int] = [1, 3, 5, 10],
+        k_list: Optional[List[int]] = None,
         use_llm_parser: bool = False,
         allow_synthetic_probes: bool = False,
         **kwargs: Any,
