@@ -90,7 +90,7 @@ We evaluate this architecture across an empirical proving ground of extreme coas
 *(Note: A `.zenodo.json` file has also been generated in the root directory to auto-populate metadata upon GitHub release sync).*
 
 - **Upload Type:** `Publication` $\rightarrow$ `Preprint`
-- **DOI:** Leave blank (Zenodo will mint a new DataCite DOI)
+- **DOI:** `10.5281/zenodo.23307101`
 - **Title:** `Physics-RAG: Invariant Latent Manifolds, Conformal Uncertainty Quantification, and Hierarchical Cascade Retrieval for Continuous Physical Systems`
 - **Creators:** `Tritto, Sam` | Affiliation: `OneStone LLC`
 - **Description:** *(Paste HTML description from `.zenodo.json` or plain text abstract above)*
@@ -109,7 +109,7 @@ We evaluate this architecture across an empirical proving ground of extreme coas
   title     = {Physics-RAG: Invariant Latent Manifolds, Conformal Uncertainty Quantification, and Hierarchical Cascade Retrieval for Continuous Physical Systems},
   journal   = {Zenodo Preprint},
   year      = {2026},
-  doi       = {<INSERT_MINTED_DOI_HERE>},
+  doi       = {10.5281/zenodo.23307101},
   url       = {https://github.com/sam-tritto/unified-coastal-erosion-index}
 }
 ```

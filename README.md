@@ -1,5 +1,6 @@
 # Unified Coastal Vulnerability Index ($\Upsilon$) & Physics-Anchored Embeddings
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23307101.svg)](https://doi.org/10.5281/zenodo.23307101)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![PyMC 5.0+](https://img.shields.io/badge/PyMC-v5.0+-red.svg)](https://www.pymc.io/)
 [![Tests](https://img.shields.io/badge/pytest-passing-brightgreen.svg)]()
@@ -461,4 +462,22 @@ print("Simulated shoreline displacement trajectory:", x_pos)
 3. **Stockdon, H. F., et al. (2006):** *Empirical parameterization of setup, swash, and runup*, Coastal Engineering, 53(7), 573-588.
 4. **Yates, M. L., et al. (2009):** *Equilibrium shoreline response to wave power*, J. Geophys. Res., 114, C09014.
 5. **Masselink, G., & Short, A. D. (1993):** *The effect of tide range on beach morphodynamics and morphology*, Marine Geology, 110(3-4), 375-404.
+
+---
+
+## 9. Citation
+
+If you utilize this framework, benchmark suite, or physical formulations in your research, please cite the preprint:
+
+```bibtex
+@article{tritto2026physicsrag,
+  author    = {Tritto, Sam},
+  title     = {Physics-RAG: Invariant Latent Manifolds, Conformal Uncertainty Quantification, and Hierarchical Cascade Retrieval for Continuous Physical Systems},
+  journal   = {Zenodo Preprint},
+  year      = {2026},
+  doi       = {10.5281/zenodo.23307101},
+  url       = {https://doi.org/10.5281/zenodo.23307101}
+}
+```
+
 
