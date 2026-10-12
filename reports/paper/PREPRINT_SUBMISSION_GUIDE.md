@@ -107,7 +107,7 @@ We evaluate this architecture across an empirical proving ground of extreme coas
 @article{tritto2026physicsrag,
   author    = {Tritto, Sam},
   title     = {Physics-RAG: Invariant Latent Manifolds, Conformal Uncertainty Quantification, and Hierarchical Cascade Retrieval for Continuous Physical Systems},
-  journal   = {engrXiv Preprint},
+  journal   = {Zenodo Preprint},
   year      = {2026},
   doi       = {<INSERT_MINTED_DOI_HERE>},
   url       = {https://github.com/sam-tritto/unified-coastal-erosion-index}
